@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090d18">
+  <meta name="description" content="Dream AI — an independent AI assistant built to grow.">
+  <title>Dream AI</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="/" aria-label="Dream AI home">
+        <span class="brand-mark">✦</span><span>DREAM<span class="brand-light"> AI</span></span>
+      </a>
+      <button class="new-chat" id="new-chat">＋ <span>New conversation</span></button>
+      <div class="side-label">YOUR SPACE</div>
+      <div class="side-note">Your conversations will appear here as chat history is added.</div>
+      <div class="sidebar-bottom">
+        <span class="status-dot"></span><span id="service-status">Checking AI service…</span>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="mobile-brand" id="mobile-new" aria-label="New conversation">✦ DREAM AI</button>
+        <span class="top-tag">EARLY ACCESS</span>
+      </header>
+      <section class="welcome" id="welcome">
+        <div class="orb"><span>✦</span></div>
+        <p class="eyebrow">A NEW KIND OF INTELLIGENCE</p>
+        <h1>Think beyond<br><span>what's possible.</span></h1>
+        <p class="intro">Meet Dream AI. An independent intelligence project, built step by step with curiosity at its core.</p>
+        <div class="suggestions">
+          <button class="suggestion" data-prompt="Help me understand how artificial intelligence works."><span>✧</span> Explain how AI works</button>
+          <button class="suggestion" data-prompt="Help me plan and build a useful project."><span>⌘</span> Build something useful</button>
+          <button class="suggestion" data-prompt="Teach me something surprising about science."><span>◈</span> Teach me something new</button>
+        </div>
+      </section>
+
+      <section class="conversation" id="conversation" aria-live="polite"></section>
+      <form class="composer" id="chat-form">
+        <label class="sr-only" for="message">Message Dream AI</label>
+        <textarea id="message" rows="1" maxlength="8000" placeholder="Ask Dream AI anything…" required></textarea>
+        <div class="composer-footer">
+          <span>Dream AI can make mistakes. Verify important information.</span>
+          <button id="send" type="submit" aria-label="Send message">↑</button>
+        </div>
+      </form>
+      <footer class="footer">DREAM AI <span>·</span> BUILT TO GROW</footer>
+    </main>
+  </div>
+  <script src="/app.js" defer></script>
+</body>
+</html>
