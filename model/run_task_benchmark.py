@@ -120,7 +120,10 @@ def main():
         for task in tasks:
             prompt_text = f"USER: {task['prompt'].strip()}\nASSISTANT:"
             prompt_ids = tokenizer.encode(prompt_text)
-            prompt_ids = prompt_ids[-config.block_size:]
+            original_prompt_tokens = len(prompt_ids)
+            # Benchmark prompts are single-turn tasks: preserve their beginning
+            # and role marker if the task exceeds the model's context window.
+            prompt_ids = prompt_ids[:config.block_size]
             input_ids = torch.tensor([prompt_ids], dtype=torch.long, device=device)
             generated = model.generate(
                 input_ids,
@@ -132,6 +135,9 @@ def main():
             results.append({
                 **task,
                 "response": response,
+                "prompt_tokens_original": original_prompt_tokens,
+                "prompt_tokens_used": len(prompt_ids),
+                "prompt_truncated": original_prompt_tokens > len(prompt_ids),
                 "response_tokens": len(generated) - len(prompt_ids),
                 "human_score": None,
                 "review_notes": ""
