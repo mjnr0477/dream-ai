@@ -166,8 +166,9 @@ class DreamTransformer(nn.Module):
                  top_k=40):
         if not isinstance(max_new_tokens, int) or max_new_tokens < 0:
             raise ValueError("max_new_tokens must be a non-negative integer")
-        if not isinstance(temperature, (int, float)) or not math.isfinite(temperature) or temperature <= 0:
-            raise ValueError("temperature must be finite and positive")
+        if (not isinstance(temperature, (int, float)) or
+                not math.isfinite(temperature) or temperature < 0):
+            raise ValueError("temperature must be finite and non-negative")
         if not isinstance(top_k, int) or top_k < 0:
             raise ValueError("top_k must be a non-negative integer")
         if token_ids.ndim != 2 or token_ids.shape[1] < 1:
@@ -176,13 +177,17 @@ class DreamTransformer(nn.Module):
         for _ in range(max_new_tokens):
             context = token_ids[:, -self.config.block_size:]
             logits, _ = self(context)
-            logits = logits[:, -1, :] / temperature
-            if top_k:
-                k = min(top_k, logits.size(-1))
-                threshold = torch.topk(logits, k).values[:, [-1]]
-                logits = logits.masked_fill(logits < threshold, float("-inf"))
-            probabilities = F.softmax(logits, dim=-1)
-            next_token = torch.multinomial(probabilities, num_samples=1)
+            logits = logits[:, -1, :]
+            if temperature == 0:
+                next_token = torch.argmax(logits, dim=-1, keepdim=True)
+            else:
+                logits = logits / temperature
+                if top_k:
+                    k = min(top_k, logits.size(-1))
+                    threshold = torch.topk(logits, k).values[:, [-1]]
+                    logits = logits.masked_fill(logits < threshold, float("-inf"))
+                probabilities = F.softmax(logits, dim=-1)
+                next_token = torch.multinomial(probabilities, num_samples=1)
             token_ids = torch.cat((token_ids, next_token), dim=1)
         return token_ids
 
