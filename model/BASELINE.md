@@ -49,6 +49,16 @@ DREAM_CHECKPOINT=checkpoints/dream-instruct.pt python model/serve.py
 
 The server binds to localhost by default, serializes model generation to bound inference concurrency, enforces request-size, history, authentication and sampling limits, and refuses checkpoints without completed training steps. Set `DREAM_RUNTIME_HOST`, `DREAM_RUNTIME_PORT` and a `DREAM_RUNTIME_TOKEN` of at least 24 characters before binding to a non-local interface. The Node adapter's `DREAM_MODEL_TOKEN` must match that token. The built-in server is a development/runtime baseline, not a hardened public internet deployment.
 
+## Experimental multilingual BPE tokenizer
+
+`model/dream_bpe.py` implements a deterministic byte-fallback BPE tokenizer as a separate experiment. It is intentionally not wired into `DreamTransformer`, existing checkpoints or the serving API. To measure token efficiency without training on the test set, prepare separate UTF-8 JSONL files whose records contain `language` (a BCP-47-style short tag such as `en`, `sw`, `ar`, `ja`) and `text`. Run:
+
+```sh
+python model/benchmark_multilingual_tokenizer.py --train-data data/tokenizer-train.jsonl --test-data data/tokenizer-test.jsonl --vocab-size 1024 --out reports/multilingual-tokenizer.json --tokenizer-out checkpoints/dream-bpe.json
+```
+
+The report compares BPE token counts with UTF-8 byte counts by language and verifies exact decoding, including unseen scripts through byte fallback. It rejects normalized text overlap between training and test records. Token reduction is a compression/efficiency measurement only; it does not demonstrate language fluency or model quality. Do not replace the active byte tokenizer until a separate end-to-end checkpoint migration and held-out model evaluation pass.
+
 ## Data and evaluation
 
 No dataset is silently assumed or bundled as training data. Every pretraining and instruction record must carry a strict ISO `source_date` (`YYYY-MM-DD`) and human-confirmed rights, privacy and quality review flags; the script checks these attestations, deduplicates records and keeps source groups isolated across train/validation/test splits. The manifest records each split's exact record IDs, source-group IDs, UTF-8 byte count, language/license coverage, source-date range and content hash, in addition to corpus-wide coverage. These flags are not a substitute for actual legal and privacy review. See `data/README.md`.
