@@ -12,7 +12,7 @@ DREAM will begin with its own decoder-only transformer implemented in PyTorch:
 - tied token embedding and language-model output weights;
 - autoregressive sampling and native checkpoint format.
 
-The first configurable experiment defaults to 6 layers, width 256, 8 attention heads and 256-byte context. This is a small research model, not a competitive production assistant. The architecture and all initial weights are DREAM-owned code/initialization; the checkpoint will only become a trained DREAM artifact after training and evaluation.
+The first configurable experiment defaults to 6 layers, width 256, 8 attention heads and 256-byte context. Gradient accumulation allows a larger effective batch without holding every micro-batch in memory at once. This is a small research model, not a competitive production assistant. The architecture and all initial weights are DREAM-owned code/initialization; the checkpoint will only become a trained DREAM artifact after training and evaluation.
 
 ## Training and inference
 
@@ -28,7 +28,7 @@ Install the model dependencies from `model/requirements.txt`. Run the training s
 ```sh
 python -m pip install -r model/requirements.txt
 python model/prepare_corpus.py --input data/approved-records.jsonl
-python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --eval-batches 10
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --eval-batches 10 --batch-size 4 --grad-accum-steps 8
 # Resume the saved run later, keeping the same corpus, architecture and optimizer settings:
 python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --resume checkpoints/dream-small.pt
 python model/evaluate.py --checkpoint checkpoints/dream-small.pt --data data/prepared/test.txt --out eval-results/dream-small.json
@@ -56,7 +56,7 @@ The free Render web service hosts the Node application; it is not the training o
 A successful training run must save:
 - model checkpoint and architecture config;
 - exact dataset version/hash and split;
-- random seed, optimizer, learning rate, evaluation batch count and step count;
+- random seed, optimizer, learning rate, micro-batch size, gradient accumulation, effective batch size, evaluation batch count and step count;
 - train and validation loss/perplexity;
 - hardware and runtime details;
 - evaluation report and known limitations.

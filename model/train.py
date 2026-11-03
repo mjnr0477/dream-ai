@@ -31,6 +31,8 @@ def main():
     parser.add_argument("--checkpoint-every", type=int, default=500)
     parser.add_argument("--steps", type=int, default=2000)
     parser.add_argument("--batch-size", type=int, default=32)
+    parser.add_argument("--grad-accum-steps", type=int, default=1,
+                        help="Micro-batches accumulated per optimizer update")
     parser.add_argument("--block-size", type=int, default=256)
     parser.add_argument("--d-model", type=int, default=256)
     parser.add_argument("--layers", type=int, default=6)
@@ -62,10 +64,10 @@ def main():
         )
 
     if (
-        args.steps < 1 or args.batch_size < 1 or args.eval_every < 1
-        or args.checkpoint_every < 1 or args.eval_batches < 1
+        args.steps < 1 or args.batch_size < 1 or args.grad_accum_steps < 1
+        or args.eval_every < 1 or args.checkpoint_every < 1 or args.eval_batches < 1
     ):
-        raise SystemExit("steps, batch-size, eval-every, eval-batches and checkpoint-every must be positive.")
+        raise SystemExit("steps, batch-size, grad-accum-steps, eval-every, eval-batches and checkpoint-every must be positive.")
     if not math.isfinite(args.learning_rate) or args.learning_rate <= 0:
         raise SystemExit("learning-rate must be finite and positive.")
 
@@ -98,6 +100,8 @@ def main():
             raise SystemExit("Resume checkpoint learning rate does not match.")
         if training_meta.get("batch_size") != args.batch_size:
             raise SystemExit("Resume checkpoint batch size does not match.")
+        if training_meta.get("grad_accum_steps") != args.grad_accum_steps:
+            raise SystemExit("Resume checkpoint gradient accumulation does not match.")
         if training_meta.get("eval_batches") != args.eval_batches:
             raise SystemExit("Resume checkpoint evaluation batch count does not match.")
         model.load_state_dict(checkpoint["model_state"])
@@ -119,6 +123,9 @@ def main():
         "parameters": sum(p.numel() for p in model.parameters()),
         "training_bytes": len(train_data),
         "validation_bytes": len(val_data),
+        "micro_batch_size": args.batch_size,
+        "gradient_accumulation_steps": args.grad_accum_steps,
+        "effective_batch_size": args.batch_size * args.grad_accum_steps,
         "config": config.__dict__
     }, indent=2))
 
@@ -148,6 +155,8 @@ def main():
             "optimizer": "AdamW",
             "learning_rate": args.learning_rate,
             "batch_size": args.batch_size,
+            "grad_accum_steps": args.grad_accum_steps,
+            "effective_batch_size": args.batch_size * args.grad_accum_steps,
             "eval_batches": args.eval_batches,
             "device": device,
             "last_train_loss": train_loss,
@@ -170,13 +179,15 @@ def main():
 
     for step in range(start_step + 1, start_step + args.steps + 1):
         model.train()
-        x, y = batches(train_data, args.batch_size, args.block_size, device)
-        _, loss = model(x, y)
         optimizer.zero_grad(set_to_none=True)
-        loss.backward()
+        micro_losses = []
+        for _ in range(args.grad_accum_steps):
+            x, y = batches(train_data, args.batch_size, args.block_size, device)
+            _, loss = model(x, y)
+            micro_losses.append(float(loss.detach().item()))
+            (loss / args.grad_accum_steps).backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
-
         final_step = start_step + args.steps
         if (
             step == start_step + 1
