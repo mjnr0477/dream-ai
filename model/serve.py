@@ -25,6 +25,43 @@ MAX_MESSAGES = 12
 MAX_MESSAGE_CHARS = 8000
 MAX_OUTPUT_TOKENS = 256
 MODEL_LOCK = threading.Lock()
+MAX_ACTIVE_CONNECTIONS = 16
+
+
+class BoundedThreadingHTTPServer(ThreadingHTTPServer):
+    """Bound worker threads so slow clients cannot exhaust the runtime process."""
+    daemon_threads = True
+    request_queue_size = 32
+
+    def __init__(self, server_address, RequestHandlerClass, max_workers=MAX_ACTIVE_CONNECTIONS):
+        if type(max_workers) is not int or max_workers < 1:
+            raise ValueError("max_workers must be a positive integer.")
+        self._request_slots = threading.BoundedSemaphore(max_workers)
+        super().__init__(server_address, RequestHandlerClass)
+
+    def process_request(self, request, client_address):
+        if not self._request_slots.acquire(blocking=False):
+            try:
+                request.sendall(
+                    b"HTTP/1.1 503 Service Unavailable\\r\\n"
+                    b"Connection: close\\r\\n"
+                    b"Content-Length: 0\\r\\n\\r\\n"
+                )
+            except OSError:
+                pass
+            self.shutdown_request(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except Exception:
+            self._request_slots.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self._request_slots.release()
 
 
 def load_model(checkpoint_path, device):
@@ -241,7 +278,7 @@ def main():
         raise SystemExit(f"Cannot load DREAM checkpoint: {exc}") from exc
 
     handler = create_handler(model, tokenizer, config, args.model_name, args.token, device)
-    server = ThreadingHTTPServer((args.host, args.port), handler)
+    server = BoundedThreadingHTTPServer((args.host, args.port), handler)
     print(json.dumps({
         "engine": "DREAM native inference",
         "model": args.model_name,
