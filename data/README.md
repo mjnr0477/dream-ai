@@ -27,7 +27,7 @@ For instruction fine-tuning, each JSONL record uses the same provenance and revi
 {"id":"sft-001","source":"DREAM-authored dialogue","source_group":"dream-tutor-v1","license":"CC0-1.0","source_date":"2026-01-15","rights_confirmed":true,"privacy_reviewed":true,"quality_reviewed":true,"language":"en","messages":[{"role":"user","content":"Explain fractions."},{"role":"assistant","content":"A fraction represents part of a whole..."}]}
 ```
 
-Use distinct source groups, independently checked answers, and separate training/validation files. Pass the pretraining `manifest.json` and exact held-out `test.txt` file to SFT: it verifies their hash matches and its training and validation source groups must also be disjoint from the pretraining held-out test groups. The SFT checkpoint records the exact held-out test hash, and evaluation refuses any other corpus. SFT also rejects duplicate record IDs and normalized dialogue content across its training/validation files. The script verifies the review flags and data hashes; it cannot establish the truth of the underlying attestations.
+Use distinct source groups, independently checked answers, and separate training/validation files. Pass the pretraining `manifest.json` and exact held-out `test.txt` file to SFT: it verifies their hash matches and its training and validation source groups must also be disjoint from the pretraining held-out test groups. The SFT checkpoint records the exact held-out test hash, and evaluation refuses any other corpus. SFT also rejects duplicate record IDs and normalized dialogue content within each split and across its training/validation files. The script verifies the review flags and data hashes; it cannot establish the truth of the underlying attestations.
 
 ## First target domains
 
