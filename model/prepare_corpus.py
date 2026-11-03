@@ -18,6 +18,14 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def counts(rows, field):
+    result = {}
+    for row in rows:
+        value = row[field]
+        result[value] = result.get(value, 0) + 1
+    return dict(sorted(result.items()))
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True, help="Approved JSONL records")
@@ -106,26 +114,20 @@ def main():
         split_by_group[group] = "test"
 
     output.mkdir(parents=True, exist_ok=True)
-    language_counts = {}
-    license_counts = {}
-    source_date_range = {"earliest": None, "latest": None}
-    for row in records:
-        language_counts[row["language"]] = language_counts.get(row["language"], 0) + 1
-        license_counts[row["license"]] = license_counts.get(row["license"], 0) + 1
-        current_date = row["source_date"]
-        if source_date_range["earliest"] is None or current_date < source_date_range["earliest"]:
-            source_date_range["earliest"] = current_date
-        if source_date_range["latest"] is None or current_date > source_date_range["latest"]:
-            source_date_range["latest"] = current_date
-
+    language_counts = counts(records, "language")
+    license_counts = counts(records, "license")
+    source_date_range = {
+        "earliest": min(row["source_date"] for row in records),
+        "latest": max(row["source_date"] for row in records)
+    }
     manifest = {
         "schema": "dream-corpus-v1",
         "input_sha256": sha256(source),
         "records": len(records),
         "duplicate_text_records_removed": duplicate_text_records,
         "source_groups": group_count,
-        "language_counts": dict(sorted(language_counts.items())),
-        "license_counts": dict(sorted(license_counts.items())),
+        "language_counts": language_counts,
+        "license_counts": license_counts,
         "source_date_range": source_date_range,
         "split_strategy": "deterministic source-group hash ranking; no group crosses splits",
         "splits": {}
@@ -140,10 +142,28 @@ def main():
         split_groups = sorted({row["source_group"] for row in selected})
         manifest["splits"][split] = {
             "records": len(selected),
+            "utf8_bytes": text_path.stat().st_size,
             "source_groups": len(split_groups),
             "source_group_ids": split_groups,
+            "record_ids": sorted(row["id"] for row in selected),
+            "language_counts": counts(selected, "language"),
+            "license_counts": counts(selected, "license"),
+            "source_date_range": {
+                "earliest": min(row["source_date"] for row in selected),
+                "latest": max(row["source_date"] for row in selected)
+            },
             "sha256": sha256(text_path)
         }
+    all_split_groups = [
+        set(manifest["splits"][split]["source_group_ids"])
+        for split in ("train", "validation", "test")
+    ]
+    if any(
+        all_split_groups[left] & all_split_groups[right]
+        for left in range(3) for right in range(left + 1, 3)
+    ):
+        raise RuntimeError("Internal error: source group leaked across corpus splits")
+
     (output / "manifest.json").write_text(
         json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8"
