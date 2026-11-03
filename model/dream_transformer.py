@@ -162,6 +162,8 @@ class DreamTransformer(nn.Module):
             # -100 is the standard ignore_index used for prompt/padding
             # positions in assistant-only supervised fine-tuning.
             supervised_targets = targets != -100
+            if not torch.any(supervised_targets):
+                raise ValueError("targets must contain at least one supervised token")
             if torch.any(supervised_targets & (
                 (targets < 0) | (targets >= self.config.vocab_size)
             )):
@@ -177,7 +179,8 @@ class DreamTransformer(nn.Module):
                  top_k=40):
         if type(max_new_tokens) is not int or max_new_tokens < 0:
             raise ValueError("max_new_tokens must be a non-negative integer")
-        if (not isinstance(temperature, (int, float)) or
+        if (isinstance(temperature, bool) or
+                not isinstance(temperature, (int, float)) or
                 not math.isfinite(temperature) or temperature < 0):
             raise ValueError("temperature must be finite and non-negative")
         if type(top_k) is not int or top_k < 0:
