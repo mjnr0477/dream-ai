@@ -78,7 +78,7 @@ test("health endpoint identifies the DREAM engine and configured model", async (
   assert.equal(data.engine, "dream-engine");
   assert.equal(data.modelConfigured, true);
   assert.equal(data.modelName, "dream-test-model");
-  assert.equal(data.version, "0.2.0");
+  assert.equal(data.version, "0.3.0");
 });
 
 test("chat endpoint validates missing messages", async () => {

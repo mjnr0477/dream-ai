@@ -42,10 +42,12 @@ python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER:
 To serve a trained checkpoint locally:
 
 ```sh
-DREAM_CHECKPOINT=checkpoints/dream-small.pt python model/serve.py
+DREAM_CHECKPOINT=checkpoints/dream-instruct.pt python model/serve.py
+# In the Node app, set DREAM_MODEL_URL=http://127.0.0.1:8081/v1,
+# DREAM_MODEL_NAME=dream-native and DREAM_MODEL_TOKEN to the same runtime token.
 ```
 
-The server binds to localhost by default, processes one request at a time to bound inference concurrency, and enforces request-size and parameter limits. Set `DREAM_SERVER_TOKEN` before binding to a non-local interface. The built-in server is a development/runtime baseline, not a hardened public internet deployment.
+The server binds to localhost by default, serializes model generation to bound inference concurrency, enforces request-size, history, authentication and sampling limits, and refuses checkpoints without completed training steps. Set `DREAM_RUNTIME_HOST`, `DREAM_RUNTIME_PORT` and a `DREAM_RUNTIME_TOKEN` of at least 24 characters before binding to a non-local interface. The Node adapter's `DREAM_MODEL_TOKEN` must match that token. The built-in server is a development/runtime baseline, not a hardened public internet deployment.
 
 ## Data and evaluation
 

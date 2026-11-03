@@ -63,7 +63,7 @@ The Node app connects to a DREAM model server through the independent adapter:
 - `DREAM_MODEL_NAME`: model identifier, currently `dream-native`.
 - `DREAM_MODEL_TOKEN`: optional private bearer token; required when exposing the model server beyond localhost.
 
-The Node adapter sends requests to `/v1/chat/completions`; configure `DREAM_MODEL_URL` with the `/v1` suffix. The model server defaults to localhost, handles one inference request at a time and validates payload sizes and sampling parameters. A bearer token is mandatory when binding beyond localhost. Its built-in HTTP server is not a hardened public deployment: use HTTPS, a reverse proxy, network restrictions and resource limits before any remote exposure. Never put tokens in GitHub or browser JavaScript.
+The native server defaults to `127.0.0.1:8081` and exposes `GET /health` plus `POST /v1/chat/completions`. It serializes inference to bound concurrency, validates request size/history/sampling settings, and refuses checkpoints without completed training steps. For a same-machine setup, run `python model/serve.py`, then configure the Node app with `DREAM_MODEL_URL=http://127.0.0.1:8081/v1`, `DREAM_MODEL_NAME=dream-native`, and `DREAM_MODEL_TOKEN` matching `DREAM_RUNTIME_TOKEN`. Set `DREAM_RUNTIME_HOST`, `DREAM_RUNTIME_PORT`, and a `DREAM_RUNTIME_TOKEN` of at least 24 characters before binding beyond localhost. The built-in HTTP server is a development/runtime baseline, not a hardened public deployment: use HTTPS, a reverse proxy, network restrictions and resource limits before remote exposure. Never put tokens in GitHub or browser JavaScript.
 
 ## Compute and deployment
 
