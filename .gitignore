@@ -6,3 +6,7 @@ node_modules/
 coverage/
 eval-results/
 *.log
+__pycache__/
+*.py[cod]
+checkpoints/
+.venv/

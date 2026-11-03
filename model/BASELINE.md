@@ -1,35 +1,70 @@
-# DREAM model baseline candidate
+# DREAM native model
 
-Status: provisional engineering baseline, not yet a trained DREAM checkpoint.
+Status: first independently designed and randomly initialized architecture implemented. No trained DREAM checkpoint exists yet.
 
-## Candidate: Qwen3.5-2B
+## Architecture decision
 
-Official model card: https://huggingface.co/Qwen/Qwen3.5-2B
+DREAM will begin with its own decoder-only transformer implemented in PyTorch:
+- fixed UTF-8 byte tokenizer (256 token IDs, no borrowed vocabulary);
+- learned token and position embeddings;
+- causal multi-head self-attention;
+- pre-normalized transformer blocks with GELU feed-forward layers;
+- tied token embedding and language-model output weights;
+- autoregressive sampling and native checkpoint format.
 
-Reasons to evaluate it first:
+The first configurable experiment defaults to 6 layers, width 256, 8 attention heads and 256-byte context. This is a small research model, not a competitive production assistant. The architecture and all initial weights are DREAM-owned code/initialization; the checkpoint will only become a trained DREAM artifact after training and evaluation.
 
-- The published model card lists the checkpoint under Apache 2.0.
-- It contains 2 billion language-model parameters and publishes the weights and configuration.
-- The publisher explicitly lists task-specific fine-tuning and research/development as intended use cases.
-- The publisher reports MMLU-Pro scores of 55.3 in non-thinking mode and 66.5 in thinking mode for Qwen3.5-2B. The same table reports 29.7 and 42.3 for Qwen3.5-0.8B. These are publisher-reported results, not independent DREAM evaluations.
-- It is a multimodal checkpoint, but the first DREAM training and evaluation stage will be text-only until image input is implemented and tested.
+## Training and inference
 
-## Comparison candidate
+- `model/train.py` trains from random initialization on an authorized UTF-8 text corpus.
+- `model/generate.py` runs local inference from a DREAM checkpoint.
+- `model/serve.py` exposes the native checkpoint over a local HTTP endpoint. Its chat-completions-shaped JSON is only a transport protocol; no external model is called.
+- `model/test_dream_transformer.py` tests tokenizer round-trip, causal attention, tensor shapes, loss and generation.
+- `data/README.md` defines dataset provenance, privacy, licensing and quality gates.
 
-Qwen3.5-0.8B is the smaller fallback for constrained local/edge hardware. Its smaller size does not make it automatically better: the model card's published language benchmarks are notably lower than the 2B checkpoint. We should compare both on the DREAM evaluation set before deciding which checkpoint to ship.
+Install the model dependencies from `model/requirements.txt`. Run the training script from the repository root with a sufficiently large, high-quality corpus:
 
-## Ownership boundary
+```sh
+python -m pip install -r model/requirements.txt
+python model/prepare_corpus.py --input data/approved-records.jsonl
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000
+python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER: Explain photosynthesis.\nASSISTANT:"
+```
 
-Using an open-weight checkpoint does not mean DREAM created the original foundation model. DREAM ownership begins with our independently curated and licensed training data, reproducible fine-tuning, model adapters/weights, evaluations, inference runtime, versioning and release process. We must retain the upstream license and attribution obligations.
+To serve a trained checkpoint locally:
 
-## Compute reality
+```sh
+DREAM_CHECKPOINT=checkpoints/dream-small.pt python model/serve.py
+```
 
-The Render free web service is for the Node application and cannot be treated as a GPU training host. Fine-tuning and model serving need a separate machine or hosted notebook with suitable RAM/VRAM. The web app and model runtime remain separate services. No paid GPU or external AI API has been provisioned by this decision.
+The server binds to localhost by default. Set `DREAM_SERVER_TOKEN` before binding to a non-local interface.
 
-## Gate before selecting a release model
+## Data and evaluation
 
-1. Run the same DREAM evaluation cases against both candidate sizes.
-2. Record latency, peak memory, task scores and failure modes.
-3. Review all outputs manually against the rubrics.
-4. Confirm the exact checkpoint license and redistribution terms.
-5. Only then choose a checkpoint for DREAM-specific fine-tuning.
+No dataset is silently assumed or bundled as training data. Every corpus must have a recorded source, permission/license, privacy review, deduplication, quality checks and leakage-safe train/validation/test splits. See `data/README.md`.
+
+The 12-case initial DREAM evaluation set is a starting point, not enough to certify model quality. We must expand it, add independent human-reviewed scoring and test for memorization, factuality, bias, safety and multilingual performance.
+
+## Compute reality and honest release gates
+
+The free Render web service hosts the Node application; it is not the training or model-serving machine. This first model is intentionally small enough to experiment with on a suitable CPU/GPU machine, but meaningful training still needs adequate RAM, compute time and a substantial authorized corpus.
+
+A successful training run must save:
+- model checkpoint and architecture config;
+- exact dataset version/hash and split;
+- random seed, optimizer, learning rate and step count;
+- train and validation loss/perplexity;
+- hardware and runtime details;
+- evaluation report and known limitations.
+
+Do not call a random-weight model intelligent, do not claim a trained checkpoint before one exists, and do not ship this research-scale model as production-grade without evidence.
+
+## Roadmap
+
+1. Validate the architecture and training loop on a small synthetic smoke test.
+2. Build and audit the first licensed DREAM corpus.
+3. Train repeatable checkpoints from random initialization.
+4. Expand benchmark coverage and human evaluation.
+5. Improve tokenizer, context length, data mixture and model scale based on evidence.
+6. Add retrieval and tools as separately permissioned capabilities, not as substitutes for model intelligence.
+7. Optimize inference and explore practical offline deployments.
