@@ -435,6 +435,7 @@ class DreamLanguageSamplingTests(unittest.TestCase):
             import torch
             saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
             self.assertEqual(saved["training"]["language_sampling"], "balanced")
+            self.assertIn("python_rng_state", saved)
             self.assertEqual(
                 set(saved["training"]["training_tokens_by_language"]), {"en", "sw"}
             )
