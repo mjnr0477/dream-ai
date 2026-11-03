@@ -51,6 +51,14 @@ class DreamSFTTests(unittest.TestCase):
         self.manifest.write_text(json.dumps({
             "schema": "dream-corpus-v1",
             "splits": {
+                "train": {
+                    "source_group_ids": ["pretraining-train-group"],
+                    "sha256": "1" * 64
+                },
+                "validation": {
+                    "source_group_ids": ["pretraining-validation-group"],
+                    "sha256": "2" * 64
+                },
                 "test": {
                     "source_group_ids": test_groups,
                     "sha256": test_hash
