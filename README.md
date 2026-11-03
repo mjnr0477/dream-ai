@@ -58,6 +58,8 @@ The training corpus path above is an example, not a file already present. Each J
 - `npm run validate:evals`: validates the evaluation set.
 - `npm run eval`: records outputs and latency from a configured self-hosted model runtime for human review.
 
+For native DREAM checkpoint evaluation, run `python model/run_task_benchmark.py --checkpoint checkpoints/dream-instruct.pt --out eval-results/native-task-benchmark.json`, review every generated answer against its rubric, and fill each `rubric_scores` entry with `0` or `1`. Then run `python model/score_task_benchmark.py --input eval-results/native-task-benchmark.json --out eval-results/human-score-summary.json` to calculate overall and per-category scores plus scoring coverage. The scorer rejects malformed or incomplete score values and never grades answers automatically; unscored rubric items remain visible in coverage.
+
 The current benchmark is an initial seed, not a certification of quality. Provenance-verified training checkpoints require `model/evaluate.py --manifest` to match the exact held-out test file and original manifest; the report records the manifest hash and held-out source-group count.
 
 ## Runtime architecture
