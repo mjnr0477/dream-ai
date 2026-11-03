@@ -308,9 +308,11 @@ def main():
         raise SystemExit(
             "Duplicate SFT dialogue content detected across training and validation."
         )
-    if (train_groups | validation_groups) & pretraining_test_groups:
+    sft_source_groups = train_groups | validation_groups
+    all_pretraining_groups = set().union(*manifest_groups.values())
+    if sft_source_groups & all_pretraining_groups:
         raise SystemExit(
-            "SFT training/validation source groups must be disjoint from the pretraining held-out test groups."
+            "SFT training/validation source groups must be disjoint from every pretraining split."
         )
     train_examples = load_examples(train_path, tokenizer, config.block_size)
     validation_examples = load_examples(validation_path, tokenizer, config.block_size)
