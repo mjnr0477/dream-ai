@@ -63,6 +63,29 @@ class DreamTransformerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             DreamConfig(d_model=30, n_heads=8)
 
+    def test_zero_heads_are_rejected_cleanly(self):
+        with self.assertRaises(ValueError):
+            DreamConfig(n_heads=0)
+
+    def test_non_byte_vocabulary_is_rejected(self):
+        with self.assertRaises(ValueError):
+            DreamConfig(vocab_size=512)
+
+    def test_invalid_dropout_is_rejected(self):
+        with self.assertRaises(ValueError):
+            DreamConfig(dropout=1.0)
+
+    def test_invalid_generation_temperature_is_rejected(self):
+        prompt = torch.tensor([[65, 66]], dtype=torch.long)
+        with self.assertRaises(ValueError):
+            self.model.generate(prompt, temperature=float("nan"))
+
+    def test_invalid_target_shape_is_rejected(self):
+        prompt = torch.tensor([[65, 66]], dtype=torch.long)
+        targets = torch.tensor([[66]], dtype=torch.long)
+        with self.assertRaises(ValueError):
+            self.model(prompt, targets)
+
 
 if __name__ == "__main__":
     unittest.main()
