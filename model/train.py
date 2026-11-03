@@ -22,7 +22,8 @@ def batches(data, batch_size, block_size, device):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--data", default="data/corpus.txt")
+    parser.add_argument("--data", default="data/prepared/train.txt")
+    parser.add_argument("--validation-data", default="data/prepared/validation.txt")
     parser.add_argument("--out", default="checkpoints/dream-small.pt")
     parser.add_argument("--steps", type=int, default=2000)
     parser.add_argument("--batch-size", type=int, default=32)
@@ -43,8 +44,14 @@ def main():
     text = Path(args.data).read_text(encoding="utf-8")
     tokenizer = DreamByteTokenizer()
     tokens = torch.tensor(tokenizer.encode(text), dtype=torch.long)
-    split = int(len(tokens) * 0.9)
-    train_data, val_data = tokens[:split], tokens[split:]
+    train_data = tokens
+    validation_path = Path(args.validation_data)
+    if validation_path.exists():
+        validation_text = validation_path.read_text(encoding="utf-8")
+        val_data = torch.tensor(tokenizer.encode(validation_text), dtype=torch.long)
+    else:
+        split = int(len(tokens) * 0.9)
+        train_data, val_data = tokens[:split], tokens[split:]
     if len(train_data) < args.block_size + 2 or len(val_data) < args.block_size + 2:
         raise SystemExit(
             "Corpus too small. Supply a properly licensed, high-quality corpus "
@@ -106,6 +113,7 @@ def main():
             "steps": args.steps,
             "seed": args.seed,
             "corpus": str(Path(args.data)),
+            "validation_corpus": str(validation_path) if validation_path.exists() else "tail-10-percent",
             "initialization": "random"
         }
     }, output)
