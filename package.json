@@ -1,6 +1,6 @@
 {
   "name": "dream-ai",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "DREAM AI — an independent AI application and model runtime.",
   "type": "module",
@@ -8,7 +8,9 @@
     "postinstall": "npm test",
     "start": "node --env-file-if-exists=.env server.js",
     "dev": "node --env-file-if-exists=.env --watch server.js",
-    "test": "node --check server.js && node --check lib/dream-engine.js && node --check public/app.js && node --test"
+    "validate:evals": "node scripts/validate-evals.mjs",
+    "eval": "node scripts/run-evals.mjs",
+    "test": "node --check server.js && node --check lib/dream-engine.js && node --check public/app.js && node --check scripts/validate-evals.mjs && node --check scripts/run-evals.mjs && npm run validate:evals && node --test"
   },
   "engines": {
     "node": ">=20.12"
