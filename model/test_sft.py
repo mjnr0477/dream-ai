@@ -12,6 +12,7 @@ from dream_transformer import DreamConfig, DreamTransformer, DreamByteTokenizer
 from sft import load_examples
 
 SCRIPT = Path(__file__).with_name("sft.py")
+EVALUATOR = Path(__file__).with_name("evaluate.py")
 
 
 class DreamSFTTests(unittest.TestCase):
@@ -127,6 +128,19 @@ class DreamSFTTests(unittest.TestCase):
         self.assertEqual(resumed.returncode, 0, resumed.stdout + resumed.stderr)
         saved = torch.load(output, map_location="cpu", weights_only=True)
         self.assertEqual(saved["sft_training"]["completed_steps"], 3)
+
+        leaked = subprocess.run(
+            [
+                sys.executable, str(EVALUATOR),
+                "--checkpoint", str(output),
+                "--data", str(train_path),
+                "--sample-tokens", "0",
+                "--out", str(self.root / "leaked-evaluation.json")
+            ],
+            capture_output=True, text=True, timeout=30
+        )
+        self.assertNotEqual(leaked.returncode, 0)
+        self.assertIn("matches training or validation", leaked.stderr)
 
     def test_rejects_overlapping_source_groups(self):
         train_path = self.root / "train.jsonl"
