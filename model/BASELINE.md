@@ -5,21 +5,21 @@ Status: independently designed and randomly initialized architecture implemented
 ## Architecture decision
 
 DREAM will begin with its own decoder-only transformer implemented in PyTorch:
-- fixed UTF-8 byte tokenizer (256 token IDs, no borrowed vocabulary);
+- versioned UTF-8 byte tokenizer for legacy checkpoints and DREAM-owned byte-fallback BPE tokenizer for new experiments;
 - learned token and position embeddings;
 - causal multi-head self-attention;
 - pre-normalized transformer blocks with GELU feed-forward layers;
 - tied token embedding and language-model output weights;
 - autoregressive sampling and native checkpoint format.
 
-The first configurable experiment defaults to 6 layers, width 256, 8 attention heads and 256-byte context. Gradient accumulation allows a larger effective batch without holding every micro-batch in memory at once. This is a small research model, not a competitive production assistant. The architecture and all initial weights are DREAM-owned code/initialization; the checkpoint will only become a trained DREAM artifact after training and evaluation.
+The first configurable experiment defaults to 6 layers, width 256, 8 attention heads and 256-token context. BPE is experimental and may reduce sequence length; it does not independently improve reasoning or factuality. Gradient accumulation allows a larger effective batch without holding every micro-batch in memory at once. This is a small research model, not a competitive production assistant. The architecture and all initial weights are DREAM-owned code/initialization; the checkpoint will only become a trained DREAM artifact after training and evaluation.
 
 ## Training and inference
 
-- `model/train.py` trains from random initialization on an authorized UTF-8 text corpus.
+- `model/train.py` trains from random initialization on an authorized UTF-8 text corpus; `--tokenizer bpe` fits BPE on the training split and stores its vocabulary in the checkpoint.
 - `model/sft.py` performs assistant-response-only supervised instruction fine-tuning from a trained DREAM checkpoint; prompt tokens are masked from the loss.
-- `model/generate.py` runs local inference from a DREAM checkpoint.
-- `model/evaluate.py` reports held-out cross-entropy, bits-per-byte, perplexity-per-byte, SHA-256 provenance and a qualitative sample.
+- `model/generate.py` runs local inference from byte or BPE DREAM checkpoints.
+- `model/evaluate.py` reports held-out cross-entropy, per-token metrics, SHA-256 provenance and a qualitative sample; byte checkpoints retain legacy per-byte metric fields.
 - `model/serve.py` exposes the native checkpoint over a local HTTP endpoint. Its chat-completions-shaped JSON is only a transport protocol; no external model is called.
 - `model/test_dream_transformer.py`, `model/test_train.py` and `model/test_serve.py` test model behavior, checkpoint/resume and local HTTP serving.
 - `data/README.md` defines dataset provenance, privacy, licensing and quality gates.
