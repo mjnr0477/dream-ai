@@ -494,11 +494,10 @@ class DreamSFTTests(unittest.TestCase):
             ("test", "test-group-0")
         ):
             with self.subTest(split=split_name):
-                self.write_manifest([overlapping_group])
+                self.write_manifest(["pretraining-test-group"])
                 manifest_payload = json.loads(self.manifest.read_text(encoding="utf-8"))
-                if split_name != "test":
-                    manifest_payload["splits"]["test"]["source_group_ids"] = ["pretraining-test-group"]
-                    self.manifest.write_text(json.dumps(manifest_payload), encoding="utf-8")
+                manifest_payload["splits"][split_name]["source_group_ids"] = [overlapping_group]
+                self.manifest.write_text(json.dumps(manifest_payload), encoding="utf-8")
                 base_payload = torch.load(self.base, map_location="cpu", weights_only=True)
                 base_payload["training"]["corpus_manifest_sha256"] = hashlib.sha256(
                     self.manifest.read_bytes()
