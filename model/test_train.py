@@ -214,6 +214,16 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
             self.assertTrue(saved["training"]["data_provenance_verified"])
             self.assertTrue(saved["training"]["corpus_manifest_sha256"])
+            resumed = self.run_training(
+                root, checkpoint,
+                extra=("--resume", str(checkpoint), "--manifest", str(manifest_path))
+            )
+            self.assertEqual(resumed.returncode, 0, resumed.stdout + resumed.stderr)
+            unverified_resume = self.run_training(
+                root, checkpoint, extra=("--resume", str(checkpoint))
+            )
+            self.assertNotEqual(unverified_resume.returncode, 0)
+            self.assertIn("corpus manifest does not match", unverified_resume.stderr)
 
     def test_manifest_rejects_split_hash_mismatch_and_source_leakage(self):
         with tempfile.TemporaryDirectory() as directory:
