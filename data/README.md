@@ -40,7 +40,7 @@ python model/import_parallel_pairs.py \
   --output-dir data/parallel-candidates
 ```
 
-The importer deduplicates exact pairs and keeps any provided `source_group` or `story_id` together across splits. If neither exists, it falls back to exact pair-content hashes and explicitly warns that this cannot prove story-level independence. It always writes `rights_confirmed`, `privacy_reviewed` and `quality_reviewed` as `false`. Do not change them until a person has verified the dataset access terms, attribution, consent, privacy and translation quality. Preserve the dataset's official test split for evaluation; do not feed it to this importer for SFT.
+The importer deduplicates exact pairs, rejects conflicting translations for the same normalized source sentence, and keeps any provided `source_group` or `story_id` together across splits. If neither exists, it falls back to exact pair-content hashes and explicitly warns that this cannot prove story-level independence. It always writes `rights_confirmed`, `privacy_reviewed` and `quality_reviewed` as `false`. Do not change them until a person has verified the dataset access terms, attribution, consent, privacy and translation quality. Preserve the dataset's official test split for evaluation; do not feed it to this importer for SFT.
 
 ## Supervised instruction records
 
