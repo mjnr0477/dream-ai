@@ -5,7 +5,7 @@ from dream_transformer import DreamConfig
 
 class DreamConfigBooleanValidationTests(unittest.TestCase):
     def test_boolean_dimensions_are_rejected(self):
-        for field in ("block_size", "d_model", "n_heads", "n_layers"):
+        for field in ("vocab_size", "block_size", "d_model", "n_heads", "n_layers"):
             with self.subTest(field=field):
                 with self.assertRaises(ValueError):
                     DreamConfig(**{field: True})
