@@ -42,6 +42,10 @@ class DreamTrainingSmokeTests(unittest.TestCase):
                 ("Independent validation material for testing language loss. " * 8),
                 encoding="utf-8"
             )
+            (root / "test.txt").write_text(
+                ("Completely held out test material for DREAM model evaluation. " * 8),
+                encoding="utf-8"
+            )
             checkpoint = root / "dream-test.pt"
             first = self.run_training(root, checkpoint)
             self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
@@ -73,7 +77,7 @@ class DreamTrainingSmokeTests(unittest.TestCase):
                 [
                     sys.executable, str(EVALUATOR),
                     "--checkpoint", str(checkpoint),
-                    "--data", str(root / "validation.txt"),
+                    "--data", str(root / "test.txt"),
                     "--batch-size", "2",
                     "--batches", "2",
                     "--sample-tokens", "4",
@@ -109,6 +113,51 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             )
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("must be different", result.stderr)
+
+    def test_rejects_identical_content_in_different_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            content = "DREAM repeated training material for duplicate hash testing. " * 8
+            (root / "train.txt").write_text(content, encoding="utf-8")
+            (root / "validation.txt").write_text(content, encoding="utf-8")
+            result = self.run_training(root, root / "duplicate.pt")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("content hashes must differ", result.stderr)
+
+    def test_evaluator_rejects_training_data_as_test_data(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "train.txt").write_text(
+                "DREAM training text for evaluator leakage check. " * 8,
+                encoding="utf-8"
+            )
+            (root / "validation.txt").write_text(
+                "DREAM validation text for evaluator leakage check. " * 8,
+                encoding="utf-8"
+            )
+            (root / "test.txt").write_text(
+                "DREAM held out test text for evaluator leakage check. " * 8,
+                encoding="utf-8"
+            )
+            checkpoint = root / "dream.pt"
+            trained = self.run_training(root, checkpoint)
+            self.assertEqual(trained.returncode, 0, trained.stdout + trained.stderr)
+            (root / "leaked-test.txt").write_text(
+                (root / "train.txt").read_text(encoding="utf-8"),
+                encoding="utf-8"
+            )
+            result = subprocess.run(
+                [
+                    sys.executable, str(EVALUATOR),
+                    "--checkpoint", str(checkpoint),
+                    "--data", str(root / "leaked-test.txt"),
+                    "--sample-tokens", "0",
+                    "--out", str(root / "leak.json")
+                ],
+                capture_output=True, text=True, timeout=30
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("matches training or validation", result.stderr)
 
 
 if __name__ == "__main__":
