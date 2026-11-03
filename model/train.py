@@ -80,7 +80,7 @@ def main():
     if len(train_data) < args.block_size + 2 or len(val_data) < args.block_size + 2:
         raise SystemExit(
             "Corpus too small. Supply a properly licensed, high-quality corpus "
-            "with enough UTF-8 bytes for train and validation splits."
+            "with enough tokens for train and validation splits."
         )
 
     if (
@@ -149,8 +149,10 @@ def main():
         "initialization": "resumed" if args.resume else "random",
         "device": device,
         "parameters": sum(p.numel() for p in model.parameters()),
-        "training_bytes": len(train_data),
-        "validation_bytes": len(val_data),
+        "training_tokens": len(train_data),
+        "validation_tokens": len(val_data),
+        "training_bytes": len(text.encode("utf-8")),
+        "validation_bytes": len(validation_text.encode("utf-8")),
         "micro_batch_size": args.batch_size,
         "gradient_accumulation_steps": args.grad_accum_steps,
         "effective_batch_size": args.batch_size * args.grad_accum_steps,
