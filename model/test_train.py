@@ -455,6 +455,14 @@ class DreamLanguageSamplingTests(unittest.TestCase):
             self.assertEqual(
                 set(saved["training"]["training_tokens_by_language"]), {"en", "sw"}
             )
+            resumed = self.run_training(
+                root, checkpoint,
+                extra=("--resume", str(checkpoint), "--language-sampling", "balanced")
+            )
+            self.assertEqual(resumed.returncode, 0, resumed.stdout + resumed.stderr)
+            saved_again = torch.load(checkpoint, map_location="cpu", weights_only=True)
+            self.assertEqual(saved_again["training"]["completed_steps"], 4)
+            self.assertIn("python_rng_state", saved_again)
             mismatch = self.run_training(
                 root, checkpoint,
                 extra=("--resume", str(checkpoint), "--language-sampling", "proportional")
