@@ -37,7 +37,7 @@ test("health endpoint reports Dream AI", async () => {
   const data = await response.json();
   assert.equal(data.ok, true);
   assert.equal(data.name, "Dream AI");
-  assert.equal(data.modelConnected, false);
+  assert.equal(data.modelConfigured, false);
 });
 
 test("chat endpoint validates missing messages", async () => {
@@ -61,6 +61,27 @@ test("chat endpoint returns clearly labelled starter response", async () => {
   const data = await response.json();
   assert.equal(data.mode, "starter");
   assert.match(data.reply, /Dream AI/i);
+});
+
+test("chat endpoint accepts each supported mode without crashing", async () => {
+  for (const mode of ["general", "coding", "learning"]) {
+    const response = await fetch(`${base}/api/chat`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ mode, messages: [{ role: "user", content: "Hello" }] })
+    });
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).mode, "starter");
+  }
+});
+
+test("chat endpoint rejects unsupported modes", async () => {
+  const response = await fetch(`${base}/api/chat`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ mode: "unrestricted", messages: [{ role: "user", content: "Hello" }] })
+  });
+  assert.equal(response.status, 400);
 });
 
 test("chat endpoint rejects invalid message roles", async () => {
