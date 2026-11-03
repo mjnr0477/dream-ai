@@ -20,7 +20,7 @@ before(async () => {
         url: req.url,
         body: chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : null
       });
-      if (req.url === "/redirect") {
+      if (req.url.endsWith("/redirect/chat/completions")) {
         res.writeHead(302, { location: `http://127.0.0.1:${modelPort}/v1/chat/completions` });
         return res.end();
       }
