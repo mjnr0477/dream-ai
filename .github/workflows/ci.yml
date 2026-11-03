@@ -61,6 +61,7 @@ jobs:
           --train-data data/sft-smoke-train.jsonl
           --validation-data data/sft-smoke-validation.jsonl
           --pretraining-manifest /tmp/dream-smoke-data/manifest.json
+          --pretraining-test-data /tmp/dream-smoke-data/test.txt
           --out /tmp/dream-smoke-instruct.pt
           --steps 2 --batch-size 1 --grad-accum-steps 1
           --learning-rate 0.0001 --eval-every 1
