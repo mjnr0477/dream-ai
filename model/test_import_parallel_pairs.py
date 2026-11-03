@@ -104,7 +104,7 @@ class ParallelPairImportTests(unittest.TestCase):
             rows[0]["translation"] = {"dav": "a\\0b", "swa": "c"}
             rows[1]["translation"] = {"dav": "a", "swa": "b\\0c"}
             source.write_text(
-                "".join(json.dumps(row, ensure_ascii=False) + "\\n" for row in rows),
+            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
                 encoding="utf-8"
             )
             output = root / "fingerprints"
