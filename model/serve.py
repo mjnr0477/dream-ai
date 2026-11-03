@@ -32,7 +32,8 @@ def load_model(checkpoint_path, device):
         raise ValueError("Unsupported DREAM tokenizer in checkpoint.")
     metadata = checkpoint.get("sft_training") or checkpoint.get("training") or {}
     completed_steps = metadata.get("completed_steps", 0)
-    if not isinstance(completed_steps, int) or completed_steps < 1:
+    if (not isinstance(completed_steps, int) or
+            isinstance(completed_steps, bool) or completed_steps < 1):
         raise ValueError("Refusing to serve a checkpoint without completed DREAM training.")
     config = DreamConfig(**checkpoint["config"])
     model = DreamTransformer(config)
