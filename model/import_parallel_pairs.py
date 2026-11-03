@@ -55,6 +55,7 @@ def main():
     input_path = Path(args.input)
     records = []
     seen_pairs = set()
+    seen_ids = set()
     duplicate_pairs_removed = 0
     group_basis_counts = {"source_group": 0, "story_id": 0, "pair_content_hash": 0}
 
@@ -103,6 +104,9 @@ def main():
 
         raw_id = item.get("id")
         record_id = str(raw_id).strip() if raw_id is not None and str(raw_id).strip() else f"parallel-{pair_fingerprint[:24]}"
+        if record_id in seen_ids:
+            raise SystemExit(f"Duplicate parallel record id: {record_id}")
+        seen_ids.add(record_id)
         records.append({
             "id": record_id,
             "source": args.source_name,
