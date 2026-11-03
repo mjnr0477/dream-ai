@@ -41,6 +41,12 @@ class DreamSFTTests(unittest.TestCase):
         test_hash = hashlib.sha256(self.test_data.read_bytes()).hexdigest()
         self.manifest = self.root / "pretraining-manifest.json"
         self.write_manifest(["pretraining-test-group"], test_hash)
+        base_payload = torch.load(self.base, map_location="cpu", weights_only=True)
+        base_payload["training"].update({
+            "data_provenance_verified": True,
+            "corpus_manifest_sha256": hashlib.sha256(self.manifest.read_bytes()).hexdigest()
+        })
+        torch.save(base_payload, self.base)
 
     def tearDown(self):
         self.temp.cleanup()
@@ -161,7 +167,12 @@ class DreamSFTTests(unittest.TestCase):
             "config": config.__dict__,
             "tokenizer": DreamBPETokenizer.format_version,
             "tokenizer_data": tokenizer.to_dict(),
-            "training": {"completed_steps": 2, "initialization": "test-fixture"}
+            "training": {
+                "completed_steps": 2,
+                "initialization": "test-fixture",
+                "data_provenance_verified": True,
+                "corpus_manifest_sha256": hashlib.sha256(self.manifest.read_bytes()).hexdigest()
+            }
         }, bpe_base)
         train_path = self.root / "bpe-train.jsonl"
         val_path = self.root / "bpe-validation.jsonl"
