@@ -31,6 +31,40 @@ def source_groups(path):
     return groups
 
 
+def record_signatures(path):
+    """Return record IDs and normalized dialogue hashes for split-leak checks."""
+    record_ids = set()
+    content_hashes = set()
+    for line_number, line in enumerate(
+        Path(path).read_text(encoding="utf-8").splitlines(), 1
+    ):
+        if not line.strip():
+            continue
+        try:
+            item = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise SystemExit(f"Invalid JSON at line {line_number}: {exc}") from exc
+        record_id = item.get("id")
+        if isinstance(record_id, str) and record_id:
+            record_ids.add(record_id)
+        messages = item.get("messages")
+        if isinstance(messages, list):
+            normalized = []
+            for message in messages:
+                if not isinstance(message, dict):
+                    continue
+                role = message.get("role")
+                content = message.get("content")
+                if isinstance(role, str) and isinstance(content, str):
+                    normalized.append(
+                        f"{role.strip().lower()}: {' '.join(content.split()).casefold()}"
+                    )
+            if normalized:
+                canonical = "\n".join(normalized).encode("utf-8")
+                content_hashes.add(hashlib.sha256(canonical).hexdigest())
+    return record_ids, content_hashes
+
+
 def load_examples(path, tokenizer, block_size):
     examples = []
     seen_ids = set()
@@ -203,6 +237,14 @@ def main():
     validation_groups = source_groups(validation_path)
     if train_groups & validation_groups:
         raise SystemExit("SFT training and validation source groups must be disjoint.")
+    train_ids, train_content = record_signatures(train_path)
+    validation_ids, validation_content = record_signatures(validation_path)
+    if train_ids & validation_ids:
+        raise SystemExit("SFT training and validation record IDs must be disjoint.")
+    if train_content & validation_content:
+        raise SystemExit(
+            "Duplicate SFT dialogue content detected across training and validation."
+        )
     if (train_groups | validation_groups) & pretraining_test_groups:
         raise SystemExit(
             "SFT training/validation source groups must be disjoint from the pretraining held-out test groups."
