@@ -4,6 +4,8 @@ This is DREAM's own experimental architecture. It does not load weights from
 another model. The byte tokenizer is deterministic and has no external vocab.
 """
 from dataclasses import dataclass
+import math
+
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -19,11 +21,18 @@ class DreamConfig:
     dropout: float = 0.1
 
     def __post_init__(self):
+        dimensions = (
+            self.vocab_size, self.block_size, self.d_model,
+            self.n_heads, self.n_layers
+        )
+        if any(not isinstance(value, int) or value < 1 for value in dimensions):
+            raise ValueError("Model dimensions must be positive integers")
+        if self.vocab_size != 256:
+            raise ValueError("The current DREAM byte tokenizer requires vocab_size=256")
         if self.d_model % self.n_heads:
             raise ValueError("d_model must be divisible by n_heads")
-        if min(self.vocab_size, self.block_size, self.d_model,
-               self.n_heads, self.n_layers) < 1:
-            raise ValueError("Model dimensions must be positive")
+        if not isinstance(self.dropout, (int, float)) or not 0 <= self.dropout < 1:
+            raise ValueError("dropout must be in the range [0, 1)")
 
 
 class DreamByteTokenizer:
@@ -32,6 +41,8 @@ class DreamByteTokenizer:
     vocab_size = 256
 
     def encode(self, text: str) -> list[int]:
+        if not isinstance(text, str):
+            raise TypeError("Tokenizer input must be text")
         return list(text.encode("utf-8"))
 
     def decode(self, token_ids) -> str:
@@ -125,9 +136,13 @@ class DreamTransformer(nn.Module):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
     def forward(self, token_ids, targets=None):
+        if token_ids.ndim != 2:
+            raise ValueError("token_ids must have shape [batch, sequence]")
         batch, length = token_ids.shape
-        if length > self.config.block_size:
-            raise ValueError("Input exceeds configured block_size")
+        if length < 1 or length > self.config.block_size:
+            raise ValueError("Input sequence length is outside configured block_size")
+        if token_ids.dtype != torch.long:
+            raise TypeError("token_ids must use torch.long")
         positions = torch.arange(length, device=token_ids.device)
         x = self.dropout(
             self.token_embedding(token_ids) +
@@ -138,6 +153,8 @@ class DreamTransformer(nn.Module):
         logits = self.language_head(self.final_norm(x))
         loss = None
         if targets is not None:
+            if targets.shape != token_ids.shape or targets.dtype != torch.long:
+                raise ValueError("targets must be torch.long and match token_ids shape")
             loss = F.cross_entropy(
                 logits.reshape(-1, logits.size(-1)),
                 targets.reshape(-1)
@@ -147,8 +164,14 @@ class DreamTransformer(nn.Module):
     @torch.no_grad()
     def generate(self, token_ids, max_new_tokens=100, temperature=0.8,
                  top_k=40):
-        if temperature <= 0:
-            raise ValueError("temperature must be positive")
+        if not isinstance(max_new_tokens, int) or max_new_tokens < 0:
+            raise ValueError("max_new_tokens must be a non-negative integer")
+        if not isinstance(temperature, (int, float)) or not math.isfinite(temperature) or temperature <= 0:
+            raise ValueError("temperature must be finite and positive")
+        if not isinstance(top_k, int) or top_k < 0:
+            raise ValueError("top_k must be a non-negative integer")
+        if token_ids.ndim != 2 or token_ids.shape[1] < 1:
+            raise ValueError("generation prompt must have shape [batch, sequence]")
         self.eval()
         for _ in range(max_new_tokens):
             context = token_ids[:, -self.config.block_size:]
