@@ -19,6 +19,8 @@ Every dataset release must include:
 - train/validation/test split with no cross-split leakage;
 - dataset version and SHA-256 manifest.
 
+The preparation step prefixes every document with `<|language:TAG|>` (for example `<|language:sw|>`) before its text. This gives DREAM an explicit language-conditioning cue while keeping the tokenizer vocabulary and model architecture language-agnostic. The marker is encoded as ordinary UTF-8 text by the byte/BPE tokenizer; it is not a magic token or proof of language understanding. The manifest records the marker format.
+
 For native pretraining, pass the generated manifest with `--manifest data/prepared/manifest.json`. When supplied, `model/train.py` verifies the train, validation and held-out test file hashes against the manifest and rejects source groups shared across any split. The Colab training notebook always supplies this manifest. Omitting `--manifest` is supported only for small local experiments and legacy compatibility; checkpoints record `data_provenance_verified: false` in that case. Do not use such unverified runs as production training artifacts.
 
 Each JSONL record must include `source_url` and `license_url` as absolute HTTPS URLs, a `rights_basis` value from the allowed set above, and `source_date` in strict `YYYY-MM-DD` form and set `rights_confirmed`, `privacy_reviewed` and `quality_reviewed` to `true`. The generated manifest reports record counts by language, license and rights basis, plus a source catalog containing source URLs and license URLs and the source-date range; inspect these before training. These flags record a human review; the script cannot independently verify legal rights or detect all personal information.
