@@ -58,6 +58,7 @@ The training corpus path above is an example, not a file already present. Each J
 ## Evaluation
 
 - `evals/core-v1.jsonl`: 40 original DREAM evaluation prompts and human scoring rubrics spanning reasoning, coding, science, multilingual performance, safety, privacy, security and reliability.
+- `evals/multilingual-v1.jsonl`: 30 human-scored language tasks across African, European, Middle Eastern and Asian languages, including Latin, Arabic, Devanagari, Bengali, Ethiopic, Cyrillic, Greek, Hebrew, Han, Kana, Hangul and Thai scripts. This is a representative starter set, not "all languages" or evidence of proficiency. Run it with `python model/run_task_benchmark.py --checkpoint checkpoints/dream-instruct.pt --benchmark evals/multilingual-v1.jsonl --out eval-results/multilingual-v1.json`. Reports preserve BCP-47-style language identifiers and script tags and summarize benchmark language coverage; reviewers must score each answer. Expand this set with native-speaker-reviewed prompts and rubrics before making language-quality claims.
 - `npm run validate:evals`: validates the evaluation set.
 - `npm run eval`: records outputs and latency from a configured self-hosted model runtime for human review.
 
