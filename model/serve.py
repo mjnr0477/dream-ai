@@ -89,7 +89,7 @@ def load_model(checkpoint_path, device):
 
 
 def format_prompt(messages, language=None):
-    language_prefix = f"<|language:{language.strip().lower()}|>\\n" if language else ""
+    language_prefix = f"<|language:{language.strip().lower()}|>\n" if language else ""
     return language_prefix + "".join(
         f"{item['role'].upper()}: {item['content'].strip()}\n"
         for item in messages
