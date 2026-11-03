@@ -156,3 +156,36 @@ test("static server blocks encoded traversal attempts", async () => {
   const response = await fetch(`${base}/%2e%2e%2fserver.js`);
   assert.notEqual(response.status, 200);
 });
+
+
+import { validateRuntimeUrl } from "../lib/dream-engine.js";
+
+test("runtime URL allows local HTTP endpoints", () => {
+  for (const value of [
+    "http://localhost:8081/v1",
+    "http://127.0.0.1:8081/v1",
+    "http://127.42.0.9:8081/v1",
+    "http://[::1]:8081/v1",
+    "http://dream.localhost:8081/v1"
+  ]) {
+    assert.equal(validateRuntimeUrl(value).protocol, "http:");
+  }
+});
+
+test("runtime URL requires HTTPS for non-loopback hosts", () => {
+  assert.throws(
+    () => validateRuntimeUrl("http://192.0.2.10:8081/v1"),
+    /must use HTTPS/
+  );
+  assert.equal(
+    validateRuntimeUrl("https://model.example.com/v1").protocol,
+    "https:"
+  );
+});
+
+test("runtime URL rejects unsupported protocols", () => {
+  assert.throws(
+    () => validateRuntimeUrl("file:///tmp/model"),
+    /HTTP or HTTPS/
+  );
+});
