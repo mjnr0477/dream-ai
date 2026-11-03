@@ -321,6 +321,11 @@ class DreamSFTTests(unittest.TestCase):
 
     def test_sft_rejects_leaking_pretraining_manifest_splits(self):
         self.write_manifest(["pretraining-train-group"])
+        base_payload = torch.load(self.base, map_location="cpu", weights_only=True)
+        base_payload["training"]["corpus_manifest_sha256"] = hashlib.sha256(
+            self.manifest.read_bytes()
+        ).hexdigest()
+        torch.save(base_payload, self.base)
         train_path = self.root / "leak-train.jsonl"
         val_path = self.root / "leak-validation.jsonl"
         self.write_records(train_path, "leak-train")
