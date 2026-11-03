@@ -48,8 +48,15 @@ class DreamByteTokenizer:
         return list(text.encode("utf-8"))
 
     def decode(self, token_ids) -> str:
-        raw = bytes(int(token) for token in token_ids if 0 <= int(token) <= 255)
-        return raw.decode("utf-8", errors="replace")
+        """Decode byte IDs without silently dropping or coercing invalid values."""
+        values = []
+        for token in token_ids:
+            if not isinstance(token, int) or isinstance(token, bool):
+                raise ValueError("Token IDs must be integers")
+            if token < 0 or token >= self.vocab_size:
+                raise ValueError("Token ID is outside the UTF-8 byte vocabulary")
+            values.append(token)
+        return bytes(values).decode("utf-8", errors="replace")
 
 
 class CausalSelfAttention(nn.Module):
