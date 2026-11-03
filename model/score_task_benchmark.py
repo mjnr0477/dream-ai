@@ -130,7 +130,7 @@ def write_json_atomic(path, payload):
         ) as handle:
             temporary_name = handle.name
             json.dump(payload, handle, ensure_ascii=False, indent=2)
-            handle.write("\\n")
+            handle.write("\n")
         os.replace(temporary_name, output)
     finally:
         if temporary_name and os.path.exists(temporary_name):
