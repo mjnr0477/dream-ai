@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 from datetime import date
+from urllib.parse import urlparse
 from pathlib import Path
 
 
@@ -48,7 +49,7 @@ def main():
         except json.JSONDecodeError as exc:
             raise SystemExit(f"Invalid JSON at line {line_number}: {exc}") from exc
 
-        required = ("id", "source", "source_group", "license", "source_date", "language", "text")
+        required = ("id", "source", "source_group", "source_url", "license", "license_url", "rights_basis", "source_date", "language", "text")
         if any(not isinstance(item.get(key), str) or not item[key].strip() for key in required):
             raise SystemExit(f"Missing required metadata or text at line {line_number}")
         try:
@@ -59,6 +60,14 @@ def main():
             raise SystemExit(
                 f"Invalid source_date at line {line_number}; expected YYYY-MM-DD"
             ) from exc
+        for field in ("source_url", "license_url"):
+            parsed = urlparse(item[field])
+            if parsed.scheme != "https" or not parsed.netloc:
+                raise SystemExit(f"{field} must be an absolute HTTPS URL at line {line_number}")
+        if item["rights_basis"] not in (
+            "original-authorship", "public-domain", "open-license", "explicit-permission"
+        ):
+            raise SystemExit(f"Invalid rights_basis at line {line_number}")
         if item.get("rights_confirmed") is not True:
             raise SystemExit(f"Rights not confirmed at line {line_number}; refusing dataset")
         if item.get("privacy_reviewed") is not True:
@@ -83,7 +92,10 @@ def main():
             "id": item["id"],
             "source": item["source"],
             "source_group": item["source_group"],
+            "source_url": item["source_url"],
             "license": item["license"],
+            "license_url": item["license_url"],
+            "rights_basis": item["rights_basis"],
             "source_date": item["source_date"],
             "language": item["language"],
             "text": item["text"].strip()
@@ -128,6 +140,11 @@ def main():
         "source_groups": group_count,
         "language_counts": language_counts,
         "license_counts": license_counts,
+        "rights_basis_counts": counts(records, "rights_basis"),
+        "source_catalog": sorted({
+            (row["source"], row["source_url"], row["license"], row["license_url"], row["rights_basis"])
+            for row in records
+        }),
         "source_date_range": source_date_range,
         "split_strategy": "deterministic source-group hash ranking; no group crosses splits",
         "splits": {}
@@ -148,6 +165,7 @@ def main():
             "record_ids": sorted(row["id"] for row in selected),
             "language_counts": counts(selected, "language"),
             "license_counts": counts(selected, "license"),
+            "rights_basis_counts": counts(selected, "rights_basis"),
             "source_date_range": {
                 "earliest": min(row["source_date"] for row in selected),
                 "latest": max(row["source_date"] for row in selected)
