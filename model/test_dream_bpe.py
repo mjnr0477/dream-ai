@@ -40,6 +40,18 @@ class DreamBPETokenizerTests(unittest.TestCase):
         sample = "こんにちは — mpya 🇰🇪"
         self.assertEqual(tokenizer.decode(tokenizer.encode(sample)), sample)
 
+    def test_rejects_non_integer_and_boolean_merge_ids(self):
+        for merges in ([[True, 1]], [[1.5, 2]], [["1", 2]], "not-a-list"):
+            with self.subTest(merges=merges):
+                with self.assertRaises(ValueError):
+                    DreamBPETokenizer(merges)
+
+    def test_rejects_boolean_saved_vocabulary_size(self):
+        payload = DreamBPETokenizer().to_dict()
+        payload["vocab_size"] = True
+        with self.assertRaises(ValueError):
+            DreamBPETokenizer.from_dict(payload)
+
     def test_rejects_invalid_merge_reference(self):
         with self.assertRaises(ValueError):
             DreamBPETokenizer([(256, 1)])
