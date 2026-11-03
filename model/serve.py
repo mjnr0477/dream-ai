@@ -56,6 +56,19 @@ def format_prompt(messages):
     ) + "ASSISTANT:"
 
 
+def decode_assistant_reply(tokenizer, generated_ids, prompt_length):
+    """Decode only the assistant turn, stopping before the next role marker."""
+    generated_text = tokenizer.decode(generated_ids[prompt_length:])
+    stop_positions = [
+        position for marker in ("\\nUSER:", "\\nSYSTEM:")
+        if (position := generated_text.find(marker)) >= 0
+    ]
+    stopped = bool(stop_positions)
+    if stopped:
+        generated_text = generated_text[:min(stop_positions)]
+    return generated_text.strip(), stopped
+
+
 def create_handler(model, tokenizer, config, model_name, token, device):
     class Handler(BaseHTTPRequestHandler):
         server_version = "DREAMNativeRuntime/0.2"
@@ -174,7 +187,9 @@ def create_handler(model, tokenizer, config, model_name, token, device):
                             temperature=float(temperature),
                             top_k=top_k
                         )[0].tolist()
-                answer = tokenizer.decode(generated[len(prompt_ids):]).strip()
+                answer, stopped = decode_assistant_reply(
+                    tokenizer, generated, len(prompt_ids)
+                )
             except Exception:
                 return self.send_json(500, {"error": {"message": "DREAM inference failed"}})
             if not answer:
@@ -189,7 +204,7 @@ def create_handler(model, tokenizer, config, model_name, token, device):
                 "choices": [{
                     "index": 0,
                     "message": {"role": "assistant", "content": answer},
-                    "finish_reason": "length"
+                    "finish_reason": "stop" if stopped else "length"
                 }],
                 "usage": {
                     "prompt_tokens": len(prompt_ids),
