@@ -121,7 +121,7 @@ class DreamSFTTests(unittest.TestCase):
         rows = [json.loads(line) for line in train_path.read_text().splitlines()]
         rows[1]["language"] = "sw"
         train_path.write_text(
-            "".join(json.dumps(row) + "\\n" for row in rows),
+            "".join(json.dumps(row) + "\n" for row in rows),
             encoding="utf-8"
         )
         grouped = load_examples(
@@ -283,7 +283,7 @@ class DreamSFTTests(unittest.TestCase):
         train_rows = [json.loads(line) for line in train_path.read_text().splitlines()]
         train_rows[1]["language"] = "sw"
         train_path.write_text(
-            "".join(json.dumps(row) + "\\n" for row in train_rows),
+            "".join(json.dumps(row) + "\n" for row in train_rows),
             encoding="utf-8"
         )
         output = self.root / "dream-instruct.pt"
@@ -301,7 +301,8 @@ class DreamSFTTests(unittest.TestCase):
                 "--grad-accum-steps", "2",
                 "--eval-every", "1",
                 "--eval-batches", "2",
-                "--checkpoint-every", "1"
+                "--checkpoint-every", "1",
+                "--language-sampling", "balanced"
             ],
             capture_output=True, text=True, timeout=120
         )
