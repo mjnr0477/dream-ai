@@ -15,7 +15,7 @@ import torch
 
 from dream_transformer import DreamByteTokenizer, DreamConfig, DreamTransformer
 from dream_bpe import DreamBPETokenizer
-from serve import decode_assistant_reply, load_model
+from serve import BoundedThreadingHTTPServer, decode_assistant_reply, load_model
 
 SERVER = Path(__file__).with_name("serve.py")
 
@@ -139,6 +139,22 @@ class DreamServingTests(unittest.TestCase):
         self.assertEqual(loaded_tokenizer.to_dict(), tokenizer.to_dict())
         self.assertEqual(loaded_tokenizer.decode(loaded_tokenizer.encode("Habari DREAM")), "Habari DREAM")
         self.assertEqual(metadata["completed_steps"], 1)
+
+    def test_runtime_rejects_connections_when_worker_capacity_is_full(self):
+        server = BoundedThreadingHTTPServer(
+            ("127.0.0.1", 0), lambda *args: None, max_workers=1
+        )
+        client, server_side = socket.socketpair()
+        try:
+            self.assertTrue(server._request_slots.acquire(blocking=False))
+            server.process_request(server_side, ("local", 0))
+            response = client.recv(1024)
+            self.assertIn(b"HTTP/1.1 503 Service Unavailable", response)
+            self.assertIn(b"Connection: close", response)
+        finally:
+            server._request_slots.release()
+            client.close()
+            server.server_close()
 
     def test_health_identifies_native_runtime(self):
         status, body = self.request("GET", "/health")
