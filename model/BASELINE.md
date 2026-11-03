@@ -18,6 +18,7 @@ The first configurable experiment defaults to 6 layers, width 256, 8 attention h
 
 - `model/train.py` trains from random initialization on an authorized UTF-8 text corpus.
 - `model/generate.py` runs local inference from a DREAM checkpoint.
+- `model/evaluate.py` reports held-out cross-entropy, bits-per-byte, perplexity-per-byte, SHA-256 provenance and a qualitative sample.
 - `model/serve.py` exposes the native checkpoint over a local HTTP endpoint. Its chat-completions-shaped JSON is only a transport protocol; no external model is called.
 - `model/test_dream_transformer.py`, `model/test_train.py` and `model/test_serve.py` test model behavior, checkpoint/resume and local HTTP serving.
 - `data/README.md` defines dataset provenance, privacy, licensing and quality gates.
@@ -30,6 +31,7 @@ python model/prepare_corpus.py --input data/approved-records.jsonl
 python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --eval-batches 10
 # Resume the saved run later, keeping the same corpus, architecture and optimizer settings:
 python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --resume checkpoints/dream-small.pt
+python model/evaluate.py --checkpoint checkpoints/dream-small.pt --data data/prepared/test.txt --out eval-results/dream-small.json
 python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER: Explain photosynthesis.\nASSISTANT:"
 ```
 
@@ -45,7 +47,7 @@ The server binds to localhost by default, processes one request at a time to bou
 
 No dataset is silently assumed or bundled as training data. Every record must carry human-confirmed rights, privacy and quality review flags; the script checks these attestations, deduplicates records and keeps source groups isolated across train/validation/test splits. These flags are not a substitute for actual legal and privacy review. See `data/README.md`.
 
-The 12-case initial DREAM evaluation set is a starting point, not enough to certify model quality. We must expand it, add independent human-reviewed scoring and test for memorization, factuality, bias, safety and multilingual performance.
+The 12-case initial DREAM application evaluation set is a starting point, not enough to certify model quality. The native checkpoint evaluator measures next-byte prediction on held-out text; it does not establish reasoning, instruction following, factuality or safety. We must expand it, add independent human-reviewed scoring and test for memorization, factuality, bias, safety and multilingual performance.
 
 ## Compute reality and honest release gates
 

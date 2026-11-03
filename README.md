@@ -25,6 +25,7 @@ See [model/BASELINE.md](model/BASELINE.md) for the architecture, commands and re
 
 - `model/dream_transformer.py`: DREAM's own transformer blocks, causal attention, embeddings and UTF-8 byte tokenizer.
 - `model/train.py`: trains from random initialization.
+- `model/evaluate.py`: produces a held-out corpus report with cross-entropy, bits-per-byte, perplexity-per-byte, corpus/checkpoint hashes and a sample generation.
 - `model/generate.py`: local checkpoint inference.
 - `model/serve.py`: serves DREAM checkpoints through a local HTTP API; the JSON protocol does not call an external AI.
 - `model/test_dream_transformer.py`, `model/test_train.py` and `model/test_serve.py`: test model behavior, training/checkpoint resume and the local authenticated HTTP API.
@@ -39,6 +40,7 @@ python model/prepare_corpus.py --input data/approved-records.jsonl
 python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --eval-batches 10
 # Resume an interrupted run from its latest atomic checkpoint:
 python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --resume checkpoints/dream-small.pt
+python model/evaluate.py --checkpoint checkpoints/dream-small.pt --data data/prepared/test.txt --out eval-results/dream-small.json
 python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER: Hello DREAM.\nASSISTANT:"
 ```
 
