@@ -4,10 +4,10 @@ The protocol is only an HTTP message format. All generated tokens come from
 DREAM's own checkpoint loaded by this process.
 """
 import json
+import math
 import os
 import secrets
-import threading
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import torch
 
@@ -22,7 +22,6 @@ if HOST not in ("127.0.0.1", "localhost", "::1") and not TOKEN:
     raise RuntimeError("DREAM_SERVER_TOKEN is required when binding beyond localhost")
 MAX_BODY = 64 * 1024
 MAX_OUTPUT_TOKENS = 256
-INFERENCE_LOCK = threading.BoundedSemaphore(1)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
@@ -42,6 +41,10 @@ MODEL, TOKENIZER, CONFIG = load_model()
 
 class Handler(BaseHTTPRequestHandler):
     server_version = "DREAM-Model/0.1"
+
+    def setup(self):
+        super().setup()
+        self.connection.settimeout(10)
 
     def _json(self, status, value):
         payload = json.dumps(value).encode("utf-8")
@@ -74,6 +77,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(401, {"error": "unauthorized"})
 
         try:
+            if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
+                return self._json(415, {"error": "application_json_required"})
             length = int(self.headers.get("Content-Length", "0"))
             if length < 1 or length > MAX_BODY:
                 return self._json(413, {"error": "invalid_body_size"})
@@ -101,19 +106,21 @@ class Handler(BaseHTTPRequestHandler):
             max_tokens = body.get("max_tokens", 128)
             if isinstance(max_tokens, bool) or not isinstance(max_tokens, int) or not 1 <= max_tokens <= MAX_OUTPUT_TOKENS:
                 return self._json(400, {"error": "max_tokens_out_of_range"})
-            if not INFERENCE_LOCK.acquire(blocking=False):
-                return self._json(503, {"error": "model_busy_try_again"})
-            try:
-                ids = torch.tensor(
-                    [prompt_ids[-CONFIG.block_size:]], dtype=torch.long, device=DEVICE
-                )
-                with torch.inference_mode():
-                    generated = MODEL.generate(
-                        ids, max_new_tokens=max_tokens,
-                        temperature=max(0.1, min(float(body.get("temperature", 0.8)), 1.5))
-                    )[0].tolist()
-            finally:
-                INFERENCE_LOCK.release()
+            temperature = body.get("temperature", 0.8)
+            if (
+                isinstance(temperature, bool)
+                or not isinstance(temperature, (int, float))
+                or not math.isfinite(temperature)
+                or not 0.1 <= temperature <= 1.5
+            ):
+                return self._json(400, {"error": "temperature_out_of_range"})
+            ids = torch.tensor(
+                [prompt_ids[-CONFIG.block_size:]], dtype=torch.long, device=DEVICE
+            )
+            with torch.inference_mode():
+                generated = MODEL.generate(
+                    ids, max_new_tokens=max_tokens, temperature=temperature
+                )[0].tolist()
             answer = TOKENIZER.decode(generated[len(ids[0]):]).strip()
             if not answer:
                 answer = TOKENIZER.decode(generated).strip()
@@ -138,4 +145,4 @@ class Handler(BaseHTTPRequestHandler):
 
 if __name__ == "__main__":
     print("Starting native DREAM model on", HOST, PORT, "device", DEVICE)
-    ThreadingHTTPServer((HOST, PORT), Handler).serve_forever()
+    HTTPServer((HOST, PORT), Handler).serve_forever()
