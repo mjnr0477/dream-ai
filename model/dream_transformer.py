@@ -61,21 +61,28 @@ class CausalSelfAttention(nn.Module):
         self.proj = nn.Linear(config.d_model, config.d_model, bias=False)
         self.dropout = config.dropout
 
-    def forward(self, x):
+    def forward(self, x, past_key_value=None, use_cache=False):
         batch, length, channels = x.shape
         q, k, v = self.qkv(x).split(channels, dim=-1)
         shape = (batch, length, self.n_heads, self.head_dim)
         q = q.view(shape).transpose(1, 2)
         k = k.view(shape).transpose(1, 2)
         v = v.view(shape).transpose(1, 2)
+        if past_key_value is not None:
+            if length != 1:
+                raise ValueError("Cached attention accepts one new token at a time.")
+            past_key, past_value = past_key_value
+            k = torch.cat((past_key, k), dim=2)
+            v = torch.cat((past_value, v), dim=2)
         attended = F.scaled_dot_product_attention(
             q, k, v, dropout_p=self.dropout if self.training else 0.0,
-            is_causal=True
+            is_causal=past_key_value is None
         )
         attended = attended.transpose(1, 2).contiguous().view(
             batch, length, channels
         )
-        return self.proj(attended)
+        output = self.proj(attended)
+        return (output, (k, v)) if use_cache else output
 
 
 class FeedForward(nn.Module):
@@ -101,10 +108,17 @@ class DreamBlock(nn.Module):
         self.norm2 = nn.LayerNorm(config.d_model)
         self.feed_forward = FeedForward(config)
 
-    def forward(self, x):
-        x = x + self.attention(self.norm1(x))
+    def forward(self, x, past_key_value=None, use_cache=False):
+        attention_result = self.attention(
+            self.norm1(x), past_key_value=past_key_value, use_cache=use_cache
+        )
+        if use_cache:
+            attention_output, present = attention_result
+        else:
+            attention_output = attention_result
+        x = x + attention_output
         x = x + self.feed_forward(self.norm2(x))
-        return x
+        return (x, present) if use_cache else x
 
 
 class DreamTransformer(nn.Module):
@@ -137,30 +151,69 @@ class DreamTransformer(nn.Module):
         elif isinstance(module, nn.Embedding):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def forward(self, token_ids, targets=None):
+    def forward(self, token_ids, targets=None, past_key_values=None,
+                use_cache=False):
         if token_ids.ndim != 2:
             raise ValueError("token_ids must have shape [batch, sequence]")
         batch, length = token_ids.shape
-        if batch < 1 or length < 1 or length > self.config.block_size:
-            raise ValueError("Input batch and sequence must be non-empty and sequence within block_size")
+        if batch < 1 or length < 1:
+            raise ValueError("Input batch and sequence must be non-empty")
         if token_ids.dtype != torch.long:
             raise TypeError("token_ids must use torch.long")
         if torch.any(token_ids < 0) or torch.any(token_ids >= self.config.vocab_size):
             raise ValueError("token_ids contain IDs outside the configured vocabulary")
-        positions = torch.arange(length, device=token_ids.device)
+        if past_key_values is not None and not use_cache:
+            raise ValueError("use_cache must be true when past_key_values are supplied.")
+
+        past_length = 0
+        if past_key_values is not None:
+            if not isinstance(past_key_values, (tuple, list)) or len(past_key_values) != self.config.n_layers:
+                raise ValueError("past_key_values must contain one key/value pair per layer.")
+            if length != 1:
+                raise ValueError("Cached forward accepts one new token at a time.")
+            first_key, first_value = past_key_values[0]
+            if (
+                first_key.ndim != 4 or first_value.shape != first_key.shape
+                or first_key.shape[0] != batch
+                or first_key.shape[1] != self.config.n_heads
+                or first_key.shape[3] != self.config.d_model // self.config.n_heads
+            ):
+                raise ValueError("past_key_values have incompatible tensor shapes.")
+            past_length = first_key.shape[2]
+            for key, value in past_key_values:
+                if (
+                    key.ndim != 4 or value.shape != key.shape
+                    or key.shape[0] != batch
+                    or key.shape[1] != self.config.n_heads
+                    or key.shape[2] != past_length
+                    or key.shape[3] != self.config.d_model // self.config.n_heads
+                    or key.device != token_ids.device or value.device != token_ids.device
+                ):
+                    raise ValueError("past_key_values have incompatible tensor shapes or devices.")
+        if past_length + length > self.config.block_size:
+            raise ValueError("Input sequence and cache exceed block_size")
+
+        positions = torch.arange(
+            past_length, past_length + length, device=token_ids.device
+        )
         x = self.dropout(
             self.token_embedding(token_ids) +
             self.position_embedding(positions)[None, :, :]
         )
-        for block in self.blocks:
-            x = block(x)
+        new_key_values = []
+        for index, block in enumerate(self.blocks):
+            layer_past = past_key_values[index] if past_key_values is not None else None
+            block_result = block(x, past_key_value=layer_past, use_cache=use_cache)
+            if use_cache:
+                x, present = block_result
+                new_key_values.append(present)
+            else:
+                x = block_result
         logits = self.language_head(self.final_norm(x))
         loss = None
         if targets is not None:
             if targets.shape != token_ids.shape or targets.dtype != torch.long:
                 raise ValueError("targets must be torch.long and match token_ids shape")
-            # -100 is the standard ignore_index used for prompt/padding
-            # positions in assistant-only supervised fine-tuning.
             supervised_targets = targets != -100
             if not torch.any(supervised_targets):
                 raise ValueError("targets must contain at least one supervised token")
@@ -172,6 +225,8 @@ class DreamTransformer(nn.Module):
                 logits.reshape(-1, logits.size(-1)),
                 targets.reshape(-1)
             )
+        if use_cache:
+            return logits, loss, tuple(new_key_values)
         return logits, loss
 
     @torch.no_grad()
@@ -188,21 +243,33 @@ class DreamTransformer(nn.Module):
         if token_ids.ndim != 2 or token_ids.shape[1] < 1:
             raise ValueError("generation prompt must have shape [batch, sequence]")
         self.eval()
-        for _ in range(max_new_tokens):
-            context = token_ids[:, -self.config.block_size:]
-            logits, _ = self(context)
-            logits = logits[:, -1, :]
+        if max_new_tokens == 0:
+            return token_ids
+        context = token_ids[:, -self.config.block_size:]
+        logits, _, past_key_values = self(context, use_cache=True)
+        for step in range(max_new_tokens):
+            next_logits = logits[:, -1, :]
             if temperature == 0:
-                next_token = torch.argmax(logits, dim=-1, keepdim=True)
+                next_token = torch.argmax(next_logits, dim=-1, keepdim=True)
             else:
-                logits = logits / temperature
+                next_logits = next_logits / temperature
                 if top_k:
-                    k = min(top_k, logits.size(-1))
-                    threshold = torch.topk(logits, k).values[:, [-1]]
-                    logits = logits.masked_fill(logits < threshold, float("-inf"))
-                probabilities = F.softmax(logits, dim=-1)
+                    k = min(top_k, next_logits.size(-1))
+                    threshold = torch.topk(next_logits, k).values[:, [-1]]
+                    next_logits = next_logits.masked_fill(
+                        next_logits < threshold, float("-inf")
+                    )
+                probabilities = F.softmax(next_logits, dim=-1)
                 next_token = torch.multinomial(probabilities, num_samples=1)
             token_ids = torch.cat((token_ids, next_token), dim=1)
+            if step + 1 < max_new_tokens:
+                if token_ids.shape[1] <= self.config.block_size:
+                    logits, _, past_key_values = self(
+                        next_token, past_key_values=past_key_values, use_cache=True
+                    )
+                else:
+                    context = token_ids[:, -self.config.block_size:]
+                    logits, _, past_key_values = self(context, use_cache=True)
         return token_ids
 
 
