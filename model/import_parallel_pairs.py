@@ -121,7 +121,7 @@ def main():
                     "role": "user",
                     "content": (
                         f"Translate the following sentence from {args.source_lang} "
-                        f"to {args.target_lang}. Return only the translation:\\n\\n{source_text.strip()}"
+                        f"to {args.target_lang}. Return only the translation:\n\n{source_text.strip()}"
                     )
                 },
                 {"role": "assistant", "content": target_text.strip()}
@@ -156,7 +156,7 @@ def main():
     def write_jsonl(path, rows):
         temporary = path.with_suffix(path.suffix + ".tmp")
         temporary.write_text(
-            "".join(json.dumps(row, ensure_ascii=False) + "\\n" for row in rows),
+            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
             encoding="utf-8"
         )
         temporary.replace(path)
@@ -193,7 +193,7 @@ def main():
             "Pair-content hashes prevent exact duplicate pairs crossing splits but do not prove story-level independence when source_group/story_id metadata is absent."
         ]
     }
-    summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\\n",
+    summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
                             encoding="utf-8")
     print(json.dumps(summary, ensure_ascii=False, indent=2))
 
