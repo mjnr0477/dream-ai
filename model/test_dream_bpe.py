@@ -70,7 +70,7 @@ class DreamBPETokenizerTests(unittest.TestCase):
         def reference_encode(text):
             output = []
             import re
-            for piece in re.findall(r"\\s+|[^\\s]+", text):
+            for piece in re.findall(r"\s+|[^\s]+", text):
                 tokens = list(piece.encode("utf-8"))
                 for merge_index, (left, right) in enumerate(tokenizer.merges):
                     new_id = tokenizer.base_vocab_size + merge_index
