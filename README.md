@@ -47,10 +47,16 @@ The adapter appends `/chat/completions` unless the URL already ends with that pa
 
 Do not use the placeholder URL above as a real endpoint. A real model host must first be provisioned and secured. Prefer HTTPS, restrict access to the DREAM AI service, set usage limits, and never expose an unauthenticated model server to the public internet.
 
+## Model baseline and evaluation
+
+See [model/BASELINE.md](model/BASELINE.md) for the provisional Qwen3.5-2B candidate and the smaller 0.8B comparison. This is a candidate for evaluation and DREAM-specific fine-tuning, not a claim that DREAM already owns those upstream weights.
+
+The original DREAM core benchmark set lives in `evals/core-v1.jsonl`. Validate it with `npm run validate:evals`. Once a self-hosted model runtime is available, run `npm run eval` with `DREAM_MODEL_URL` and `DREAM_MODEL_NAME` configured. Raw outputs are saved locally under `eval-results/` and are intentionally git-ignored. The runner records latency and preserves the human scoring rubric; it does not fabricate an automatic quality score.
+
 ## Model development roadmap
 
 1. Select an open-weight base model that fits our realistic compute budget and target devices.
-2. Establish evaluation datasets for reasoning, coding, factuality, instruction following, safety and Kenyan/local context.
+2. Expand the original evaluation dataset and establish repeatable scoring across reasoning, coding, factuality, instruction following, safety and Kenyan/local context.
 3. Build a repeatable fine-tuning pipeline with licensed and consented data.
 4. Train adapters first where practical; compare against the untouched base model using held-out evaluations.
 5. Version model weights, datasets, training configs and evaluation reports.
