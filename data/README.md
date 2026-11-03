@@ -68,7 +68,7 @@ The importer deduplicates exact pairs, rejects conflicting translations for the 
 
 ## Supervised instruction records
 
-For instruction fine-tuning, each JSONL record uses the same provenance and review fields as pretraining records, plus a `messages` array. Messages must alternate `user` and `assistant`, may begin with one `system` message, and must end with an assistant response. Example shape:
+For instruction fine-tuning, each JSONL record uses the same provenance and review fields as pretraining records, plus a `messages` array. The SFT loader prepends `<|language:TAG|>` from the record's `language` field to the conversation context before each assistant response is learned. Messages must alternate `user` and `assistant`, may begin with one `system` message, and must end with an assistant response. Example shape:
 
 ```json
 {"id":"sft-001","source":"DREAM-authored dialogue","source_group":"dream-tutor-v1","source_url":"https://example.org/dialogue","license":"CC0-1.0","license_url":"https://creativecommons.org/publicdomain/zero/1.0/","rights_basis":"original-authorship","source_date":"2026-01-15","rights_confirmed":true,"privacy_reviewed":true,"quality_reviewed":true,"language":"en","messages":[{"role":"user","content":"Explain fractions."},{"role":"assistant","content":"A fraction represents part of a whole..."}]}
