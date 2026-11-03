@@ -40,6 +40,29 @@ class HumanTaskScoreTests(unittest.TestCase):
         self.assertEqual(summary["categories"]["language"]["score_percent"], None)
         self.assertEqual(summary["data_provenance_verified"], True)
 
+    def test_aggregates_multilingual_scores_per_language(self):
+        report = sample_report()
+        report["results"][1].update({
+            "language_code": "swa",
+            "language_name": "Kiswahili"
+        })
+        report["results"][2].update({
+            "language_code": "ara",
+            "language_name": "Arabic"
+        })
+        summary = aggregate(report)
+        self.assertEqual(summary["language_count"], 2)
+        self.assertEqual(summary["languages"]["swa"]["language_name"], "Kiswahili")
+        self.assertEqual(summary["languages"]["swa"]["score_percent"], 100.0)
+        self.assertIsNone(summary["languages"]["ara"]["score_percent"])
+        self.assertEqual(summary["tasks"][1]["language_code"], "swa")
+
+    def test_rejects_incomplete_language_score_metadata(self):
+        report = sample_report()
+        report["results"][0]["language_code"] = "swa"
+        with self.assertRaisesRegex(ValueError, "both language_code and language_name"):
+            aggregate(report)
+
     def test_no_scores_yet_returns_null_accuracy_not_zero(self):
         report = sample_report()
         for item in report["results"]:
