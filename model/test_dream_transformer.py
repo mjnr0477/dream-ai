@@ -45,6 +45,45 @@ class DreamTransformerTests(unittest.TestCase):
         self.assertEqual(tuple(generated.shape), (1, 7))
         self.assertTrue(torch.equal(generated[:, :3], prompt))
 
+    def test_incremental_kv_cache_matches_full_forward_logits(self):
+        tokens = torch.tensor([[65, 66, 67, 68, 69]], dtype=torch.long)
+        with torch.inference_mode():
+            full_logits, _ = self.model(tokens)
+            prefix_logits, _, cache = self.model(tokens[:, :-1], use_cache=True)
+            cached_logits, _, updated_cache = self.model(
+                tokens[:, -1:], past_key_values=cache, use_cache=True
+            )
+        self.assertEqual(len(updated_cache), self.config.n_layers)
+        self.assertEqual(updated_cache[0][0].shape[2], tokens.shape[1])
+        self.assertTrue(torch.allclose(
+            cached_logits[:, -1, :], full_logits[:, -1, :], atol=1e-5
+        ))
+
+    def test_cached_greedy_generation_matches_sliding_window_reference(self):
+        prompt = torch.tensor(
+            [[65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78]],
+            dtype=torch.long
+        )
+        expected = prompt.clone()
+        with torch.inference_mode():
+            for _ in range(6):
+                context = expected[:, -self.config.block_size:]
+                logits, _ = self.model(context)
+                next_token = torch.argmax(logits[:, -1, :], dim=-1, keepdim=True)
+                expected = torch.cat((expected, next_token), dim=1)
+            actual = self.model.generate(
+                prompt.clone(), max_new_tokens=6, temperature=0
+            )
+        self.assertTrue(torch.equal(actual, expected))
+
+    def test_cached_forward_rejects_non_single_token_increment(self):
+        prefix = torch.tensor([[65, 66, 67]], dtype=torch.long)
+        next_tokens = torch.tensor([[68, 69]], dtype=torch.long)
+        with torch.inference_mode():
+            _, _, cache = self.model(prefix, use_cache=True)
+            with self.assertRaisesRegex(ValueError, "one new token"):
+                self.model(next_tokens, past_key_values=cache, use_cache=True)
+
     def test_greedy_generation_is_deterministic(self):
         prompt = torch.tensor([[65, 66, 67]])
         first = self.model.generate(prompt.clone(), max_new_tokens=5, temperature=0)
