@@ -23,6 +23,16 @@ For native pretraining, pass the generated manifest with `--manifest data/prepar
 
 Each JSONL record must include `source_url` and `license_url` as absolute HTTPS URLs, a `rights_basis` value from the allowed set above, and `source_date` in strict `YYYY-MM-DD` form and set `rights_confirmed`, `privacy_reviewed` and `quality_reviewed` to `true`. The generated manifest reports record counts by language, license and rights basis, plus a source catalog containing source URLs and license URLs and the source-date range; inspect these before training. These flags record a human review; the script cannot independently verify legal rights or detect all personal information.
 
+## Multilingual balance audit (does not approve data)
+
+After records have been collected and reviewed, run a language-balance report before preparing the training splits:
+
+```sh
+python model/audit_language_balance.py --input data/approved-records.jsonl --out eval-results/language-balance.json
+```
+
+The report groups records by their declared language tag, counts independent source groups, estimates record shares, and detects approximate Unicode writing systems (including Latin, Arabic, Devanagari, Bengali, Ethiopic, Cyrillic, Han, Kana, Hangul and Thai). It flags low record counts, dominant languages and languages with fewer than three source groups. It never includes raw text, never changes records, and always sets `approval_granted: false`. Script detection is approximate; a language tag is supplied metadata, not proof that the text is actually in that language. Review dialects, quality, rights, privacy and source independence manually.
+
 ## Pre-ingestion audit (does not approve data)
 
 Before changing any human-review flags or running the preparation pipeline, run the privacy-conscious audit against the candidate JSONL file:
