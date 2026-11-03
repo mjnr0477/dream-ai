@@ -60,6 +60,7 @@ class CorpusPreparationTests(unittest.TestCase):
                     if f"Record {i}" in text
                 }
                 self.assertTrue(text.strip())
+                self.assertIn("<|language:en|>", text)
                 split_manifest = manifest["splits"][split]
                 self.assertEqual(set(split_manifest["source_group_ids"]), groups[split])
                 self.assertEqual(split_manifest["records"], len(groups[split]))
@@ -113,6 +114,9 @@ class CorpusPreparationTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             manifest = json.loads((root / "prepared" / "manifest.json").read_text())
             self.assertEqual(manifest["language_counts"], {"en": 6})
+            self.assertEqual(
+                manifest["language_prefix_format"], "<|language:{language}|>"
+            )
             self.assertEqual(manifest["license_counts"], {"CC0-1.0": 6})
             self.assertEqual(
                 manifest["source_date_range"],
@@ -142,6 +146,14 @@ class CorpusPreparationTests(unittest.TestCase):
             manifest = json.loads((root / "prepared" / "manifest.json").read_text())
             self.assertEqual(manifest["rights_basis_counts"], {"original-authorship": 6})
             self.assertEqual(len(manifest["source_catalog"]), 6)
+
+    def test_rejects_invalid_language_tag(self):
+        rows = self.make_records()
+        rows[0]["language"] = "not a language"
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_prepare(Path(directory), rows)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Invalid language tag", result.stderr)
 
     def test_rejects_non_https_provenance_urls(self):
         rows = self.make_records()
