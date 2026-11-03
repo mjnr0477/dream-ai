@@ -459,6 +459,11 @@ class DreamSFTTests(unittest.TestCase):
         self.write_records(train_path, "train")
         self.write_records(val_path, "validation")
         self.write_manifest(["train-group-0"])
+        base_payload = torch.load(self.base, map_location="cpu", weights_only=True)
+        base_payload["training"]["corpus_manifest_sha256"] = hashlib.sha256(
+            self.manifest.read_bytes()
+        ).hexdigest()
+        torch.save(base_payload, self.base)
         result = subprocess.run(
             [
                 sys.executable, str(SCRIPT),
