@@ -104,6 +104,8 @@ class DreamSFTTests(unittest.TestCase):
         self.assertTrue(saved["base_checkpoint_sha256"])
         self.assertTrue(saved["sft_training"]["train_sha256"])
         self.assertTrue(saved["sft_training"]["validation_sha256"])
+        self.assertIn("python_rng_state", saved)
+        self.assertIn("torch_rng_state", saved)
 
         resumed = subprocess.run(
             [
