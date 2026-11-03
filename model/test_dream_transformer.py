@@ -105,6 +105,41 @@ class DreamTransformerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.model(prompt, targets)
 
+    def test_out_of_range_input_token_ids_are_rejected(self):
+        for value in (-1, 256):
+            with self.subTest(value=value):
+                tokens = torch.tensor([[value]], dtype=torch.long)
+                with self.assertRaisesRegex(ValueError, "outside the configured vocabulary"):
+                    self.model(tokens)
+
+    def test_out_of_range_target_token_ids_are_rejected(self):
+        tokens = torch.tensor([[65, 66]], dtype=torch.long)
+        targets = torch.tensor([[66, 256]], dtype=torch.long)
+        with self.assertRaisesRegex(ValueError, "targets contain IDs"):
+            self.model(tokens, targets)
+
+    def test_empty_batches_are_rejected(self):
+        tokens = torch.empty((0, 2), dtype=torch.long)
+        with self.assertRaisesRegex(ValueError, "non-empty"):
+            self.model(tokens)
+
+    def test_boolean_dimensions_are_rejected(self):
+        with self.assertRaisesRegex(ValueError, "positive integers"):
+            DreamConfig(n_layers=True)
+
+    def test_boolean_generation_limits_are_rejected(self):
+        prompt = torch.tensor([[65]], dtype=torch.long)
+        with self.assertRaises(ValueError):
+            self.model.generate(prompt, max_new_tokens=True)
+        with self.assertRaises(ValueError):
+            self.model.generate(prompt, top_k=True)
+
+    def test_boolean_and_nonfinite_dropout_are_rejected(self):
+        for dropout in (True, float("nan"), float("inf")):
+            with self.subTest(dropout=dropout):
+                with self.assertRaisesRegex(ValueError, "dropout"):
+                    DreamConfig(dropout=dropout)
+
 
 if __name__ == "__main__":
     unittest.main()
