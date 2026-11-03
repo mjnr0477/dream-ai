@@ -13,9 +13,9 @@ from pathlib import Path
 
 import torch
 
-from dream_transformer import DreamConfig, DreamTransformer
+from dream_transformer import DreamByteTokenizer, DreamConfig, DreamTransformer
 from dream_bpe import DreamBPETokenizer
-from serve import load_model
+from serve import decode_assistant_reply, load_model
 
 SERVER = Path(__file__).with_name("serve.py")
 
@@ -101,6 +101,26 @@ class DreamServingTests(unittest.TestCase):
                 return response.status, json.loads(response.read())
         except urllib.error.HTTPError as error:
             return error.code, json.loads(error.read())
+
+    def test_reply_decoder_stops_before_next_user_turn(self):
+        tokenizer = DreamByteTokenizer()
+        prompt = "USER: hello\\nASSISTANT:"
+        generated = tokenizer.encode(prompt + "Hello there.\\nUSER: next question")
+        answer, stopped = decode_assistant_reply(
+            tokenizer, generated, len(tokenizer.encode(prompt))
+        )
+        self.assertEqual(answer, "Hello there.")
+        self.assertTrue(stopped)
+
+    def test_reply_decoder_preserves_role_words_inside_answer(self):
+        tokenizer = DreamByteTokenizer()
+        prompt = "USER: hello\\nASSISTANT:"
+        generated = tokenizer.encode(prompt + "The label USER: is a role name.")
+        answer, stopped = decode_assistant_reply(
+            tokenizer, generated, len(tokenizer.encode(prompt))
+        )
+        self.assertEqual(answer, "The label USER: is a role name.")
+        self.assertFalse(stopped)
 
     def test_load_model_restores_bpe_checkpoint_tokenizer(self):
         tokenizer = DreamBPETokenizer.train("DREAM AI multilingual training fixture", vocab_size=270)
