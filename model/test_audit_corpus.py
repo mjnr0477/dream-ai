@@ -62,11 +62,14 @@ class CorpusAuditTests(unittest.TestCase):
     def test_private_record_identifier_is_not_exposed_in_report(self):
         private_id = "learner@example.org"
         with tempfile.TemporaryDirectory() as directory:
-            result, report = self.run_audit(Path(directory), [self.record(private_id)])
+            first = self.record(private_id)
+            second = self.record("second", "A different sufficiently long record creates a metadata finding.")
+            second["source_group"] = ""
+            result, report = self.run_audit(Path(directory), [first, second])
             self.assertEqual(result.returncode, 0, result.stderr)
             serialized = json.dumps(report)
             self.assertNotIn(private_id, serialized)
-            self.assertIn('"record_id": "line-1"', serialized)
+            self.assertIn('"record_id": "line-2"', serialized)
 
     def test_duplicate_content_and_incomplete_reviews_are_reported(self):
         first = self.record("first")
