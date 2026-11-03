@@ -23,6 +23,24 @@ For native pretraining, pass the generated manifest with `--manifest data/prepar
 
 Each JSONL record must include `source_url` and `license_url` as absolute HTTPS URLs, a `rights_basis` value from the allowed set above, and `source_date` in strict `YYYY-MM-DD` form and set `rights_confirmed`, `privacy_reviewed` and `quality_reviewed` to `true`. The generated manifest reports record counts by language, license and rights basis, plus a source catalog containing source URLs and license URLs and the source-date range; inspect these before training. These flags record a human review; the script cannot independently verify legal rights or detect all personal information.
 
+## Kenyan parallel-corpus candidate import
+
+For a locally exported JSONL file whose rows contain a `translation` object, `model/import_parallel_pairs.py` can create separate SFT train/validation *candidate* files. Example for Dawida/Kidaw'ida to Kiswahili:
+
+```sh
+python model/import_parallel_pairs.py \
+  --input data/parallel/dav_swa-train.jsonl \
+  --source-lang dav --target-lang swa \
+  --source-name "Kenyan Low-Resource Language Parallel Corpora" \
+  --source-url https://huggingface.co/datasets/thinkKenya/kenyan-low-resource-language-data \
+  --license CC-BY-4.0 \
+  --license-url https://creativecommons.org/licenses/by/4.0/ \
+  --source-date 2026-11-03 \
+  --output-dir data/parallel-candidates
+```
+
+The importer deduplicates exact pairs and keeps any provided `source_group` or `story_id` together across splits. If neither exists, it falls back to exact pair-content hashes and explicitly warns that this cannot prove story-level independence. It always writes `rights_confirmed`, `privacy_reviewed` and `quality_reviewed` as `false`. Do not change them until a person has verified the dataset access terms, attribution, consent, privacy and translation quality. Preserve the dataset's official test split for evaluation; do not feed it to this importer for SFT.
+
 ## Supervised instruction records
 
 For instruction fine-tuning, each JSONL record uses the same provenance and review fields as pretraining records, plus a `messages` array. Messages must alternate `user` and `assistant`, may begin with one `system` message, and must end with an assistant response. Example shape:
