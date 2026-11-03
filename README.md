@@ -6,7 +6,7 @@ DREAM AI is an independent AI research and application project, separate from Dr
 
 DREAM has its own decoder-only transformer architecture, byte tokenizer, random initialization, training script, inference script and native model-serving API in `model/`. This is the beginning of a from-scratch model, not a borrowed foundation-model checkpoint.
 
-**No trained DREAM checkpoint is being claimed yet.** The Node web app and model runtime are separate. The Render web service hosts the application; training and inference run on suitable compute that we control.
+**No production-trained DREAM checkpoint is being claimed yet.** CI now proves that a tiny model can train from random initialization, complete assistant-only instruction tuning and pass held-out smoke evaluation. Those synthetic tests validate the pipeline only; they do not establish useful model intelligence. The Node web app and model runtime are separate. The Render web service hosts the application; training and inference run on suitable compute that we control.
 
 ## Current application
 
@@ -28,7 +28,7 @@ See [model/BASELINE.md](model/BASELINE.md) for the architecture, commands and re
 - `model/evaluate.py`: produces a held-out corpus report with cross-entropy, bits-per-byte, perplexity-per-byte, corpus/checkpoint hashes and a sample generation.
 - `model/generate.py`: local checkpoint inference.
 - `model/serve.py`: serves DREAM checkpoints through a local HTTP API; the JSON protocol does not call an external AI.
-- `model/test_dream_transformer.py`, `model/test_train.py` and `model/test_serve.py`: test model behavior, training/checkpoint resume and the local authenticated HTTP API.
+- `model/test_*.py`: tests cover transformer behavior, corpus preparation, training/checkpoint resume, SFT masking and provenance, notebook code cells, and the local authenticated HTTP API. CI also runs a full tiny pretraining → held-out evaluation → SFT → held-out evaluation sequence.
 - `data/README.md`: strict data provenance, privacy and licensing rules.
 
 Install and run the model locally:
