@@ -164,8 +164,14 @@ class DreamTransformer(nn.Module):
         if targets is not None:
             if targets.shape != token_ids.shape or targets.dtype != torch.long:
                 raise ValueError("targets must be torch.long and match token_ids shape")
-            if torch.any((targets < 0) | (targets >= self.config.vocab_size)):
-                raise ValueError("targets contain IDs outside the configured vocabulary")
+            invalid_targets = (targets != -100) & (
+                (targets < 0) | (targets >= self.config.vocab_size)
+            )
+            if torch.any(invalid_targets):
+                raise ValueError(
+                    "targets contain IDs outside the configured vocabulary "
+                    "or the supported ignore_index=-100"
+                )
             loss = F.cross_entropy(
                 logits.reshape(-1, logits.size(-1)),
                 targets.reshape(-1)
