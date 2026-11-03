@@ -141,7 +141,7 @@ class DreamSFTTests(unittest.TestCase):
         self.assertTrue(torch.any(targets >= 0))
         language_prefixes = {
             language: torch.tensor(
-                tokenizer.encode(f"<|language:{language}|>\\n"), dtype=torch.long
+                tokenizer.encode(f"<|language:{language}|>\n"), dtype=torch.long
             )
             for language in grouped
         }
