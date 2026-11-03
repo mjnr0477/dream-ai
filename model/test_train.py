@@ -377,3 +377,48 @@ class DreamTrainingSmokeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DreamLanguageSamplingTests(unittest.TestCase):
+    def test_splits_language_tagged_documents_into_independent_streams(self):
+        from train import split_language_streams
+
+        text = (
+            "<|language:en|>\nEnglish lesson with enough words for several training windows.\n\n"
+            "<|language:sw|>\nSomomo la Kiswahili lina maneno ya kutosha kwa mafunzo.\n\n"
+            "<|language:en|>\nA second English document adds more training material.\n"
+        )
+        streams = split_language_streams(text, _ByteTokenizerForSampling(), 4)
+        self.assertEqual(set(streams), {"en", "sw"})
+        self.assertGreater(len(streams["en"]), len(streams["sw"]))
+        self.assertTrue(all(len(tokens) >= 6 for tokens in streams.values()))
+
+    def test_rejects_missing_language_markers_and_short_language_stream(self):
+        from train import split_language_streams
+
+        with self.assertRaisesRegex(ValueError, "requires"):
+            split_language_streams("Plain text has no language marker.", _ByteTokenizerForSampling(), 4)
+        with self.assertRaisesRegex(ValueError, "insufficient"):
+            split_language_streams(
+                "<|language:en|>\nshort\n\n<|language:sw|>\nThis Kiswahili stream has enough words for training windows.",
+                _ByteTokenizerForSampling(), 8
+            )
+
+    def test_balanced_batches_return_valid_next_token_pairs(self):
+        from train import balanced_batches
+        import torch
+
+        streams = {
+            "en": torch.tensor(list(range(40)), dtype=torch.long),
+            "sw": torch.tensor(list(range(50, 90)), dtype=torch.long)
+        }
+        x, y = balanced_batches(streams, batch_size=12, block_size=6, device="cpu")
+        self.assertEqual(tuple(x.shape), (12, 6))
+        self.assertEqual(tuple(y.shape), (12, 6))
+        self.assertTrue(torch.equal(x[:, 1:], y[:, :-1]))
+        self.assertTrue(torch.all(x < 90))
+
+
+class _ByteTokenizerForSampling:
+    def encode(self, text):
+        return list(text.encode("utf-8"))
