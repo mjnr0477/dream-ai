@@ -108,7 +108,7 @@ class DreamSFTTests(unittest.TestCase):
                 candidate[0]["source_date"] = value
             path = self.root / "invalid-sft.jsonl"
             path.write_text(
-                "".join(json.dumps(row) + "\\n" for row in candidate),
+                "".join(json.dumps(row) + "\n" for row in candidate),
                 encoding="utf-8"
             )
             with self.subTest(value=value):
