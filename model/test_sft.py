@@ -281,6 +281,56 @@ class DreamSFTTests(unittest.TestCase):
         )
         self.assertEqual(valid_eval.returncode, 0, valid_eval.stdout + valid_eval.stderr)
 
+    def test_sft_rejects_manifest_not_bound_to_verified_base_checkpoint(self):
+        verified_base = self.root / "verified-base.pt"
+        base_payload = torch.load(self.base, map_location="cpu", weights_only=True)
+        base_payload["training"]["data_provenance_verified"] = True
+        base_payload["training"]["corpus_manifest_sha256"] = "f" * 64
+        torch.save(base_payload, verified_base)
+        train_path = self.root / "verified-train.jsonl"
+        val_path = self.root / "verified-validation.jsonl"
+        self.write_records(train_path, "verified-train")
+        self.write_records(val_path, "verified-validation")
+        result = subprocess.run(
+            [
+                sys.executable, str(SCRIPT),
+                "--checkpoint", str(verified_base),
+                "--train-data", str(train_path),
+                "--validation-data", str(val_path),
+                "--pretraining-manifest", str(self.manifest),
+                "--pretraining-test-data", str(self.test_data),
+                "--out", str(self.root / "rejected.pt"),
+                "--steps", "1", "--batch-size", "1",
+                "--eval-batches", "1", "--checkpoint-every", "1"
+            ],
+            capture_output=True, text=True, timeout=30
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("does not match the manifest bound", result.stderr)
+
+    def test_sft_rejects_leaking_pretraining_manifest_splits(self):
+        self.write_manifest(["pretraining-train-group"])
+        train_path = self.root / "leak-train.jsonl"
+        val_path = self.root / "leak-validation.jsonl"
+        self.write_records(train_path, "leak-train")
+        self.write_records(val_path, "leak-validation")
+        result = subprocess.run(
+            [
+                sys.executable, str(SCRIPT),
+                "--checkpoint", str(self.base),
+                "--train-data", str(train_path),
+                "--validation-data", str(val_path),
+                "--pretraining-manifest", str(self.manifest),
+                "--pretraining-test-data", str(self.test_data),
+                "--out", str(self.root / "leaking.pt"),
+                "--steps", "1", "--batch-size", "1",
+                "--eval-batches", "1", "--checkpoint-every", "1"
+            ],
+            capture_output=True, text=True, timeout=30
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("source-group leakage between train and test", result.stderr)
+
     def test_rejects_overlapping_source_groups(self):
         train_path = self.root / "train.jsonl"
         val_path = self.root / "validation.jsonl"
