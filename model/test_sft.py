@@ -114,6 +114,26 @@ class DreamSFTTests(unittest.TestCase):
             supervised = bytes(target for target in targets if target != -100)
             self.assertIn(b"Answer from train number", supervised)
 
+    def test_sft_rejects_non_object_jsonl_records_cleanly(self):
+        train_path = self.root / "malformed-train.jsonl"
+        val_path = self.root / "valid-validation.jsonl"
+        train_path.write_text("[]\\n", encoding="utf-8")
+        self.write_records(val_path, "valid-validation")
+        result = subprocess.run(
+            [
+                sys.executable, str(SCRIPT),
+                "--checkpoint", str(self.base),
+                "--train-data", str(train_path),
+                "--validation-data", str(val_path),
+                "--pretraining-manifest", str(self.manifest),
+                "--pretraining-test-data", str(self.test_data),
+                "--steps", "1"
+            ],
+            capture_output=True, text=True, timeout=30
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("must be a JSON object", result.stderr)
+
     def test_sft_rejects_missing_source_url_and_unknown_rights_basis(self):
         train_path = self.root / "train.jsonl"
         self.write_records(train_path, "train")
