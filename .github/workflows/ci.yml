@@ -53,6 +53,7 @@ jobs:
           python model/evaluate.py
           --checkpoint /tmp/dream-smoke-small.pt
           --data /tmp/dream-smoke-data/test.txt
+          --manifest /tmp/dream-smoke-data/manifest.json
           --batch-size 1 --batches 1 --sample-tokens 8
           --out /tmp/dream-smoke-eval.json
       - name: Fine-tune DREAM on synthetic assistant-only examples
