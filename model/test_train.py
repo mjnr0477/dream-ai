@@ -86,7 +86,7 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             self.assertGreater(report["bits_per_byte"], 0)
             self.assertTrue(report["checkpoint_sha256"])
             self.assertTrue(report["evaluation_corpus_sha256"])
-            self.assertIn("do not certify", " ".join(report["limitations"]))
+            self.assertIn("does not certify safety", " ".join(report["limitations"]))
 
     def test_rejects_same_train_and_validation_file(self):
         with tempfile.TemporaryDirectory() as directory:
