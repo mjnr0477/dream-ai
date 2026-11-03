@@ -126,6 +126,12 @@ class DreamTransformerTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "targets contain IDs"):
             self.model(tokens, targets)
 
+    def test_ignored_target_labels_are_allowed_for_sft(self):
+        tokens = torch.tensor([[65, 66, 67]], dtype=torch.long)
+        targets = torch.tensor([[-100, -100, 67]], dtype=torch.long)
+        _, loss = self.model(tokens, targets)
+        self.assertTrue(torch.isfinite(loss).item())
+
     def test_empty_batches_are_rejected(self):
         tokens = torch.empty((0, 2), dtype=torch.long)
         with self.assertRaisesRegex(ValueError, "non-empty"):
