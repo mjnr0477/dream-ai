@@ -1,6 +1,6 @@
 # DREAM native model
 
-Status: first independently designed and randomly initialized architecture implemented. No trained DREAM checkpoint exists yet.
+Status: independently designed and randomly initialized architecture implemented; end-to-end pretraining, held-out evaluation, assistant-only SFT and SFT evaluation all pass on tiny synthetic CI fixtures. No production-quality or generally capable DREAM checkpoint exists yet.
 
 ## Architecture decision
 
@@ -73,7 +73,7 @@ Do not call a random-weight model intelligent, do not claim a trained checkpoint
 
 ## Roadmap
 
-1. Validate the architecture and training loop on a small synthetic smoke test.
+1. [x] Validate the architecture, preprocessing, random-initialization training, held-out evaluation, assistant-only SFT and checkpoint loading on synthetic CI smoke tests.
 2. Build and audit the first licensed DREAM corpus.
 3. Train repeatable checkpoints from random initialization.
 4. Expand benchmark coverage and human evaluation.
