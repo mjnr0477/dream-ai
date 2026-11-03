@@ -33,6 +33,23 @@ For instruction fine-tuning, each JSONL record uses the same provenance and revi
 
 Use distinct source groups, independently checked answers, and separate training/validation files. Pass the pretraining `manifest.json` and exact held-out `test.txt` file to SFT: it verifies their hash matches and its training and validation source groups must also be disjoint from the pretraining held-out test groups. The SFT checkpoint records the exact held-out test hash, and evaluation refuses any other corpus. SFT also rejects duplicate record IDs and normalized dialogue content across its training/validation files. The script verifies the review flags and data hashes; it cannot establish the truth of the underlying attestations. The manifest must be a JSON object using the supported `dream-corpus-v1` schema; malformed roots or split metadata are rejected.
 
+## Verified East African data leads (not yet ingested)
+
+These are research leads, not approved training inputs. A record-level rights, source, privacy and quality audit is still required before any download is added to a training corpus.
+
+| Resource | Publicly documented scope | Current decision |
+|---|---|---|
+| [Makerere Kiswahili Monolingual Corpus](https://doi.org/10.7910/DVN/NHMTIC) | 100,000 Kiswahili sentences; CC BY 4.0; published 2023-03-22 | High-priority candidate. Audit the actual file, citation obligations, source composition and duplicates before ingestion. |
+| [Makerere Acoli Monolingual Corpus](https://marconilab.org/research/datasets/) | 40,037 Acoli sentences; CC BY 4.0 | Candidate for low-resource language coverage; obtain the exact dataset record and verify source/redistribution metadata. |
+| [Makerere Lumasaba Monolingual Corpus](https://marconilab.org/research/datasets/) | 39,999 Lumasaba sentences; CC BY 4.0 | Candidate; verify dialect balance, exact file split and provenance. |
+| [Makerere Multilingual Parallel Text Corpora](https://doi.org/10.7910/DVN/BEROE0) | Partial English-aligned corpora for Acholi, Runyankore, Luganda, Lumasaba and Swahili; CC BY 4.0 | Candidate for translation and cross-lingual evaluation, not a substitute for broad monolingual pretraining. |
+| [LughaKonnect](https://lughakonnect.co.ke/guidelines) | CC BY 4.0; currently reports 4,712 human-checked words across 36 Kenyan languages and no public voice recordings | Valuable for lexicon grounding, spelling checks and language-specific evaluation; too small for foundational pretraining by itself. |
+| [LughaGen Multilingual African Corpus](https://huggingface.co/datasets/LughaGen-Organization/LughaGen-Multilingual-African-Corpus) | Dataset card reports CC BY-SA 4.0, secondary and synthetic data, and source-specific restrictions including Bible material | Hold out pending legal review. It is access-gated, contains model-generated synthetic records, and inherits source-level restrictions. Do not bulk-ingest based only on the repository-level license. |
+
+The Kiswahili, Acoli, Lumasaba and parallel-corpus descriptions and CC BY 4.0 terms are published by their dataset custodians. LughaKonnect explicitly reports its current checked-word and audio coverage; use those numbers as a snapshot, not a claim that all 36 languages are equally complete. LughaGen's repository-level CC BY-SA 4.0 label does not override its documented source-level restrictions. Record the exact dataset version, file hash, item-level license, attribution and any ShareAlike obligations before considering it.
+
+**Independence rule:** DREAM's architecture, tokenizer, optimizer, training and inference remain native. Do not import another model's weights, use a hosted model API, or treat unreviewed model-generated answers as authoritative ground truth. If synthetic examples are ever considered, identify their generator and provenance, independently verify them, and keep them separate from factual evaluation sets.
+
 ## First target domains
 
 1. General language and instruction following.
