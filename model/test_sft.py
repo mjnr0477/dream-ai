@@ -109,6 +109,7 @@ class DreamSFTTests(unittest.TestCase):
                 "--validation-data", str(val_path),
                 "--pretraining-manifest", str(self.manifest),
                 "--pretraining-test-data", str(self.test_data),
+                "--pretraining-test-data", str(self.test_data),
                 "--out", str(output),
                 "--steps", "2",
                 "--batch-size", "2",
@@ -143,6 +144,7 @@ class DreamSFTTests(unittest.TestCase):
                 "--train-data", str(train_path),
                 "--validation-data", str(val_path),
                 "--pretraining-manifest", str(self.manifest),
+                "--pretraining-test-data", str(self.test_data),
                 "--out", str(output),
                 "--steps", "1",
                 "--batch-size", "2",
@@ -204,6 +206,7 @@ class DreamSFTTests(unittest.TestCase):
                 "--train-data", str(train_path),
                 "--validation-data", str(val_path),
                 "--pretraining-manifest", str(self.manifest),
+                "--pretraining-test-data", str(self.test_data),
                 "--steps", "1"
             ],
             capture_output=True, text=True, timeout=30
@@ -224,6 +227,7 @@ class DreamSFTTests(unittest.TestCase):
                 "--train-data", str(train_path),
                 "--validation-data", str(val_path),
                 "--pretraining-manifest", str(self.manifest),
+                "--pretraining-test-data", str(self.test_data),
                 "--steps", "1"
             ],
             capture_output=True, text=True, timeout=30
