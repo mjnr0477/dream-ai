@@ -162,7 +162,12 @@ def main():
         optimizer.step()
 
         final_step = start_step + args.steps
-        if step == start_step + 1 or step % args.eval_every == 0 or step == final_step:
+        if (
+            step == start_step + 1
+            or step % args.eval_every == 0
+            or step % args.checkpoint_every == 0
+            or step == final_step
+        ):
             train_loss = estimate(train_data)
             val_loss = estimate(val_data)
             print(json.dumps({
