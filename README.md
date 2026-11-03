@@ -28,6 +28,7 @@ See [model/BASELINE.md](model/BASELINE.md) for the architecture, commands and re
 - `model/benchmark_tokenizer.py`: fits BPE merges on training text and reports token reduction only on a separate held-out corpus, with hashes for both corpora and the tokenizer.
 - `model/audit_corpus.py`: performs privacy-conscious pre-ingestion triage for JSONL corpora; it flags metadata gaps, duplicate content and likely contact details without exposing raw text or granting approval.
 - `model/audit_language_balance.py`: reports per-language record/source-group counts, language shares and approximate Unicode writing-system coverage without exposing corpus text; flags low counts and dominance but never approves a corpus.
+- `model/prepare_corpus.py`: validates approved records and writes source-isolated train/validation/test splits. Each document is prefixed with a visible `<|language:TAG|>` marker so the native model receives an explicit language-conditioning signal; this is ordinary text tokenized by DREAM, not a special learned embedding.
 - `model/train.py`: trains from random initialization.
 - `model/evaluate.py`: produces a held-out corpus report with cross-entropy and per-token metrics, corpus/checkpoint hashes and a sample generation; legacy byte checkpoints also retain the original per-byte report keys.
 - `model/generate.py`: local checkpoint inference.
