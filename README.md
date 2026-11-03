@@ -50,7 +50,7 @@ The training corpus path above is an example, not a file already present. Each J
 
 ## Evaluation
 
-- `evals/core-v1.jsonl`: original DREAM evaluation prompts and human scoring rubrics.
+- `evals/core-v1.jsonl`: 31 original DREAM evaluation prompts and human scoring rubrics spanning reasoning, coding, science, multilingual performance, safety, privacy, security and reliability.
 - `npm run validate:evals`: validates the evaluation set.
 - `npm run eval`: records outputs and latency from a configured self-hosted model runtime for human review.
 
