@@ -33,6 +33,8 @@ class DreamNotebookTests(unittest.TestCase):
         )
         self.assertIn("'--pretraining-manifest'", all_code)
         self.assertIn("'data/prepared/manifest.json'", all_code)
+        self.assertIn("'--pretraining-test-data'", all_code)
+        self.assertIn("'data/prepared/test.txt'", all_code)
 
     def test_notebook_trains_only_native_random_initialized_dream(self):
         notebook = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
