@@ -2,6 +2,7 @@ import unittest
 import torch
 
 from dream_transformer import DreamByteTokenizer, DreamConfig, DreamTransformer
+from train import batches
 
 
 class DreamTokenizerTests(unittest.TestCase):
@@ -43,6 +44,20 @@ class DreamTransformerTests(unittest.TestCase):
         generated = self.model.generate(prompt, max_new_tokens=4, top_k=10)
         self.assertEqual(tuple(generated.shape), (1, 7))
         self.assertTrue(torch.equal(generated[:, :3], prompt))
+
+    def test_training_step_updates_parameters(self):
+        data = torch.randint(0, 256, (128,), dtype=torch.long)
+        x, y = batches(data, batch_size=2, block_size=8, device="cpu")
+        model = DreamTransformer(DreamConfig(
+            block_size=8, d_model=16, n_heads=4, n_layers=1, dropout=0.0
+        ))
+        optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
+        before = model.token_embedding.weight.detach().clone()
+        _, loss = model(x, y)
+        optimizer.zero_grad(set_to_none=True)
+        loss.backward()
+        optimizer.step()
+        self.assertFalse(torch.equal(before, model.token_embedding.weight.detach()))
 
     def test_invalid_head_dimensions_are_rejected(self):
         with self.assertRaises(ValueError):
