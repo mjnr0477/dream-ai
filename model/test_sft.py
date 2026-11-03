@@ -121,7 +121,7 @@ class DreamSFTTests(unittest.TestCase):
         rows = [json.loads(line) for line in train_path.read_text().splitlines()]
         rows[0]["language"] = "not a language"
         train_path.write_text(
-            "".join(json.dumps(row) + "\\n" for row in rows),
+            "".join(json.dumps(row) + "\n" for row in rows),
             encoding="utf-8"
         )
         with self.assertRaises(SystemExit) as raised:
