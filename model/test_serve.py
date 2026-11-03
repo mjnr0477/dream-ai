@@ -28,6 +28,13 @@ class DreamServingTests(unittest.TestCase):
             block_size=64, d_model=16, n_heads=4, n_layers=1, dropout=0.0
         )
         model = DreamTransformer(config)
+        # Force the deterministic ASCII byte "A" as the only likely next token.
+        # This keeps the HTTP contract test independent of random initialization.
+        with torch.no_grad():
+            for parameter in model.parameters():
+                parameter.zero_()
+            model.final_norm.bias.fill_(1.0)
+            model.token_embedding.weight[65].fill_(1.0)
         torch.save({
             "model_state": model.state_dict(),
             "config": config.__dict__,
