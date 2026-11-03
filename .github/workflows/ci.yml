@@ -83,9 +83,17 @@ jobs:
           --benchmark evals/core-v1.jsonl
           --out /tmp/dream-native-task-benchmark.json
           --max-new-tokens 8 --temperature 0 --limit 4
-      - name: Upload native task benchmark smoke report
+      - name: Benchmark native DREAM inference performance
+        run: >-
+          python model/benchmark_inference.py
+          --checkpoint /tmp/dream-smoke-instruct.pt
+          --warmup 1 --runs 2 --tokens 8
+          --out /tmp/dream-native-inference-benchmark.json
+      - name: Upload native DREAM benchmark reports
         uses: actions/upload-artifact@v4
         with:
-          name: dream-native-task-benchmark-smoke
-          path: /tmp/dream-native-task-benchmark.json
+          name: dream-native-benchmark-smoke
+          path: |
+            /tmp/dream-native-task-benchmark.json
+            /tmp/dream-native-inference-benchmark.json
           retention-days: 7
