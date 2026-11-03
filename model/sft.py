@@ -8,6 +8,7 @@ import hashlib
 import json
 import math
 import random
+import re
 from datetime import date
 from pathlib import Path
 from urllib.parse import urlparse
@@ -16,6 +17,10 @@ import torch
 
 from dream_transformer import DreamByteTokenizer, DreamConfig, DreamTransformer
 from dream_bpe import DreamBPETokenizer
+
+
+
+LANGUAGE_TAG = re.compile(r"^[A-Za-z]{2,3}(?:[-+][A-Za-z0-9]{2,8})*$")
 
 
 def sha256(path):
@@ -97,6 +102,8 @@ def load_examples(path, tokenizer, block_size):
         for field in ("id", "source", "source_group", "source_url", "license", "license_url", "rights_basis", "source_date", "language"):
             if not isinstance(item.get(field), str) or not item[field].strip():
                 raise SystemExit(f"Missing {field} at line {line_number}")
+        if not LANGUAGE_TAG.fullmatch(item["language"].strip()):
+            raise SystemExit(f"Invalid language tag at line {line_number}")
         for field in ("source_url", "license_url"):
             parsed_url = urlparse(item[field])
             if parsed_url.scheme != "https" or not parsed_url.netloc:
@@ -150,8 +157,9 @@ def load_examples(path, tokenizer, block_size):
             if role != "assistant":
                 continue
             prefix_messages = normalized[:answer_index]
-            prefix = "".join(f"{message_role.upper()}: {message_text}\n"
-                             for message_role, message_text in prefix_messages)
+            prefix = f"<|language:{item['language'].strip().lower()}|>\n"
+            prefix += "".join(f"{message_role.upper()}: {message_text}\n"
+                              for message_role, message_text in prefix_messages)
             prefix += "ASSISTANT:"
             prefix_ids = tokenizer.encode(prefix)
             answer_ids = tokenizer.encode(" " + answer + "\n")
