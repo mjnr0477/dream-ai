@@ -53,6 +53,7 @@ for (const item of selected) {
   results.push({
     id: item.id,
     category: item.category,
+    language: item.language ?? null,
     prompt: item.prompt,
     rubric: item.rubric,
     output: output.trim(),
