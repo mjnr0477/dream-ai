@@ -1,96 +1,77 @@
 # DREAM AI
 
-DREAM AI is an independent AI assistant project, deployed separately from Dream Education, Dream Wi-Fi and VYBORA.
+DREAM AI is an independent AI research and application project, separate from Dream Education, Dream Wi-Fi and VYBORA.
 
-## Live service
+## Project status
 
-https://dream-ai-live.onrender.com
+DREAM has its own decoder-only transformer architecture, byte tokenizer, random initialization, training script, inference script and native model-serving API in `model/`. This is the beginning of a from-scratch model, not a borrowed foundation-model checkpoint.
 
-## Project ownership and model status
+**No trained DREAM checkpoint is being claimed yet.** The Node web app and model runtime are separate. The Render web service hosts the application; training and inference run on suitable compute that we control.
 
-DREAM AI is the application, orchestration layer and model-runtime interface. It is not a chat wrapper that requires Groq or another hosted AI provider.
+## Current application
 
-**Important:** this release creates the independent DREAM model-runtime boundary, but it does not yet contain trained model weights. Until a model runtime is connected, chat returns an honest setup message rather than pretending that a trained model answered. The next model milestone is to select an open-weight foundation model, evaluate it, adapt it with DREAM datasets and serve it through infrastructure we control.
+- Responsive mobile-first chat workspace.
+- General, coding and learning modes.
+- Browser-local conversation history, export and copy.
+- Node API with bounded request validation and health status.
+- Provider-independent DREAM engine adapter.
+- Automated Node tests and original evaluation dataset.
 
-## Current capabilities
+The web interface is not itself a trained model. Until a trained native DREAM checkpoint is available and connected, it must not pretend that it generated intelligent answers.
 
-- Responsive, mobile-first chat workspace
-- General, coding and learning assistant modes
-- Local conversation history stored in this browser/device
-- Export conversations as text and copy assistant responses
-- Node.js chat API and health endpoint
-- Independent DREAM model runtime adapter
-- Optional private runtime token (no provider-specific API dependency)
-- Request validation, bounded message history and runtime timeout
-- Automated Node test suite and GitHub Actions workflow
+## Native DREAM model
 
-Live web research, file analysis, authenticated accounts, cloud-synced memory, autonomous tools and a trained DREAM model are not yet implemented.
+See [model/BASELINE.md](model/BASELINE.md) for the architecture, commands and release gates.
 
-## Architecture
+- `model/dream_transformer.py`: DREAM's own transformer blocks, causal attention, embeddings and UTF-8 byte tokenizer.
+- `model/train.py`: trains from random initialization.
+- `model/generate.py`: local checkpoint inference.
+- `model/serve.py`: serves DREAM checkpoints through a local HTTP API; the JSON protocol does not call an external AI.
+- `model/test_dream_transformer.py`: tests core model behavior.
+- `data/README.md`: strict data provenance, privacy and licensing rules.
 
-- **DREAM AI application:** user interface, API, conversation validation and mode orchestration.
-- **DREAM engine adapter:** a provider-independent interface that sends inference requests to a model runtime we control.
-- **DREAM model:** the open-weight model we select, evaluate and progressively adapt. Model weights and training data must be versioned separately from the web application.
-- **DREAM infrastructure:** a model-serving host with enough CPU/GPU memory for the chosen model. The current free Render web service hosts the application; it is not suitable for running a large language model.
+Install and run the model locally:
 
-The runtime currently speaks the common chat-completions wire format so a self-hosted inference server such as llama.cpp can serve the model. This is a transport protocol, not a dependency on a third-party AI company. The model host and weights remain under our control.
+```sh
+python -m pip install -r model/requirements.txt
+python -m unittest discover -s model -p 'test_*.py'
+python model/train.py --data data/your-approved-corpus.txt --steps 2000
+python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER: Hello DREAM.\nASSISTANT:"
+```
 
-## Connect a self-hosted DREAM model runtime
+The training corpus path above is an example, not a file already present. Do not train on data without appropriate rights and privacy review. Do not market a small research checkpoint as a frontier model.
 
-Set these private environment variables on the Render service:
+## Evaluation
 
-- `DREAM_MODEL_URL`: base URL of the self-hosted model server, for example `https://your-private-model-host.example/v1`
-- `DREAM_MODEL_NAME`: exact model identifier accepted by that server
-- `DREAM_MODEL_TOKEN`: optional bearer token if the model server requires authentication
+- `evals/core-v1.jsonl`: original DREAM evaluation prompts and human scoring rubrics.
+- `npm run validate:evals`: validates the evaluation set.
+- `npm run eval`: records outputs and latency from a configured self-hosted model runtime for human review.
 
-The adapter appends `/chat/completions` unless the URL already ends with that path. Keep model credentials private. Never put them in GitHub or browser JavaScript.
+The current benchmark is an initial seed, not a certification of quality.
 
-Do not use the placeholder URL above as a real endpoint. A real model host must first be provisioned and secured. Prefer HTTPS, restrict access to the DREAM AI service, set usage limits, and never expose an unauthenticated model server to the public internet.
+## Runtime architecture
 
-## Model baseline and evaluation
+The Node app connects to a DREAM model server through the independent adapter:
+- `DREAM_MODEL_URL`: private base URL of the native DREAM model server.
+- `DREAM_MODEL_NAME`: model identifier, currently `dream-native`.
+- `DREAM_MODEL_TOKEN`: optional private bearer token; required when exposing the model server beyond localhost.
 
-See [model/BASELINE.md](model/BASELINE.md) for the provisional Qwen3.5-2B candidate and the smaller 0.8B comparison. This is a candidate for evaluation and DREAM-specific fine-tuning, not a claim that DREAM already owns those upstream weights.
+The model server defaults to localhost. Use HTTPS, authentication, network restrictions and resource limits before exposing it to any remote service. Never put tokens in GitHub or browser JavaScript.
 
-The original DREAM core benchmark set lives in `evals/core-v1.jsonl`. Validate it with `npm run validate:evals`. Once a self-hosted model runtime is available, run `npm run eval` with `DREAM_MODEL_URL` and `DREAM_MODEL_NAME` configured. Raw outputs are saved locally under `eval-results/` and are intentionally git-ignored. The runner records latency and preserves the human scoring rubric; it does not fabricate an automatic quality score.
+## Compute and deployment
 
-## Model development roadmap
-
-1. Select an open-weight base model that fits our realistic compute budget and target devices.
-2. Expand the original evaluation dataset and establish repeatable scoring across reasoning, coding, factuality, instruction following, safety and Kenyan/local context.
-3. Build a repeatable fine-tuning pipeline with licensed and consented data.
-4. Train adapters first where practical; compare against the untouched base model using held-out evaluations.
-5. Version model weights, datasets, training configs and evaluation reports.
-6. Serve the chosen model on infrastructure we control and connect it through the DREAM engine adapter.
-7. Improve inference cost, latency, privacy, reliability and offline options over time.
-
-Training a competitive foundation model from zero is a major compute and data investment. We should not claim DREAM owns a trained model until we have produced, versioned and evaluated actual model weights.
-
-## Requirements and local setup
-
-- Node.js 20.12 or newer
-
-Run `npm start` and open http://localhost:3000. For development, run `npm run dev`. The server automatically reads a local `.env` file when present.
-
-## Deploy on Render
-
-- Runtime: Node
-- Build command: `npm install`
-- Start command: `npm start`
-- Health endpoint: `/api/health`
-- Repository: https://github.com/mjnr0477/dream-ai
-- Branch: main
+Render's free web service is not a GPU training environment. Keep the Node app on Render and run model training/inference on a separate machine or host that we control. A future deployment must be based on measured memory, latency and availability, not a claim that Render free can train a large model.
 
 ## API
 
-- `GET /api/health` — application and DREAM runtime configuration status
-- `POST /api/chat` — accepts a messages array and optional mode
+- `GET /api/health`
+- `POST /api/chat`
 - Supported modes: `general`, `coding`, `learning`
 
 ## Security principles
 
-1. Keep DREAM AI independent from the user's other applications.
-2. Keep model credentials on the server.
+1. Keep DREAM independent from other projects and external AI providers.
+2. Keep model credentials server-side.
 3. Validate requests and bound resource usage.
-4. Use explicit permissions and isolated execution for future tools and code execution.
-5. Never claim web research, file access, code execution or other actions that have not actually happened.
-6. Distinguish application availability from actual model availability.
+4. Isolate any future code execution and require explicit permissions for tools.
+5. Never claim a model is trained or an action was completed without evidence.
