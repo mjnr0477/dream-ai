@@ -17,7 +17,10 @@ class CorpusPreparationTests(unittest.TestCase):
                 "id": f"record-{index}",
                 "source": f"DREAM authored source {index}",
                 "source_group": f"independent-group-{index}",
+                "source_url": f"https://example.org/dream/source-{index}",
                 "license": "CC0-1.0",
+                "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+                "rights_basis": "original-authorship",
                 "source_date": "2026-01-15",
                 "rights_confirmed": rights,
                 "privacy_reviewed": True,
@@ -122,6 +125,31 @@ class CorpusPreparationTests(unittest.TestCase):
                     "Missing required metadata" in result.stderr
                     or "Invalid source_date" in result.stderr
                 )
+
+    def test_manifest_records_source_and_rights_provenance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            result = self.run_prepare(root, self.make_records())
+            self.assertEqual(result.returncode, 0, result.stderr)
+            manifest = json.loads((root / "prepared" / "manifest.json").read_text())
+            self.assertEqual(manifest["rights_basis_counts"], {"original-authorship": 6})
+            self.assertEqual(len(manifest["source_catalog"]), 6)
+
+    def test_rejects_non_https_provenance_urls(self):
+        rows = self.make_records()
+        rows[0]["source_url"] = "http://example.org/source"
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_prepare(Path(directory), rows)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("absolute HTTPS URL", result.stderr)
+
+    def test_rejects_unknown_rights_basis(self):
+        rows = self.make_records()
+        rows[0]["rights_basis"] = "probably-allowed"
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_prepare(Path(directory), rows)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Invalid rights_basis", result.stderr)
 
     def test_rejects_unconfirmed_rights(self):
         with tempfile.TemporaryDirectory() as directory:
