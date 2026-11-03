@@ -83,3 +83,9 @@ jobs:
           --benchmark evals/core-v1.jsonl
           --out /tmp/dream-native-task-benchmark.json
           --max-new-tokens 8 --temperature 0 --limit 4
+      - name: Upload native task benchmark smoke report
+        uses: actions/upload-artifact@v4
+        with:
+          name: dream-native-task-benchmark-smoke
+          path: /tmp/dream-native-task-benchmark.json
+          retention-days: 7
