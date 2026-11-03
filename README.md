@@ -1,75 +1,63 @@
 # Dream AI
 
-Dream AI is an independent AI assistant project. It has its own repository and is intentionally separate from Dream Education, Dream Wi-Fi and VYBORA.
+Dream AI is an independent AI assistant project, deployed separately from Dream Education, Dream Wi-Fi and VYBORA.
 
-## Current foundation
+## Live service
+https://dream-ai-live.onrender.com
 
-- Responsive chat interface
-- Node.js HTTP server and JSON chat API
-- Health endpoint
-- Optional OpenAI-compatible chat-completions provider adapter
-- Honest starter mode when no model provider is configured
-- Request validation, body-size limits and provider timeout
-- Built-in Node test runner
+## Current capabilities
+- Responsive, mobile-first chat workspace
+- General, coding and learning assistant modes
+- Local conversation history stored in this browser/device
+- Export conversations as text and copy assistant responses
+- Node.js chat API and health endpoint
+- Optional OpenAI-compatible model provider adapter
+- Request validation, bounded message history and provider timeout
+- Automated Node test suite and GitHub Actions workflow
 
-## Requirements
+## Important model status
+The service can host real model responses after a provider is configured. Until then it deliberately uses a clearly labelled starter response. The repository does not yet contain a trained language model, and a UI mode does not itself create new model capabilities. Live web research, file analysis, agent execution, user accounts and cloud-synced memory are not yet implemented.
 
-- Node.js 20 or newer
+## Requirements and local setup
+- Node.js 20.12 or newer
 
-## Run locally
-
-```bash
-npm start
-```
-
-Open http://localhost:3000.
-
-For development with automatic server restart:
-
-```bash
-npm run dev
-```
+Run npm start and open http://localhost:3000. For development, run npm run dev. The server automatically reads a local .env file when present.
 
 ## Connect a language model
+Set these private environment variables in the Render service dashboard:
+- AI_BASE_URL: provider base URL, for example an OpenAI-compatible API base URL
+- AI_API_KEY: secret provider key
+- AI_MODEL: exact model identifier supported by that provider
 
-Copy `.env.example` to `.env` and set:
+Never put a real key in GitHub, browser JavaScript, or a public issue. After saving the variables, redeploy the service. The backend sends requests to the provider; the browser never receives the key.
 
-- `AI_BASE_URL`: provider API base URL (or full chat-completions endpoint)
-- `AI_API_KEY`: secret API key
-- `AI_MODEL`: model identifier
+The provider must support the chat-completions request format. Check the provider's current pricing, free-tier limits, privacy policy and model capabilities before connecting it. A connected provider supplies inference; it is not a model trained by this repository.
 
-Never commit real API keys. On Render, configure these as private environment variables in the service settings.
-
-The provider adapter uses the common `/chat/completions` request format. A connected provider supplies the language-model inference; it is not a model trained by this repository. Training and serving Dream AI's own model is a later, separate engineering phase requiring suitable datasets and compute.
-
-## Deploy
-
-Create a Render Web Service connected to this repository:
-
+## Deploy on Render
 - Runtime: Node
-- Build command: `npm install`
-- Start command: `npm start`
-- Health check path: `/api/health`
-
-Set model credentials only in Render environment settings, never in source files.
+- Build command: npm install
+- Start command: npm start
+- Health check path: /api/health
+- Repository: https://github.com/mjnr0477/dream-ai
+- Branch: main
 
 ## API
+- GET /api/health — service and model configuration status
+- POST /api/chat — accepts a messages array and optional mode
+- Supported modes: general, coding, learning
 
-- `GET /api/health` — service and model configuration status
-- `POST /api/chat` — accepts `{ "messages": [{ "role": "user", "content": "Hello" }] }`
-
-## Project principles
-
+## Security and project principles
 1. Keep Dream AI independent from the user's other applications.
-2. Never expose provider secrets to the browser.
+2. Keep provider credentials on the server.
 3. Validate requests and bound resource usage.
-4. Test changes before deployment.
-5. Be explicit about whether a response came from a connected model or starter mode.
+4. Use explicit permissions and isolated execution for future tools and code execution.
+5. Never claim web research, file access, code execution or other actions that have not actually happened.
+6. Be clear about whether a response came from a connected model or starter mode.
 
-## Roadmap
-
-1. Verify the core service and tests.
-2. Connect a suitable model provider or open-weight model.
-3. Add persistent accounts and conversation memory with privacy controls.
-4. Add retrieval, tools and agent workflows with permission boundaries.
-5. Evaluate open models and build a realistic fine-tuning/training pipeline.
+## Development roadmap
+1. Verify deployment and automated tests.
+2. Connect a selected model provider.
+3. Add grounded web search and document retrieval.
+4. Add authenticated accounts and encrypted cloud conversation storage.
+5. Add a permissioned agent/tool runtime with isolated code execution.
+6. Evaluate open-weight models and the realistic cost of training or fine-tuning a Dream model.
