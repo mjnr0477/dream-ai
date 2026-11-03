@@ -56,6 +56,44 @@ class DreamBPETokenizerTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     tokenizer.decode(invalid)
 
+
+    def test_optimized_encoding_matches_sequential_merge_reference(self):
+        corpus = ("DREAM AI learns languages safely. akili bandia Kenya 🇰🇪\n" * 30)
+        tokenizer = DreamBPETokenizer.train(corpus, vocab_size=340)
+        samples = [
+            corpus[:120],
+            "unseen multilingual text: こんにちは مرحبا Kiswahili",
+            "AI AI AI — 🇰🇪",
+            "  whitespace\tand\nnewlines  ",
+        ]
+
+        def reference_encode(text):
+            output = []
+            import re
+            for piece in re.findall(r"\\s+|[^\\s]+", text):
+                tokens = list(piece.encode("utf-8"))
+                for merge_index, (left, right) in enumerate(tokenizer.merges):
+                    new_id = tokenizer.base_vocab_size + merge_index
+                    merged = []
+                    index = 0
+                    while index < len(tokens):
+                        if (index + 1 < len(tokens)
+                                and tokens[index] == left
+                                and tokens[index + 1] == right):
+                            merged.append(new_id)
+                            index += 2
+                        else:
+                            merged.append(tokens[index])
+                            index += 1
+                    tokens = merged
+                output.extend(tokens)
+            return output
+
+        for sample in samples:
+            with self.subTest(sample=sample[:24]):
+                self.assertEqual(tokenizer.encode(sample), reference_encode(sample))
+                self.assertEqual(tokenizer.decode(tokenizer.encode(sample)), sample)
+
     def test_vocab_size_is_bounded(self):
         with self.assertRaises(ValueError):
             DreamBPETokenizer.train("text", vocab_size=255)
