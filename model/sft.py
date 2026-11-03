@@ -14,6 +14,7 @@ from pathlib import Path
 import torch
 
 from dream_transformer import DreamByteTokenizer, DreamConfig, DreamTransformer
+from dream_bpe import DreamBPETokenizer
 
 
 def sha256(path):
@@ -209,13 +210,24 @@ def main():
         raise SystemExit("SFT training and validation content hashes must differ.")
 
     base = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
-    if base.get("tokenizer") != "utf8-byte-v1":
+    tokenizer_name = base.get("tokenizer", "utf8-byte-v1")
+    if tokenizer_name == "utf8-byte-v1":
+        tokenizer = DreamByteTokenizer()
+        tokenizer_data = None
+    elif tokenizer_name == DreamBPETokenizer.format_version:
+        try:
+            tokenizer = DreamBPETokenizer.from_dict(base["tokenizer_data"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise SystemExit(f"Invalid BPE tokenizer in base checkpoint: {exc}") from exc
+        tokenizer_data = tokenizer.to_dict()
+    else:
         raise SystemExit("Unsupported base DREAM tokenizer.")
     base_steps = base.get("training", {}).get("completed_steps", 0)
     if not isinstance(base_steps, int) or base_steps < 1:
         raise SystemExit("SFT requires a DREAM checkpoint with completed pretraining steps.")
     config = DreamConfig(**base["config"])
-    tokenizer = DreamByteTokenizer()
+    if config.vocab_size != tokenizer.vocab_size:
+        raise SystemExit("Base checkpoint model vocabulary does not match its tokenizer.")
     try:
         pretraining_manifest = json.loads(
             Path(args.pretraining_manifest).read_text(encoding="utf-8")
@@ -269,6 +281,8 @@ def main():
     if args.resume:
         saved = torch.load(args.resume, map_location=device, weights_only=True)
         meta = saved.get("sft_training", {})
+        if saved.get("tokenizer", "utf8-byte-v1") != tokenizer_name or saved.get("tokenizer_data") != tokenizer_data:
+            raise SystemExit("SFT resume tokenizer does not match the base checkpoint.")
         if saved.get("base_checkpoint_sha256") != sha256(args.checkpoint):
             raise SystemExit("SFT resume base checkpoint hash does not match.")
         if meta.get("train_sha256") != train_hash or meta.get("validation_sha256") != validation_hash:
@@ -317,7 +331,8 @@ def main():
             "python_rng_state": random.getstate(),
             "cuda_rng_state": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else [],
             "config": config.__dict__,
-            "tokenizer": "utf8-byte-v1",
+            "tokenizer": tokenizer_name,
+            "tokenizer_data": tokenizer_data,
             "base_checkpoint_sha256": sha256(args.checkpoint),
             "sft_training": {
                 "method": "assistant-response-only-supervised-finetuning",
