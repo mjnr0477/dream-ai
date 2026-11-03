@@ -135,7 +135,7 @@ const server = http.createServer(async (req, res) => {
     return json(res, 200, {
       ok: true,
       name: "DREAM AI",
-      version: "0.2.0",
+      version: "0.3.0",
       engine: "dream-engine",
       modelConfigured,
       modelName: modelConfigured ? process.env.DREAM_MODEL_NAME : null
