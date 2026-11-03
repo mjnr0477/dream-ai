@@ -24,6 +24,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--data", required=True, help="Held-out validation/test text")
+    parser.add_argument("--manifest", default="", help="Optional corpus manifest to verify the exact held-out test split")
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--batches", type=int, default=50)
     parser.add_argument("--seed", type=int, default=2026)
@@ -55,9 +56,58 @@ def main():
         raise SystemExit("Checkpoint model vocabulary does not match its tokenizer.")
     text = data_path.read_text(encoding="utf-8")
     evaluation_hash = sha256(data_path)
+    manifest_hash = None
+    manifest_test_groups = set()
+    if args.manifest:
+        manifest_path = Path(args.manifest)
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise SystemExit(f"Could not read evaluation corpus manifest: {exc}") from exc
+        if not isinstance(manifest, dict) or manifest.get("schema") != "dream-corpus-v1":
+            raise SystemExit("Unsupported evaluation corpus manifest schema.")
+        splits = manifest.get("splits")
+        if not isinstance(splits, dict):
+            raise SystemExit("Evaluation corpus manifest is missing split metadata.")
+        test_split = splits.get("test")
+        if not isinstance(test_split, dict):
+            raise SystemExit("Evaluation corpus manifest is missing the held-out test split.")
+        if test_split.get("sha256") != evaluation_hash:
+            raise SystemExit("Evaluation corpus hash does not match the manifest held-out test split.")
+        manifest_test_groups = test_split.get("source_group_ids")
+        if (
+            not isinstance(manifest_test_groups, list)
+            or not manifest_test_groups
+            or any(not isinstance(group, str) or not group.strip() for group in manifest_test_groups)
+            or len(manifest_test_groups) != len(set(manifest_test_groups))
+        ):
+            raise SystemExit("Evaluation manifest has invalid held-out test source-group metadata.")
+        for split_name in ("train", "validation"):
+            split = splits.get(split_name)
+            if not isinstance(split, dict):
+                raise SystemExit(f"Evaluation manifest is missing the {split_name} split.")
+            groups = split.get("source_group_ids")
+            if (
+                not isinstance(groups, list)
+                or any(not isinstance(group, str) or not group.strip() for group in groups)
+                or len(groups) != len(set(groups))
+            ):
+                raise SystemExit(f"Evaluation manifest has invalid {split_name} source-group metadata.")
+            if set(groups) & set(manifest_test_groups):
+                raise SystemExit(f"Evaluation manifest has source-group leakage between {split_name} and test.")
+        manifest_hash = sha256(manifest_path)
     training_meta = checkpoint.get("training") or checkpoint.get("sft_training", {})
     training_hash = training_meta.get("corpus_sha256", training_meta.get("train_sha256"))
     validation_hash = training_meta.get("validation_sha256")
+    expected_manifest_hash = training_meta.get("corpus_manifest_sha256")
+    sft_manifest_hash = (checkpoint.get("sft_training") or {}).get("pretraining_manifest_sha256")
+    if manifest_hash is not None:
+        if expected_manifest_hash and expected_manifest_hash != manifest_hash:
+            raise SystemExit("Evaluation manifest does not match the pretraining checkpoint manifest.")
+        if sft_manifest_hash and sft_manifest_hash != manifest_hash:
+            raise SystemExit("Evaluation manifest does not match the SFT checkpoint pretraining manifest.")
+    elif expected_manifest_hash or sft_manifest_hash:
+        raise SystemExit("This checkpoint requires --manifest for provenance-verified evaluation.")
     if evaluation_hash in {training_hash, validation_hash}:
         raise SystemExit(
             "Evaluation corpus hash matches training or validation data; "
@@ -118,6 +168,8 @@ def main():
         "checkpoint_sha256": sha256(checkpoint_path),
         "evaluation_corpus": str(data_path),
         "evaluation_corpus_sha256": evaluation_hash,
+        "corpus_manifest_sha256": manifest_hash,
+        "held_out_test_source_groups": len(manifest_test_groups),
         "evaluation_tokens": len(tokens),
         "tokenizer": tokenizer_name,
         "architecture": config.__dict__,
