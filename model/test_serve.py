@@ -15,7 +15,7 @@ import torch
 
 from dream_transformer import DreamByteTokenizer, DreamConfig, DreamTransformer
 from dream_bpe import DreamBPETokenizer
-from serve import BoundedThreadingHTTPServer, decode_assistant_reply, load_model
+from serve import BoundedThreadingHTTPServer, decode_assistant_reply, format_prompt, load_model
 
 SERVER = Path(__file__).with_name("serve.py")
 
@@ -102,6 +102,13 @@ class DreamServingTests(unittest.TestCase):
         except urllib.error.HTTPError as error:
             return error.code, json.loads(error.read())
 
+    def test_language_prompt_prefix_is_added_when_requested(self):
+        prompt = format_prompt(
+            [{"role": "user", "content": "Habari DREAM"}], language="SW"
+        )
+        self.assertTrue(prompt.startswith("<|language:sw|>\\n"))
+        self.assertIn("USER: Habari DREAM", prompt)
+
     def test_reply_decoder_stops_before_next_user_turn(self):
         tokenizer = DreamByteTokenizer()
         prompt = "USER: hello\nASSISTANT:"
@@ -184,6 +191,28 @@ class DreamServingTests(unittest.TestCase):
         self.assertEqual(body["model"], "dream-test")
         self.assertEqual(body["choices"][0]["message"]["role"], "assistant")
         self.assertEqual(len(body["choices"][0]["message"]["content"]), 1)
+
+    def test_accepts_explicit_language_tag(self):
+        status, body = self.request(
+            "POST", "/v1/chat/completions",
+            {"model": "dream-test", "language": "sw",
+             "messages": [{"role": "user", "content": "Habari"}],
+             "max_tokens": 1, "temperature": 0},
+            token="test-secret-token"
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(body["language"], "sw")
+
+    def test_rejects_invalid_language_tag(self):
+        status, body = self.request(
+            "POST", "/v1/chat/completions",
+            {"model": "dream-test", "language": "not a language",
+             "messages": [{"role": "user", "content": "Hello"}],
+             "max_tokens": 1},
+            token="test-secret-token"
+        )
+        self.assertEqual(status, 400)
+        self.assertIn("language tag", body["error"]["message"])
 
     def test_rejects_non_alternating_conversation_roles(self):
         status, body = self.request(
