@@ -21,7 +21,7 @@ for (const [index, line] of rows.entries()) {
     item.rubric.length < 1 ||
     item.rubric.some(point => typeof point !== "string" || !point.trim()) ||
     (item.language !== undefined &&
-      (typeof item.language !== "string" || !/^[a-z]{2,3}(?:-[A-Z]{2})?$/.test(item.language)))
+      (typeof item.language !== "string" || !/^[A-Za-z]{2,3}(?:[-+][A-Za-z0-9]{2,8})*$/.test(item.language)))
   ) {
     throw new Error("Invalid evaluation case schema on line " + (index + 1));
   }
