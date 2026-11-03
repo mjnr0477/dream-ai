@@ -34,7 +34,7 @@ python model/train.py --data data/prepared/train.txt --validation-data data/prep
 python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --resume checkpoints/dream-small.pt
 python model/evaluate.py --checkpoint checkpoints/dream-small.pt --data data/prepared/test.txt --out eval-results/dream-small.json
 # After pretraining, prepare separate reviewed train/validation conversation JSONL files:
-python model/sft.py --checkpoint checkpoints/dream-small.pt --train-data data/sft-train.jsonl --validation-data data/sft-validation.jsonl --pretraining-manifest data/prepared/manifest.json --steps 1000 --batch-size 2 --grad-accum-steps 4 --out checkpoints/dream-instruct.pt
+python model/sft.py --checkpoint checkpoints/dream-small.pt --train-data data/sft-train.jsonl --validation-data data/sft-validation.jsonl --pretraining-manifest data/prepared/manifest.json --pretraining-test-data data/prepared/test.txt --steps 1000 --batch-size 2 --grad-accum-steps 4 --out checkpoints/dream-instruct.pt
 python model/evaluate.py --checkpoint checkpoints/dream-instruct.pt --data data/prepared/test.txt --out eval-results/dream-instruct.json
 python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER: Explain photosynthesis.\nASSISTANT:"
 ```
@@ -53,7 +53,7 @@ The server binds to localhost by default, serializes model generation to bound i
 
 No dataset is silently assumed or bundled as training data. Every pretraining and instruction record must carry human-confirmed rights, privacy and quality review flags; the script checks these attestations, deduplicates records and keeps source groups isolated across train/validation/test splits. These flags are not a substitute for actual legal and privacy review. See `data/README.md`.
 
-Instruction data uses JSONL records with the same provenance/review fields plus alternating `messages` entries (`user`, `assistant`; optional initial `system`). SFT masks user/system/prompt tokens and optimizes assistant response tokens only. Keep training and validation conversation files separate by content hash. SFT also rejects source groups present in the pretraining held-out test split, and instruction-checkpoint evaluation must use the exact test-corpus SHA-256 recorded in the pretraining manifest.
+Instruction data uses JSONL records with the same provenance/review fields plus alternating `messages` entries (`user`, `assistant`; optional initial `system`). SFT masks user/system/prompt tokens and optimizes assistant response tokens only. Keep training and validation conversation files separate by content hash. SFT also rejects source groups present in the pretraining held-out test split, and SFT verifies that manifest against the exact held-out test file, and instruction-checkpoint evaluation must use that exact test-corpus SHA-256.
 
 The 12-case initial DREAM application evaluation set is a starting point, not enough to certify model quality. The native checkpoint evaluator measures next-byte prediction on held-out text; it does not establish reasoning, instruction following, factuality or safety. We must expand it, add independent human-reviewed scoring and test for memorization, factuality, bias, safety and multilingual performance.
 
