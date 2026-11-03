@@ -72,6 +72,12 @@ class DreamBPETokenizerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             DreamBPETokenizer.train("text", vocab_size=255)
 
+    def test_boolean_training_configuration_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "vocab_size"):
+            DreamBPETokenizer.train("text", vocab_size=True)
+        with self.assertRaisesRegex(ValueError, "min_frequency"):
+            DreamBPETokenizer.train("text", min_frequency=True)
+
 
 if __name__ == "__main__":
     unittest.main()
