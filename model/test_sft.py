@@ -109,7 +109,6 @@ class DreamSFTTests(unittest.TestCase):
                 "--validation-data", str(val_path),
                 "--pretraining-manifest", str(self.manifest),
                 "--pretraining-test-data", str(self.test_data),
-                "--pretraining-test-data", str(self.test_data),
                 "--out", str(output),
                 "--steps", "2",
                 "--batch-size", "2",
@@ -213,6 +212,30 @@ class DreamSFTTests(unittest.TestCase):
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("source groups must be disjoint", result.stderr)
+
+    def test_rejects_test_corpus_that_does_not_match_manifest(self):
+        train_path = self.root / "train.jsonl"
+        val_path = self.root / "validation.jsonl"
+        self.write_records(train_path, "train")
+        self.write_records(val_path, "validation")
+        self.test_data.write_text(
+            "Changed after the pretraining manifest was generated. " * 5,
+            encoding="utf-8"
+        )
+        result = subprocess.run(
+            [
+                sys.executable, str(SCRIPT),
+                "--checkpoint", str(self.base),
+                "--train-data", str(train_path),
+                "--validation-data", str(val_path),
+                "--pretraining-manifest", str(self.manifest),
+                "--pretraining-test-data", str(self.test_data),
+                "--steps", "1"
+            ],
+            capture_output=True, text=True, timeout=30
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("hash does not match", result.stderr)
 
     def test_rejects_sft_sources_used_by_pretraining_test(self):
         train_path = self.root / "train.jsonl"
