@@ -64,14 +64,14 @@ The current benchmark is an initial seed, not a certification of quality. For he
 For a local translation export with a JSON object per line and a nested `translation` object, the candidate importer can create deterministic SFT review files. It does not fetch datasets or approve them:
 
 ```sh
-python model/import_parallel_pairs.py \\
-  --input data/local-parallel-export.jsonl \\
-  --source-lang dav --target-lang swa \\
-  --source-name "Dataset name" \\
-  --source-url https://example.org/dataset \\
-  --license "claimed license label" \\
-  --license-url https://example.org/license \\
-  --source-date 2025-01-15 \\
+python model/import_parallel_pairs.py \
+  --input data/local-parallel-export.jsonl \
+  --source-lang dav --target-lang swa \
+  --source-name "Dataset name" \
+  --source-url https://example.org/dataset \
+  --license "claimed license label" \
+  --license-url https://example.org/license \
+  --source-date 2025-01-15 \
   --output-dir data/parallel-candidates
 ```
 
