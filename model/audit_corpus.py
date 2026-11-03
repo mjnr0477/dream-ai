@@ -59,9 +59,11 @@ def audit(input_path, max_record_bytes=1_000_000):
     record_count = 0
     pii_records = 0
     unreviewed_records = 0
+    input_digest = hashlib.sha256()
 
     with input_path.open("rb") as handle:
         for line_number, raw_line in enumerate(handle, 1):
+            input_digest.update(raw_line)
             if not raw_line.strip():
                 continue
             record_count += 1
@@ -143,7 +145,7 @@ def audit(input_path, max_record_bytes=1_000_000):
         "schema": "dream-corpus-audit-v1",
         "status": "review_required",
         "approval_granted": False,
-        "input_sha256": hashlib.sha256(input_path.read_bytes()).hexdigest(),
+        "input_sha256": input_digest.hexdigest(),
         "records": record_count,
         "unique_source_groups": len(source_groups),
         "unreviewed_records": unreviewed_records,
