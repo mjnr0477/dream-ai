@@ -17,6 +17,8 @@ CHECKPOINT = os.environ.get("DREAM_CHECKPOINT", "checkpoints/dream-small.pt")
 HOST = os.environ.get("DREAM_HOST", "127.0.0.1")
 PORT = int(os.environ.get("DREAM_PORT", "8090"))
 TOKEN = os.environ.get("DREAM_SERVER_TOKEN", "")
+if HOST not in ("127.0.0.1", "localhost", "::1") and not TOKEN:
+    raise RuntimeError("DREAM_SERVER_TOKEN is required when binding beyond localhost")
 MAX_BODY = 64 * 1024
 MAX_OUTPUT_TOKENS = 256
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
