@@ -96,6 +96,26 @@ class DreamSFTTests(unittest.TestCase):
             supervised = bytes(target for target in targets if target != -100)
             self.assertIn(b"Answer from train number", supervised)
 
+    def test_sft_rejects_missing_or_invalid_source_date(self):
+        train_path = self.root / "train.jsonl"
+        self.write_records(train_path, "train")
+        rows = [json.loads(line) for line in train_path.read_text().splitlines()]
+        for value in (None, "15-01-2026", "2026-02-30"):
+            candidate = [dict(row) for row in rows]
+            if value is None:
+                candidate[0].pop("source_date")
+            else:
+                candidate[0]["source_date"] = value
+            path = self.root / "invalid-sft.jsonl"
+            path.write_text(
+                "".join(json.dumps(row) + "\\n" for row in candidate),
+                encoding="utf-8"
+            )
+            with self.subTest(value=value):
+                with self.assertRaises(SystemExit) as raised:
+                    load_examples(path, DreamByteTokenizer(), self.config.block_size)
+                self.assertIn("source_date", str(raised.exception))
+
     def test_sft_training_creates_resumable_checkpoint(self):
         train_path = self.root / "train.jsonl"
         val_path = self.root / "validation.jsonl"
