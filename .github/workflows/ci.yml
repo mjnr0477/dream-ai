@@ -76,3 +76,10 @@ jobs:
           --manifest /tmp/dream-smoke-data/manifest.json
           --batch-size 1 --batches 1 --sample-tokens 8
           --out /tmp/dream-smoke-instruct-eval.json
+      - name: Generate native DREAM task benchmark report
+        run: >-
+          python model/run_task_benchmark.py
+          --checkpoint /tmp/dream-smoke-instruct.pt
+          --benchmark evals/core-v1.jsonl
+          --out /tmp/dream-native-task-benchmark.json
+          --max-new-tokens 8 --temperature 0 --limit 4
