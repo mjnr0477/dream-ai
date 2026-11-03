@@ -76,6 +76,7 @@ jobs:
           --steps 2 --batch-size 1 --grad-accum-steps 1
           --learning-rate 0.0001 --eval-every 1
           --eval-batches 1 --checkpoint-every 2
+          --language-sampling balanced
       - name: Evaluate native DREAM instruction checkpoint
         run: >-
           python model/evaluate.py
