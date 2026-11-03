@@ -19,7 +19,9 @@ for (const [index, line] of rows.entries()) {
     typeof item.prompt !== "string" ||
     !Array.isArray(item.rubric) ||
     item.rubric.length < 1 ||
-    item.rubric.some(point => typeof point !== "string" || !point.trim())
+    item.rubric.some(point => typeof point !== "string" || !point.trim()) ||
+    (item.language !== undefined &&
+      (typeof item.language !== "string" || !/^[a-z]{2,3}(?:-[A-Z]{2})?$/.test(item.language)))
   ) {
     throw new Error("Invalid evaluation case schema on line " + (index + 1));
   }
@@ -27,5 +29,13 @@ for (const [index, line] of rows.entries()) {
   ids.add(item.id);
 }
 
+const multilingual = rows.map(line => JSON.parse(line)).filter(item => item.category === "multilingual");
+if (multilingual.length < 10 || multilingual.some(item => !item.language)) {
+  throw new Error("Multilingual evaluation requires at least 10 cases with language tags.");
+}
+const languageTags = new Set(multilingual.map(item => item.language));
+if (languageTags.size !== multilingual.length) {
+  throw new Error("Multilingual evaluation language tags must be unique.");
+}
 if (rows.length < 10) throw new Error("Core evaluation set must contain at least 10 cases.");
-process.stdout.write("Validated " + rows.length + " DREAM evaluation cases.\n");
+process.stdout.write("Validated " + rows.length + " DREAM evaluation cases, including " + languageTags.size + " multilingual cases.\n");
