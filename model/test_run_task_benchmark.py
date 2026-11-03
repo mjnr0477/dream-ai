@@ -78,8 +78,11 @@ class NativeTaskBenchmarkTests(unittest.TestCase):
             self.assertIsNone(report["corpus_manifest_sha256"])
             self.assertEqual(len(report["checkpoint_sha256"]), 64)
             self.assertEqual(len(report["benchmark_sha256"]), 64)
-            self.assertEqual(report["scoring_policy"],
-                             "Human rubric scoring only; no model-based automatic grading.")
+            self.assertEqual(
+                report["scoring_policy"],
+                "Human rubric scoring only; mark each rubric_scores entry 0 or 1, "
+                "then record the optional aggregate human_score; no model-based automatic grading."
+            )
             self.assertEqual(report["results"][0]["id"], "math-test")
             self.assertEqual(report["results"][0]["prompt_tokens_used"], report["results"][0]["prompt_tokens_original"])
             self.assertFalse(report["results"][0]["prompt_truncated"])
