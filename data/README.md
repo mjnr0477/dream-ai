@@ -9,6 +9,8 @@ without permission, or scraped personal data here.
 
 Every dataset release must include:
 - source and collection date;
+- HTTPS source URL and HTTPS license text URL;
+- explicit rights basis: `original-authorship`, `public-domain`, `open-license` or `explicit-permission`;
 - written permission or an explicit license permitting the intended use;
 - language and subject labels;
 - human-confirmed rights, privacy and quality review for each record;
@@ -17,7 +19,7 @@ Every dataset release must include:
 - train/validation/test split with no cross-split leakage;
 - dataset version and SHA-256 manifest.
 
-Each JSONL record must include `source_date` in strict `YYYY-MM-DD` form and set `rights_confirmed`, `privacy_reviewed` and `quality_reviewed` to `true`. The generated manifest reports record counts by language and license plus the source-date range; inspect these before training. These flags record a human review; the script cannot independently verify legal rights or detect all personal information.
+Each JSONL record must include `source_url` and `license_url` as absolute HTTPS URLs, a `rights_basis` value from the allowed set above, and `source_date` in strict `YYYY-MM-DD` form and set `rights_confirmed`, `privacy_reviewed` and `quality_reviewed` to `true`. The generated manifest reports record counts by language, license and rights basis, plus a source catalog containing source URLs and license URLs and the source-date range; inspect these before training. These flags record a human review; the script cannot independently verify legal rights or detect all personal information.
 
 ## Supervised instruction records
 
