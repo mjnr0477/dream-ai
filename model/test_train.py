@@ -451,6 +451,7 @@ class DreamLanguageSamplingTests(unittest.TestCase):
             import torch
             saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
             self.assertEqual(saved["training"]["language_sampling"], "balanced")
+            self.assertEqual(saved["training"]["eval_every"], 1)
             self.assertEqual(saved["training"]["train_loss_sampling"], "balanced")
             self.assertEqual(saved["training"]["validation_loss_sampling"], "proportional")
             self.assertIn("python_rng_state", saved)
@@ -471,6 +472,16 @@ class DreamLanguageSamplingTests(unittest.TestCase):
             )
             self.assertNotEqual(mismatch.returncode, 0)
             self.assertIn("language sampling mode does not match", mismatch.stderr)
+            interval_mismatch = self.run_training(
+                root, checkpoint,
+                extra=(
+                    "--resume", str(checkpoint),
+                    "--language-sampling", "balanced",
+                    "--eval-every", "2"
+                )
+            )
+            self.assertNotEqual(interval_mismatch.returncode, 0)
+            self.assertIn("evaluation interval does not match", interval_mismatch.stderr)
 
 
 class _ByteTokenizerForSampling:
