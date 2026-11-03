@@ -18,6 +18,7 @@ The first configurable experiment defaults to 6 layers, width 256, 8 attention h
 
 - `model/train.py` trains from random initialization on an authorized UTF-8 text corpus; `--tokenizer bpe` fits BPE on the training split and stores its vocabulary in the checkpoint.
 - `model/sft.py` performs assistant-response-only supervised instruction fine-tuning from a trained DREAM checkpoint; prompt tokens are masked from the loss.
+- `model/import_parallel_pairs.py` converts a local parallel-corpus JSONL export into source-isolated SFT candidate files; it deliberately leaves rights, privacy and quality review flags false.
 - `model/generate.py` runs local inference from byte or BPE DREAM checkpoints.
 - `model/evaluate.py` reports held-out cross-entropy, per-token metrics, SHA-256 provenance and a qualitative sample; byte checkpoints retain legacy per-byte metric fields.
 - `model/run_task_benchmark.py` runs the native checkpoint against the 40-case task benchmark and saves responses, rubrics, checkpoint/data hashes and empty human-scoring fields; it never uses an external model or auto-grades answers.
