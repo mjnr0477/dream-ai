@@ -92,6 +92,7 @@ def main():
             groups = split.get("source_group_ids")
             if (
                 not isinstance(groups, list)
+                or not groups
                 or any(not isinstance(group, str) or not group.strip() for group in groups)
                 or len(groups) != len(set(groups))
             ):
