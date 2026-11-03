@@ -36,6 +36,8 @@ jobs:
         run: python -c "import json; n=json.load(open('training/dream_train_colab.ipynb', encoding='utf-8')); assert n['nbformat']==4 and n['cells'] and all(c['cell_type'] in ('code','markdown') for c in n['cells'])"
       - name: Test DREAM transformer and runtime
         run: python -m unittest discover -s model -p 'test_*.py' -v
+      - name: Audit synthetic corpus fixture without approving it
+        run: python model/audit_corpus.py --input data/smoke-test.jsonl --out /tmp/dream-corpus-audit.json
       - name: Prepare synthetic pretraining smoke corpus
         run: python model/prepare_corpus.py --input data/smoke-test.jsonl --output /tmp/dream-smoke-data
       - name: Train a tiny DREAM checkpoint from random initialization
@@ -102,4 +104,5 @@ jobs:
             /tmp/dream-native-task-benchmark.json
             /tmp/dream-native-inference-benchmark.json
             /tmp/dream-native-human-score-summary.json
+            /tmp/dream-corpus-audit.json
           retention-days: 7
