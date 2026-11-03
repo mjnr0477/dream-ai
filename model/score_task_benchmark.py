@@ -43,7 +43,22 @@ def validate_report(report):
         for score in scores:
             if score is not None and (type(score) is not int or score not in (0, 1)):
                 raise ValueError(f"Task {task_id} rubric scores must be 0, 1 or null.")
-        normalized.append((task_id, category, scores))
+        language_code = item.get("language_code")
+        language_name = item.get("language_name")
+        if (language_code is None) != (language_name is None):
+            raise ValueError(
+                f"Task {task_id} must provide both language_code and language_name."
+            )
+        if language_code is not None and (
+            not isinstance(language_code, str) or not language_code.strip()
+            or not isinstance(language_name, str) or not language_name.strip()
+        ):
+            raise ValueError(f"Task {task_id} has invalid language metadata.")
+        normalized.append((
+            task_id, category, scores,
+            language_code.strip() if language_code else None,
+            language_name.strip() if language_name else None
+        ))
     declared_count = report.get("task_count")
     if declared_count != len(results):
         raise ValueError("task_count does not match the number of results.")
@@ -59,8 +74,13 @@ def aggregate(report):
         "tasks": 0, "complete_tasks": 0, "scored_rubric_items": 0,
         "earned_points": 0
     })
+    languages = defaultdict(lambda: {
+        "tasks": 0, "complete_tasks": 0, "scored_rubric_items": 0,
+        "earned_points": 0
+    })
+    language_names = {}
     task_results = []
-    for task_id, category, scores in tasks:
+    for task_id, category, scores, language_code, language_name in tasks:
         scored = [score for score in scores if score is not None]
         earned = sum(scored)
         complete = len(scored) == len(scores)
@@ -72,9 +92,18 @@ def aggregate(report):
         group["complete_tasks"] += int(complete)
         group["scored_rubric_items"] += len(scored)
         group["earned_points"] += earned
+        if language_code:
+            language_group = languages[language_code]
+            language_group["tasks"] += 1
+            language_group["complete_tasks"] += int(complete)
+            language_group["scored_rubric_items"] += len(scored)
+            language_group["earned_points"] += earned
+            language_names[language_code] = language_name
         task_results.append({
             "id": task_id,
             "category": category,
+            **({"language_code": language_code, "language_name": language_name}
+               if language_code else {}),
             "rubric_items": len(scores),
             "scored_rubric_items": len(scored),
             "earned_points": earned,
@@ -89,7 +118,7 @@ def aggregate(report):
             "score_percent": round(100 * group["earned_points"] / count, 2) if count else None
         }
 
-    total_items = sum(len(scores) for _, _, scores in tasks)
+    total_items = sum(len(scores) for _, _, scores, _, _ in tasks)
     return {
         "schema": "dream-human-task-score-summary-v1",
         "checkpoint_sha256": report.get("checkpoint_sha256"),
@@ -110,6 +139,11 @@ def aggregate(report):
         "categories": {
             name: finalize(categories[name]) for name in sorted(categories)
         },
+        "languages": {
+            code: {"language_name": language_names[code], **finalize(languages[code])}
+            for code in sorted(languages)
+        },
+        "language_count": len(languages),
         "tasks": task_results,
         "limitations": [
             "Scores reflect the human rubric judgments entered in the source report.",
