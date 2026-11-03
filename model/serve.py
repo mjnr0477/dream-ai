@@ -132,7 +132,7 @@ def create_handler(model, tokenizer, config, model_name, token, device):
                     raise ValueError
                 if not 1 <= max_tokens <= MAX_OUTPUT_TOKENS:
                     raise ValueError
-                if not 0.05 <= temperature <= 2.0:
+                if not 0 <= temperature <= 2.0:
                     raise ValueError
                 if not 0 <= top_k <= 256:
                     raise ValueError
@@ -144,16 +144,20 @@ def create_handler(model, tokenizer, config, model_name, token, device):
                 return self.send_json(400, {"error": {"message": "Prompt is empty"}})
             prompt_ids = prompt_ids[-config.block_size:]
             input_ids = torch.tensor([prompt_ids], dtype=torch.long, device=device)
-            started = time.monotonic()
             try:
                 with MODEL_LOCK, torch.inference_mode():
-                    torch.manual_seed(secrets.randbits(63))
-                    generated = model.generate(
-                        input_ids,
-                        max_new_tokens=max_tokens,
-                        temperature=float(temperature),
-                        top_k=top_k
-                    )[0].tolist()
+                    if float(temperature) == 0:
+                        generated = model.generate(
+                            input_ids, max_new_tokens=max_tokens, temperature=0
+                        )[0].tolist()
+                    else:
+                        torch.manual_seed(secrets.randbits(63))
+                        generated = model.generate(
+                            input_ids,
+                            max_new_tokens=max_tokens,
+                            temperature=float(temperature),
+                            top_k=top_k
+                        )[0].tolist()
                 answer = tokenizer.decode(generated[len(prompt_ids):]).strip()
             except Exception:
                 return self.send_json(500, {"error": {"message": "DREAM inference failed"}})
