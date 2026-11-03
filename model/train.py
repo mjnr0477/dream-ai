@@ -112,6 +112,8 @@ def main():
             manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
             raise SystemExit(f"Could not read corpus manifest: {exc}") from exc
+        if not isinstance(manifest, dict):
+            raise SystemExit("Corpus manifest must be a JSON object.")
         if manifest.get("schema") != "dream-corpus-v1":
             raise SystemExit("Unsupported corpus manifest schema.")
         split_metadata = manifest.get("splits")
