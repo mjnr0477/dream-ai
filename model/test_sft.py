@@ -314,6 +314,8 @@ class DreamSFTTests(unittest.TestCase):
                          "assistant-response-only-supervised-finetuning")
         self.assertEqual(saved["sft_training"]["effective_batch_size"], 4)
         self.assertEqual(saved["sft_training"]["language_sampling"], "balanced")
+        self.assertEqual(saved["sft_training"]["train_loss_sampling"], "balanced")
+        self.assertEqual(saved["sft_training"]["validation_loss_sampling"], "proportional")
         self.assertEqual(
             saved["sft_training"]["training_examples_by_language"],
             {"en": 2, "sw": 1}
