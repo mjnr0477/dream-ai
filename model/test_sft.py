@@ -126,6 +126,24 @@ class DreamSFTTests(unittest.TestCase):
         saved = torch.load(output, map_location="cpu", weights_only=True)
         self.assertEqual(saved["sft_training"]["completed_steps"], 3)
 
+    def test_rejects_overlapping_source_groups(self):
+        train_path = self.root / "train.jsonl"
+        val_path = self.root / "validation.jsonl"
+        self.write_records(train_path, "shared")
+        self.write_records(val_path, "shared")
+        result = subprocess.run(
+            [
+                sys.executable, str(SCRIPT),
+                "--checkpoint", str(self.base),
+                "--train-data", str(train_path),
+                "--validation-data", str(val_path),
+                "--steps", "1"
+            ],
+            capture_output=True, text=True, timeout=30
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("source groups must be disjoint", result.stderr)
+
     def test_refuses_random_untrained_base(self):
         untrained = self.root / "untrained.pt"
         model = DreamTransformer(self.config)
