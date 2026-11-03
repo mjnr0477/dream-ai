@@ -52,6 +52,10 @@ class DreamNotebookTests(unittest.TestCase):
         self.assertIn("SHA256SUMS.txt", all_code)
         self.assertIn("data/prepared/test.txt", all_code)
         self.assertIn("ZipFile", all_code)
+        self.assertIn("USE_GOOGLE_DRIVE = False", all_code)
+        self.assertIn("drive.mount('/content/drive')", all_code)
+        self.assertIn("train_command += ['--resume'", all_code)
+        self.assertIn("sft_command += ['--resume'", all_code)
         self.assertNotIn("from_pretrained(", all_code)
         self.assertNotIn("AutoModel", all_code)
 
