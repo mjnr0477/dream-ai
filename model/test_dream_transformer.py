@@ -78,9 +78,17 @@ class DreamTransformerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             DreamConfig(n_heads=0)
 
-    def test_non_byte_vocabulary_is_rejected(self):
+    def test_extended_vocabulary_is_supported_for_bpe(self):
+        config = DreamConfig(vocab_size=512)
+        model = DreamTransformer(config)
+        tokens = torch.randint(0, 512, (2, 8))
+        logits, loss = model(tokens, tokens)
+        self.assertEqual(tuple(logits.shape), (2, 8, 512))
+        self.assertTrue(torch.isfinite(loss).item())
+
+    def test_vocabulary_below_byte_fallback_is_rejected(self):
         with self.assertRaises(ValueError):
-            DreamConfig(vocab_size=512)
+            DreamConfig(vocab_size=255)
 
     def test_invalid_dropout_is_rejected(self):
         with self.assertRaises(ValueError):
