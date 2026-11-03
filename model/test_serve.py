@@ -149,32 +149,34 @@ class DreamServingTests(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertIn("generation settings", body["error"]["message"])
 
-    def test_rejects_untrained_checkpoint(self):
-        untrained = self.root / "untrained.pt"
+    def test_rejects_untrained_or_boolean_step_checkpoint(self):
         config = DreamConfig(
             block_size=64, d_model=16, n_heads=4, n_layers=1, dropout=0.0
         )
         model = DreamTransformer(config)
-        torch.save({
-            "model_state": model.state_dict(),
-            "config": config.__dict__,
-            "tokenizer": "utf8-byte-v1",
-            "training": {"completed_steps": 0}
-        }, untrained)
-        env = os.environ.copy()
-        env.update({
-            "DREAM_CHECKPOINT": str(untrained),
-            "DREAM_RUNTIME_HOST": "127.0.0.1",
-            "DREAM_RUNTIME_PORT": str(self.port + 1),
-            "DREAM_RUNTIME_TOKEN": "test-secret-token"
-        })
-        result = subprocess.run(
-            [sys.executable, str(SERVER)],
-            cwd=str(SERVER.parent), env=env,
-            capture_output=True, text=True, timeout=15
-        )
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("completed DREAM training", result.stderr)
+        for completed_steps in (0, True, False):
+            with self.subTest(completed_steps=completed_steps):
+                invalid = self.root / f"invalid-{completed_steps}.pt"
+                torch.save({
+                    "model_state": model.state_dict(),
+                    "config": config.__dict__,
+                    "tokenizer": "utf8-byte-v1",
+                    "training": {"completed_steps": completed_steps}
+                }, invalid)
+                env = os.environ.copy()
+                env.update({
+                    "DREAM_CHECKPOINT": str(invalid),
+                    "DREAM_RUNTIME_HOST": "127.0.0.1",
+                    "DREAM_RUNTIME_PORT": str(self.port + 1),
+                    "DREAM_RUNTIME_TOKEN": "test-secret-token"
+                })
+                result = subprocess.run(
+                    [sys.executable, str(SERVER)],
+                    cwd=str(SERVER.parent), env=env,
+                    capture_output=True, text=True, timeout=15
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("completed DREAM training", result.stderr)
 
 
 if __name__ == "__main__":
