@@ -48,6 +48,10 @@ class DreamNotebookTests(unittest.TestCase):
         )
         self.assertIn("model/train.py", all_code)
         self.assertIn("model/sft.py", all_code)
+        self.assertIn("dream-training-artifacts.zip", all_code)
+        self.assertIn("SHA256SUMS.txt", all_code)
+        self.assertIn("data/prepared/test.txt", all_code)
+        self.assertIn("ZipFile", all_code)
         self.assertNotIn("from_pretrained(", all_code)
         self.assertNotIn("AutoModel", all_code)
 
