@@ -49,6 +49,8 @@ def main():
         except json.JSONDecodeError as exc:
             raise SystemExit(f"Invalid JSON at line {line_number}: {exc}") from exc
 
+        if not isinstance(item, dict):
+            raise SystemExit(f"Record at line {line_number} must be a JSON object.")
         required = ("id", "source", "source_group", "source_url", "license", "license_url", "rights_basis", "source_date", "language", "text")
         if any(not isinstance(item.get(key), str) or not item[key].strip() for key in required):
             raise SystemExit(f"Missing required metadata or text at line {line_number}")
