@@ -60,6 +60,7 @@ jobs:
           --checkpoint /tmp/dream-smoke-small.pt
           --train-data data/sft-smoke-train.jsonl
           --validation-data data/sft-smoke-validation.jsonl
+          --pretraining-manifest /tmp/dream-smoke-data/manifest.json
           --out /tmp/dream-smoke-instruct.pt
           --steps 2 --batch-size 1 --grad-accum-steps 1
           --learning-rate 0.0001 --eval-every 1
