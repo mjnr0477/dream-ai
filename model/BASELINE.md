@@ -23,6 +23,7 @@ The first configurable experiment defaults to 6 layers, width 256, 8 attention h
 - `model/evaluate.py` reports held-out cross-entropy, per-token metrics, SHA-256 provenance and a qualitative sample; byte checkpoints retain legacy per-byte metric fields.
 - `model/run_task_benchmark.py` runs the native checkpoint against the 40-case task benchmark and saves responses, rubrics, checkpoint/data hashes and empty human-scoring fields; it never uses an external model or auto-grades answers.
 - `model/serve.py` exposes the native checkpoint over a local HTTP endpoint. Its chat-completions-shaped JSON is only a transport protocol; no external model is called.
+- The HTTP runtime bounds active connection workers and returns 503 when capacity is exhausted, preventing unbounded request-thread growth under slow-client load.
 - `model/test_dream_transformer.py`, `model/test_train.py` and `model/test_serve.py` test model behavior, checkpoint/resume and local HTTP serving.
 - `data/README.md` defines dataset provenance, privacy, licensing and quality gates.
 
