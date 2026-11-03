@@ -8,7 +8,7 @@
     "postinstall": "npm test",
     "start": "node --env-file-if-exists=.env server.js",
     "dev": "node --env-file-if-exists=.env --watch server.js",
-    "test": "node --test"
+    "test": "node --check server.js && node --check public/app.js && node --test"
   },
   "engines": {
     "node": ">=20.12"
