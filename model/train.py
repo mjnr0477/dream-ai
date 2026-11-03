@@ -169,6 +169,10 @@ def main():
         if checkpoint.get("config") != config.__dict__:
             raise SystemExit("Resume checkpoint architecture does not match this run.")
         training_meta = checkpoint.get("training", {})
+        if training_meta.get("corpus_manifest_sha256") != manifest_hash:
+            raise SystemExit("Resume checkpoint corpus manifest does not match this run.")
+        if training_meta.get("data_provenance_verified", False) != (manifest_hash is not None):
+            raise SystemExit("Resume checkpoint data provenance status does not match this run.")
         if training_meta.get("corpus_sha256") != training_hash:
             raise SystemExit("Resume checkpoint training corpus hash does not match.")
         if training_meta.get("validation_sha256") != validation_hash:
