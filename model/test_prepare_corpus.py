@@ -74,6 +74,18 @@ class CorpusPreparationTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Rights not confirmed", result.stderr)
 
+    def test_rejects_unreviewed_privacy_and_quality(self):
+        for field, message in (
+            ("privacy_reviewed", "Privacy review not confirmed"),
+            ("quality_reviewed", "Quality review not confirmed")
+        ):
+            rows = self.make_records()
+            rows[0][field] = False
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as directory:
+                result = self.run_prepare(Path(directory), rows)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(message, result.stderr)
+
     def test_rejects_too_few_independent_sources(self):
         rows = self.make_records(count=3)
         for row in rows:
