@@ -152,7 +152,7 @@ class DreamSFTTests(unittest.TestCase):
         for train_row, val_row in zip(train_rows, val_rows):
             val_row["source_group"] = train_row["source_group"]
         val_path.write_text(
-            "".join(json.dumps(row) + "\\n" for row in val_rows),
+            "".join(json.dumps(row) + "\n" for row in val_rows),
             encoding="utf-8"
         )
         result = subprocess.run(
