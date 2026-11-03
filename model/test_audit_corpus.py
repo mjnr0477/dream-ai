@@ -81,6 +81,14 @@ class CorpusAuditTests(unittest.TestCase):
             self.assertGreater(report["error_count"], 0)
             self.assertFalse(report["approval_granted"])
 
+    def test_duplicate_record_ids_are_errors(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result, report = self.run_audit(
+                Path(directory), [self.record("same"), self.record("same", "A different sufficiently long sample for this second record.")]
+            )
+            self.assertEqual(result.returncode, 1)
+            self.assertIn("duplicate_record_id", {item["code"] for item in report["findings"]})
+
     def test_oversized_record_is_rejected(self):
         row = self.record(text="x" * 200)
         with tempfile.TemporaryDirectory() as directory:
