@@ -188,8 +188,6 @@ def main():
             (loss / args.grad_accum_steps).backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
-        last_micro_train_loss = sum(micro_losses) / len(micro_losses)
-
         final_step = start_step + args.steps
         if (
             step == start_step + 1
