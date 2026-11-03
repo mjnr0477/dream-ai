@@ -250,6 +250,7 @@ class DreamSFTTests(unittest.TestCase):
                 sys.executable, str(EVALUATOR),
                 "--checkpoint", str(output),
                 "--data", str(train_path),
+                "--manifest", str(self.manifest),
                 "--sample-tokens", "0",
                 "--out", str(self.root / "leaked-evaluation.json")
             ],
@@ -263,6 +264,7 @@ class DreamSFTTests(unittest.TestCase):
                 sys.executable, str(EVALUATOR),
                 "--checkpoint", str(output),
                 "--data", str(self.test_data),
+                "--manifest", str(self.manifest),
                 "--sample-tokens", "0",
                 "--batches", "1", "--batch-size", "1",
                 "--out", str(self.root / "valid-evaluation.json")
