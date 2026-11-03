@@ -1,5 +1,6 @@
 """Train DREAM's randomly initialized transformer on a plain-text corpus."""
 import argparse
+import hashlib
 import json
 import math
 import random
@@ -23,7 +24,8 @@ def batches(data, batch_size, block_size, device):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", default="data/prepared/train.txt")
-    parser.add_argument("--validation-data", default="data/prepared/validation.txt")
+    parser.add_argument("--validation-data", required=True,
+                        help="Independent source-isolated validation text file")
     parser.add_argument("--out", default="checkpoints/dream-small.pt")
     parser.add_argument("--steps", type=int, default=2000)
     parser.add_argument("--batch-size", type=int, default=32)
@@ -46,17 +48,27 @@ def main():
     tokens = torch.tensor(tokenizer.encode(text), dtype=torch.long)
     train_data = tokens
     validation_path = Path(args.validation_data)
-    if validation_path.exists():
-        validation_text = validation_path.read_text(encoding="utf-8")
-        val_data = torch.tensor(tokenizer.encode(validation_text), dtype=torch.long)
-    else:
-        split = int(len(tokens) * 0.9)
-        train_data, val_data = tokens[:split], tokens[split:]
+    validation_text = validation_path.read_text(encoding="utf-8")
+    val_data = torch.tensor(tokenizer.encode(validation_text), dtype=torch.long)
+    if Path(args.data).resolve() == validation_path.resolve():
+        raise SystemExit("Training and validation files must be different.")
     if len(train_data) < args.block_size + 2 or len(val_data) < args.block_size + 2:
         raise SystemExit(
             "Corpus too small. Supply a properly licensed, high-quality corpus "
             "with enough UTF-8 bytes for train and validation splits."
         )
+
+    if args.steps < 1 or args.batch_size < 1 or args.eval_every < 1:
+        raise SystemExit("steps, batch-size and eval-every must be positive.")
+    if args.learning_rate <= 0:
+        raise SystemExit("learning-rate must be positive.")
+
+    def file_sha256(path):
+        digest = hashlib.sha256()
+        with Path(path).open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
 
     config = DreamConfig(
         block_size=args.block_size, d_model=args.d_model,
@@ -113,8 +125,14 @@ def main():
             "steps": args.steps,
             "seed": args.seed,
             "corpus": str(Path(args.data)),
-            "validation_corpus": str(validation_path) if validation_path.exists() else "tail-10-percent",
-            "initialization": "random"
+            "corpus_sha256": file_sha256(args.data),
+            "validation_corpus": str(validation_path),
+            "validation_sha256": file_sha256(validation_path),
+            "initialization": "random",
+            "optimizer": "AdamW",
+            "learning_rate": args.learning_rate,
+            "batch_size": args.batch_size,
+            "device": device
         }
     }, output)
     print("Saved DREAM checkpoint:", output)
