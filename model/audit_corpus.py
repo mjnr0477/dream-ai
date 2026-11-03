@@ -12,8 +12,8 @@ from collections import Counter
 from pathlib import Path
 from urllib.parse import urlparse
 
-EMAIL_RE = re.compile(r"(?<![\\w.+-])[\\w.+-]+@[\\w.-]+\\.[A-Za-z]{2,}(?![\\w.-])")
-KENYAN_PHONE_RE = re.compile(r"(?<!\\w)(?:\\+254|254|0)(?:7|1)\\d(?:[ .()-]?\\d){7}(?!\\w)")
+EMAIL_RE = re.compile(r"(?<![\w.+-])[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}(?![\w.-])")
+KENYAN_PHONE_RE = re.compile(r"(?<!\w)(?:\+254|254|0)(?:7|1)\d(?:[ .()-]?\d){7}(?!\w)")
 ALLOWED_RIGHTS = {
     "original-authorship", "public-domain", "open-license", "explicit-permission"
 }
@@ -25,7 +25,7 @@ def normalized_content(record):
         return record["text"]
     messages = record.get("messages")
     if isinstance(messages, list):
-        return "\\n".join(
+        return "\n".join(
             message.get("content", "")
             for message in messages
             if isinstance(message, dict) and isinstance(message.get("content"), str)
@@ -43,7 +43,7 @@ def valid_https(value):
 def atomic_json(path, payload):
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\\n",
+    temporary.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n",
                          encoding="utf-8")
     temporary.replace(path)
 
@@ -135,7 +135,7 @@ def audit(input_path, max_record_bytes=1_000_000):
             if KENYAN_PHONE_RE.search(content):
                 findings.append({"line": line_number, "record_id": safe_id, "code": "possible_kenyan_phone", "severity": "review"})
                 pii_records += 1
-            if any(ord(char) < 32 and char not in "\\n\\r\\t" for char in content):
+            if any(ord(char) < 32 and char not in "\n\r\t" for char in content):
                 findings.append({"line": line_number, "record_id": safe_id, "code": "control_characters", "severity": "warning"})
             if len(content.strip()) < 40:
                 findings.append({"line": line_number, "record_id": safe_id, "code": "short_content", "severity": "warning"})
