@@ -92,19 +92,28 @@ class DreamBPETokenizer:
         output = []
         for piece in re.findall(r"\s+|[^\s]+", text):
             tokens = list(piece.encode("utf-8"))
+            # Most learned merges are irrelevant to any given piece. Avoid
+            # rescanning its token sequence unless both merge inputs are present.
+            present = set(tokens)
             for merge_index, (left, right) in enumerate(self.merges):
+                if left not in present or right not in present:
+                    continue
                 new_id = self.base_vocab_size + merge_index
                 merged = []
                 index = 0
+                changed = False
                 while index < len(tokens):
                     if (index + 1 < len(tokens)
                             and tokens[index] == left and tokens[index + 1] == right):
                         merged.append(new_id)
                         index += 2
+                        changed = True
                     else:
                         merged.append(tokens[index])
                         index += 1
-                tokens = merged
+                if changed:
+                    tokens = merged
+                    present = set(tokens)
             output.extend(tokens)
         return output
 
