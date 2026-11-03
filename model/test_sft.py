@@ -102,7 +102,7 @@ class DreamSFTTests(unittest.TestCase):
         rows = [json.loads(line) for line in train_path.read_text().splitlines()]
         rows[1]["messages"] = rows[0]["messages"]
         train_path.write_text(
-            "".join(json.dumps(row) + "\\n" for row in rows),
+            "".join(json.dumps(row) + "\n" for row in rows),
             encoding="utf-8"
         )
         with self.assertRaisesRegex(SystemExit, "Duplicate SFT dialogue content within"):
@@ -114,7 +114,7 @@ class DreamSFTTests(unittest.TestCase):
         rows = [json.loads(line) for line in train_path.read_text().splitlines()]
         rows[1]["id"] = rows[0]["id"]
         train_path.write_text(
-            "".join(json.dumps(row) + "\\n" for row in rows),
+            "".join(json.dumps(row) + "\n" for row in rows),
             encoding="utf-8"
         )
         with self.assertRaisesRegex(SystemExit, "Duplicate SFT record ID within"):
