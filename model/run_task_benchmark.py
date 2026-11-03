@@ -60,6 +60,20 @@ def load_tasks(path, limit=0):
             or any(not isinstance(point, str) or not point.strip() for point in rubric)
         ):
             raise SystemExit(f"Benchmark item at line {line_number} needs a non-empty rubric.")
+        language_fields = ("language_code", "language_name", "script")
+        language_metadata = {}
+        for field in language_fields:
+            value = item.get(field)
+            if value is not None:
+                if not isinstance(value, str) or not value.strip():
+                    raise SystemExit(
+                        f"Benchmark item at line {line_number} has invalid {field}."
+                    )
+                language_metadata[field] = value.strip()
+        if ("language_code" in language_metadata) != ("language_name" in language_metadata):
+            raise SystemExit(
+                f"Benchmark item at line {line_number} must provide both language_code and language_name."
+            )
         if item["id"] in seen_ids:
             raise SystemExit(f"Duplicate benchmark task id: {item['id']}")
         seen_ids.add(item["id"])
@@ -67,7 +81,8 @@ def load_tasks(path, limit=0):
             "id": item["id"],
             "category": item["category"],
             "prompt": item["prompt"],
-            "rubric": rubric
+            "rubric": rubric,
+            **language_metadata
         })
     if not tasks:
         raise SystemExit("Benchmark contains no tasks.")
@@ -198,6 +213,17 @@ def main():
             "top_k": args.top_k
         },
         "task_count": len(results),
+        "language_coverage": {
+            "language_count": len({
+                task["language_code"] for task in results
+                if task.get("language_code")
+            }),
+            "language_codes": sorted({
+                task["language_code"] for task in results
+                if task.get("language_code")
+            }),
+            "note": "Coverage describes benchmark task metadata, not model proficiency."
+        },
         "scoring_policy": (
             "Human rubric scoring only; mark each rubric_scores entry 0 or 1, "
             "then record the optional aggregate human_score; no model-based automatic grading."
