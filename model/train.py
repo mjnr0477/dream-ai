@@ -25,7 +25,7 @@ def batches(data, batch_size, block_size, device):
 
 def split_language_streams(text, tokenizer, block_size):
     """Encode each language-tagged document stream separately for balanced sampling."""
-    marker = re.compile(r"(?<!\\S)<\\|language:([A-Za-z]{2,3}(?:[-+][A-Za-z0-9]{2,8})*)\\|>\\n")
+    marker = re.compile(r"(?<!\S)<\|language:([A-Za-z]{2,3}(?:[-+][A-Za-z0-9]{2,8})*)\|>\n")
     matches = list(marker.finditer(text))
     if not matches:
         raise ValueError("Balanced sampling requires <|language:TAG|> document markers.")
