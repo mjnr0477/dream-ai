@@ -375,17 +375,13 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             self.assertIn("matches training or validation", result.stderr)
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class DreamLanguageSamplingTests(unittest.TestCase):
     def test_splits_language_tagged_documents_into_independent_streams(self):
         from train import split_language_streams
 
         text = (
             "<|language:en|>\nEnglish lesson with enough words for several training windows.\n\n"
-            "<|language:sw|>\nSomomo la Kiswahili lina maneno ya kutosha kwa mafunzo.\n\n"
+            "<|language:sw|>\nSomo la Kiswahili lina maneno ya kutosha kwa mafunzo.\n\n"
             "<|language:en|>\nA second English document adds more training material.\n"
         )
         streams = split_language_streams(text, _ByteTokenizerForSampling(), 4)
@@ -418,7 +414,42 @@ class DreamLanguageSamplingTests(unittest.TestCase):
         self.assertTrue(torch.equal(x[:, 1:], y[:, :-1]))
         self.assertTrue(torch.all(x < 90))
 
+    def test_balanced_training_records_policy_and_rejects_resume_policy_change(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "train.txt").write_text(
+                "<|language:en|>\\n" + ("English training text with varied words. " * 8)
+                + "\\n\\n<|language:sw|>\\n"
+                + ("Haya ni maandishi ya Kiswahili yenye maneno tofauti. " * 8),
+                encoding="utf-8"
+            )
+            (root / "validation.txt").write_text(
+                "Independent validation text with enough tokens. " * 10,
+                encoding="utf-8"
+            )
+            checkpoint = root / "balanced.pt"
+            result = self.run_training(
+                root, checkpoint, extra=("--language-sampling", "balanced")
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            import torch
+            saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
+            self.assertEqual(saved["training"]["language_sampling"], "balanced")
+            self.assertEqual(
+                set(saved["training"]["training_tokens_by_language"]), {"en", "sw"}
+            )
+            mismatch = self.run_training(
+                root, checkpoint,
+                extra=("--resume", str(checkpoint), "--language-sampling", "proportional")
+            )
+            self.assertNotEqual(mismatch.returncode, 0)
+            self.assertIn("language sampling mode does not match", mismatch.stderr)
+
 
 class _ByteTokenizerForSampling:
     def encode(self, text):
         return list(text.encode("utf-8"))
+
+
+if __name__ == "__main__":
+    unittest.main()
