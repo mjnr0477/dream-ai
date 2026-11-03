@@ -96,6 +96,29 @@ class ParallelPairImportTests(unittest.TestCase):
             self.assertEqual(summary["duplicate_pairs_removed"], 1)
             self.assertEqual(summary["unique_pairs"], 39)
 
+    def test_keeps_story_groups_together_across_splits(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = self.make_input(root, count=40)
+            rows = [json.loads(line) for line in source.read_text().splitlines()]
+            for index, row in enumerate(rows):
+                row["story_id"] = f"story-{index // 2}"
+            source.write_text(
+                "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+                encoding="utf-8"
+            )
+            output = root / "story-groups"
+            result = self.run_import(source, output)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            train = [json.loads(line) for line in (output / "sft-train-candidates.jsonl").read_text().splitlines()]
+            validation = [json.loads(line) for line in (output / "sft-validation-candidates.jsonl").read_text().splitlines()]
+            train_groups = {row["source_group"] for row in train}
+            validation_groups = {row["source_group"] for row in validation}
+            self.assertFalse(train_groups & validation_groups)
+            self.assertTrue(all(group.startswith("story-") for group in train_groups | validation_groups))
+            summary = json.loads((output / "import-summary.json").read_text())
+            self.assertEqual(summary["source_group_basis_counts"]["story_id"], 40)
+
     def test_rejects_duplicate_record_ids_for_different_pairs(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
