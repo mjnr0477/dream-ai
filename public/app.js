@@ -27,7 +27,7 @@ function saveChats() {
 
 function titleFor(items) {
   const first = items.find(item => item.role === "user");
-  return (first?.content || "New conversation").replace(/\\s+/g, " ").slice(0, 54);
+  return (first?.content || "New conversation").replace(/\s+/g, " ").slice(0, 54);
 }
 
 function persistActiveChat() {
@@ -67,10 +67,10 @@ function renderHistory() {
 
 function renderAssistantContent(container, content) {
   container.replaceChildren();
-  const segments = content.split(/```([A-Za-z0-9_+-]*)\\n([\\s\\S]*?)```/g);
+  const segments = content.split(/```([A-Za-z0-9_+-]*)\n([\s\S]*?)```/g);
 
   function appendInline(parent, text) {
-    const pattern = /(`[^`]+?`|\\*\\*[^*]+?\\*\\*|\\*[^*]+?\\*)/g;
+    const pattern = /(`[^`]+?`|\*\*[^*]+?\*\*|\*[^*]+?\*)/g;
     let cursor = 0;
     for (const match of text.matchAll(pattern)) {
       const token = match[0];
