@@ -56,6 +56,14 @@ class DreamTransformerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.model.generate(prompt, temperature=-0.1)
 
+    def test_batches_support_exactly_one_valid_next_token_window(self):
+        data = torch.tensor([10, 11, 12, 13, 14], dtype=torch.long)
+        x, y = batches(data, batch_size=3, block_size=4, device="cpu")
+        self.assertEqual(tuple(x.shape), (3, 4))
+        self.assertEqual(tuple(y.shape), (3, 4))
+        self.assertTrue(torch.equal(x, torch.tensor([[10, 11, 12, 13]]).repeat(3, 1)))
+        self.assertTrue(torch.equal(y, torch.tensor([[11, 12, 13, 14]]).repeat(3, 1)))
+
     def test_training_step_updates_parameters(self):
         data = torch.randint(0, 256, (128,), dtype=torch.long)
         x, y = batches(data, batch_size=2, block_size=8, device="cpu")
