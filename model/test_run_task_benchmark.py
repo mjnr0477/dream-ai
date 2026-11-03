@@ -74,6 +74,8 @@ class NativeTaskBenchmarkTests(unittest.TestCase):
             report = json.loads(output.read_text(encoding="utf-8"))
             self.assertEqual(report["schema"], "dream-native-task-benchmark-v1")
             self.assertEqual(report["task_count"], 2)
+            self.assertFalse(report["data_provenance_verified"])
+            self.assertIsNone(report["corpus_manifest_sha256"])
             self.assertEqual(len(report["checkpoint_sha256"]), 64)
             self.assertEqual(len(report["benchmark_sha256"]), 64)
             self.assertEqual(report["scoring_policy"],
