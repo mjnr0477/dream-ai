@@ -132,6 +132,17 @@ class DreamTransformerTests(unittest.TestCase):
         _, loss = self.model(tokens, targets)
         self.assertTrue(torch.isfinite(loss).item())
 
+    def test_all_ignored_targets_are_rejected(self):
+        tokens = torch.tensor([[65, 66]], dtype=torch.long)
+        targets = torch.tensor([[-100, -100]], dtype=torch.long)
+        with self.assertRaisesRegex(ValueError, "at least one supervised token"):
+            self.model(tokens, targets)
+
+    def test_boolean_generation_temperature_is_rejected(self):
+        prompt = torch.tensor([[65]], dtype=torch.long)
+        with self.assertRaises(ValueError):
+            self.model.generate(prompt, temperature=True)
+
     def test_empty_batches_are_rejected(self):
         tokens = torch.empty((0, 2), dtype=torch.long)
         with self.assertRaisesRegex(ValueError, "non-empty"):
