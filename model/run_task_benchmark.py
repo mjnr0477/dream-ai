@@ -118,7 +118,7 @@ def main():
     results = []
     with torch.inference_mode():
         for task in tasks:
-            prompt_text = f"USER: {task['prompt'].strip()}\\nASSISTANT:"
+            prompt_text = f"USER: {task['prompt'].strip()}\nASSISTANT:"
             prompt_ids = tokenizer.encode(prompt_text)
             prompt_ids = prompt_ids[-config.block_size:]
             input_ids = torch.tensor([prompt_ids], dtype=torch.long, device=device)
@@ -166,7 +166,7 @@ def main():
     output = Path(args.out)
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".tmp")
-    temporary.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\\n",
+    temporary.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n",
                          encoding="utf-8")
     temporary.replace(output)
     print(json.dumps({
