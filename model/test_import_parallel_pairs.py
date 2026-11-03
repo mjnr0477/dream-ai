@@ -114,6 +114,20 @@ class ParallelPairImportTests(unittest.TestCase):
             self.assertEqual(summary["unique_pairs"], 40)
             self.assertEqual(summary["duplicate_pairs_removed"], 0)
 
+    def test_rejects_conflicting_translations_for_same_source(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = self.make_input(root, count=40)
+            rows = [json.loads(line) for line in source.read_text().splitlines()]
+            rows[1]["translation"]["dav"] = rows[0]["translation"]["dav"]
+            source.write_text(
+                "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+                encoding="utf-8"
+            )
+            result = self.run_import(source, root / "conflicting-source")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Conflicting translations for the same normalized source sentence", result.stderr)
+
     def test_deduplicates_identical_parallel_pairs(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
