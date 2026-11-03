@@ -129,6 +129,14 @@ def main():
         "mean_cross_entropy_nats_per_token": mean_loss,
         "bits_per_token": mean_loss / math.log(2),
         "perplexity_per_token": math.exp(min(mean_loss, 20)),
+    }
+    # Preserve the original byte-metric keys for existing byte-tokenizer consumers.
+    if tokenizer_name == "utf8-byte-v1":
+        result["evaluation_bytes"] = len(text.encode("utf-8"))
+        result["mean_cross_entropy_nats_per_byte"] = mean_loss
+        result["bits_per_byte"] = mean_loss / math.log(2)
+        result["perplexity_per_byte"] = math.exp(min(mean_loss, 20))
+    result.update({
         "sample_prompt": args.sample_prompt,
         "sample_generation": sample,
         "limitations": [
