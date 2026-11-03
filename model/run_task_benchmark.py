@@ -136,7 +136,7 @@ def main():
             prompt_ids = tokenizer.encode(prompt_text)
             original_prompt_tokens = len(prompt_ids)
             # Preserve the prompt's beginning and the final assistant marker.
-            assistant_marker_ids = tokenizer.encode("\\nASSISTANT:")
+            assistant_marker_ids = tokenizer.encode("\nASSISTANT:")
             prompt_ids, prompt_truncated = fit_prompt_to_context(
                 prompt_ids, assistant_marker_ids, config.block_size
             )
