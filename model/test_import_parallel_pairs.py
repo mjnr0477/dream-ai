@@ -101,8 +101,8 @@ class ParallelPairImportTests(unittest.TestCase):
             root = Path(directory)
             source = self.make_input(root, count=40)
             rows = [json.loads(line) for line in source.read_text().splitlines()]
-            rows[0]["translation"] = {"dav": "a\\\\0b", "swa": "c"}
-            rows[1]["translation"] = {"dav": "a", "swa": "b\\\\0c"}
+            rows[0]["translation"] = {"dav": "a\\0b", "swa": "c"}
+            rows[1]["translation"] = {"dav": "a", "swa": "b\\0c"}
             source.write_text(
                 "".join(json.dumps(row, ensure_ascii=False) + "\\n" for row in rows),
                 encoding="utf-8"
