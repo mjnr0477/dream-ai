@@ -109,10 +109,24 @@ class DreamSFTTests(unittest.TestCase):
         self.assertEqual(len(examples), 3)
         for input_ids, targets in examples:
             self.assertEqual(len(input_ids), len(targets))
+            self.assertIn(b"<|language:en|>", bytes(input_ids))
             self.assertIn(-100, targets)
             self.assertTrue(any(target != -100 for target in targets))
             supervised = bytes(target for target in targets if target != -100)
             self.assertIn(b"Answer from train number", supervised)
+
+    def test_sft_rejects_invalid_language_tag(self):
+        train_path = self.root / "invalid-language.jsonl"
+        self.write_records(train_path, "train")
+        rows = [json.loads(line) for line in train_path.read_text().splitlines()]
+        rows[0]["language"] = "not a language"
+        train_path.write_text(
+            "".join(json.dumps(row) + "\\n" for row in rows),
+            encoding="utf-8"
+        )
+        with self.assertRaises(SystemExit) as raised:
+            load_examples(train_path, DreamByteTokenizer(), self.config.block_size)
+        self.assertIn("Invalid language tag", str(raised.exception))
 
     def test_sft_rejects_non_object_jsonl_records_cleanly(self):
         train_path = self.root / "malformed-train.jsonl"
