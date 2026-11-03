@@ -375,6 +375,29 @@ class DreamSFTTests(unittest.TestCase):
         saved = torch.load(output, map_location="cpu", weights_only=True)
         self.assertEqual(saved["sft_training"]["completed_steps"], 3)
 
+        changed_interval = subprocess.run(
+            [
+                sys.executable, str(SCRIPT),
+                "--checkpoint", str(self.base),
+                "--train-data", str(train_path),
+                "--validation-data", str(val_path),
+                "--pretraining-manifest", str(self.manifest),
+                "--pretraining-test-data", str(self.test_data),
+                "--out", str(output),
+                "--steps", "1",
+                "--batch-size", "2",
+                "--grad-accum-steps", "2",
+                "--eval-every", "2",
+                "--eval-batches", "2",
+                "--checkpoint-every", "1",
+                "--language-sampling", "balanced",
+                "--resume", str(output)
+            ],
+            capture_output=True, text=True, timeout=120
+        )
+        self.assertNotEqual(changed_interval.returncode, 0)
+        self.assertIn("evaluation interval does not match", changed_interval.stderr)
+
         leaked = subprocess.run(
             [
                 sys.executable, str(EVALUATOR),
