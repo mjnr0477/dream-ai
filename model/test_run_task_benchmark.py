@@ -84,6 +84,11 @@ class NativeTaskBenchmarkTests(unittest.TestCase):
             self.assertEqual(report["results"][0]["prompt_tokens_used"], report["results"][0]["prompt_tokens_original"])
             self.assertFalse(report["results"][0]["prompt_truncated"])
             self.assertIn("rubric", report["results"][0])
+            self.assertEqual(
+                len(report["results"][0]["rubric_scores"]),
+                len(report["results"][0]["rubric"])
+            )
+            self.assertTrue(all(score is None for score in report["results"][0]["rubric_scores"]))
             self.assertIn("response", report["results"][0])
             self.assertIsNone(report["results"][0]["human_score"])
 
