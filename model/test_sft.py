@@ -210,6 +210,26 @@ class DreamSFTTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("source groups must be disjoint", result.stderr)
 
+    def test_rejects_sft_sources_used_by_pretraining_test(self):
+        train_path = self.root / "train.jsonl"
+        val_path = self.root / "validation.jsonl"
+        self.write_records(train_path, "train")
+        self.write_records(val_path, "validation")
+        self.write_manifest(["train-group-0"])
+        result = subprocess.run(
+            [
+                sys.executable, str(SCRIPT),
+                "--checkpoint", str(self.base),
+                "--train-data", str(train_path),
+                "--validation-data", str(val_path),
+                "--pretraining-manifest", str(self.manifest),
+                "--steps", "1"
+            ],
+            capture_output=True, text=True, timeout=30
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("pretraining held-out test groups", result.stderr)
+
     def test_refuses_random_untrained_base(self):
         untrained = self.root / "untrained.pt"
         model = DreamTransformer(self.config)
