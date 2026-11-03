@@ -13,7 +13,7 @@ from dream_bpe import DreamBPETokenizer
 
 
 def batches(data, batch_size, block_size, device):
-    max_start = len(data) - block_size - 1
+    max_start = len(data) - block_size
     if max_start < 1:
         raise ValueError("Corpus is too small for the configured block_size")
     starts = torch.randint(max_start, (batch_size,))
