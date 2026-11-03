@@ -133,7 +133,7 @@ def write_json(path, payload):
         ) as handle:
             temporary = handle.name
             json.dump(payload, handle, ensure_ascii=False, indent=2)
-            handle.write("\\n")
+            handle.write("\n")
         os.replace(temporary, output)
     finally:
         if temporary and os.path.exists(temporary):
