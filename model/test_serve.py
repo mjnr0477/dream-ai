@@ -106,7 +106,7 @@ class DreamServingTests(unittest.TestCase):
         prompt = format_prompt(
             [{"role": "user", "content": "Habari DREAM"}], language="SW"
         )
-        self.assertTrue(prompt.startswith("<|language:sw|>\\n"))
+        self.assertTrue(prompt.startswith("<|language:sw|>\n"))
         self.assertIn("USER: Habari DREAM", prompt)
 
     def test_reply_decoder_stops_before_next_user_turn(self):
