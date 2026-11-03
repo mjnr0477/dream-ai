@@ -52,9 +52,9 @@ class DreamBPETokenizer:
     def train(cls, text, vocab_size=1024, min_frequency=2):
         if not isinstance(text, str):
             raise TypeError("BPE training input must be text")
-        if not isinstance(vocab_size, int) or not cls.base_vocab_size <= vocab_size <= 65536:
-            raise ValueError("vocab_size must be between 256 and 65536")
-        if not isinstance(min_frequency, int) or min_frequency < 1:
+        if type(vocab_size) is not int or not cls.base_vocab_size <= vocab_size <= 65536:
+            raise ValueError("vocab_size must be an integer between 256 and 65536")
+        if type(min_frequency) is not int or min_frequency < 1:
             raise ValueError("min_frequency must be a positive integer")
 
         # Keep whitespace runs and non-whitespace runs separate so merges do
