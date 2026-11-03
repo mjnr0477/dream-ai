@@ -159,7 +159,12 @@ class DreamTransformer(nn.Module):
         if targets is not None:
             if targets.shape != token_ids.shape or targets.dtype != torch.long:
                 raise ValueError("targets must be torch.long and match token_ids shape")
-            if torch.any(targets < 0) or torch.any(targets >= self.config.vocab_size):
+            # -100 is the standard ignore_index used for prompt/padding
+            # positions in assistant-only supervised fine-tuning.
+            supervised_targets = targets != -100
+            if torch.any(supervised_targets & (
+                (targets < 0) | (targets >= self.config.vocab_size)
+            )):
                 raise ValueError("targets contain IDs outside the configured vocabulary")
             loss = F.cross_entropy(
                 logits.reshape(-1, logits.size(-1)),
