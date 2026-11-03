@@ -402,6 +402,8 @@ def main():
             raise SystemExit("SFT resume hyperparameters do not match.")
         if meta.get("grad_accum_steps") != args.grad_accum_steps or meta.get("eval_batches") != args.eval_batches:
             raise SystemExit("SFT resume accumulation/evaluation settings do not match.")
+        if meta.get("eval_every", args.eval_every) != args.eval_every:
+            raise SystemExit("SFT resume evaluation interval does not match.")
         if meta.get("language_sampling", "proportional") != args.language_sampling:
             raise SystemExit("SFT resume language sampling mode does not match.")
         if (
@@ -468,6 +470,7 @@ def main():
                 "grad_accum_steps": args.grad_accum_steps,
                 "effective_batch_size": args.batch_size * args.grad_accum_steps,
                 "eval_batches": args.eval_batches,
+                "eval_every": args.eval_every,
                 "language_sampling": args.language_sampling,
                 "train_loss_sampling": args.language_sampling,
                 "validation_loss_sampling": "proportional",
