@@ -117,7 +117,7 @@ class DreamSFTTests(unittest.TestCase):
     def test_sft_rejects_non_object_jsonl_records_cleanly(self):
         train_path = self.root / "malformed-train.jsonl"
         val_path = self.root / "valid-validation.jsonl"
-        train_path.write_text("[]\\n", encoding="utf-8")
+        train_path.write_text("[]\n", encoding="utf-8")
         self.write_records(val_path, "valid-validation")
         result = subprocess.run(
             [
