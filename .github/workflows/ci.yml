@@ -54,7 +54,7 @@ jobs:
           --manifest /tmp/dream-smoke-data/manifest.json
           --out /tmp/dream-smoke-small.pt
           --steps 2 --batch-size 2 --grad-accum-steps 1
-          --block-size 32 --d-model 16 --layers 1 --heads 4
+          --block-size 64 --d-model 16 --layers 1 --heads 4
           --eval-every 1 --checkpoint-every 2 --eval-batches 1
       - name: Evaluate native DREAM checkpoint on held-out test split
         run: >-
