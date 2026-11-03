@@ -43,6 +43,19 @@ class LanguageSamplingTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "No language streams"):
             balanced_batches({}, 1, 8, "cpu")
 
+    def test_balanced_sampling_selects_languages_near_uniformly(self):
+        import random
+
+        streams = {
+            "en": torch.arange(0, 100, dtype=torch.long),
+            "sw": torch.arange(1000, 1100, dtype=torch.long)
+        }
+        random.seed(2026)
+        x, _ = balanced_batches(streams, batch_size=1000, block_size=8, device="cpu")
+        kiswahili_share = float((x[:, 0] >= 1000).float().mean().item())
+        self.assertGreater(kiswahili_share, 0.45)
+        self.assertLess(kiswahili_share, 0.55)
+
 
 if __name__ == "__main__":
     unittest.main()
