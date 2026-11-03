@@ -96,6 +96,24 @@ class ParallelPairImportTests(unittest.TestCase):
             examples = load_examples(reviewed_path, DreamByteTokenizer(), block_size=128)
             self.assertEqual(len(examples), len(train))
 
+    def test_pair_fingerprint_separator_cannot_collapse_distinct_pairs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = self.make_input(root, count=40)
+            rows = [json.loads(line) for line in source.read_text().splitlines()]
+            rows[0]["translation"] = {"dav": "a\\\\0b", "swa": "c"}
+            rows[1]["translation"] = {"dav": "a", "swa": "b\\\\0c"}
+            source.write_text(
+                "".join(json.dumps(row, ensure_ascii=False) + "\\n" for row in rows),
+                encoding="utf-8"
+            )
+            output = root / "fingerprints"
+            result = self.run_import(source, output)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            summary = json.loads((output / "import-summary.json").read_text())
+            self.assertEqual(summary["unique_pairs"], 40)
+            self.assertEqual(summary["duplicate_pairs_removed"], 0)
+
     def test_deduplicates_identical_parallel_pairs(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
