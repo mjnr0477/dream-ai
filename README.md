@@ -38,10 +38,10 @@ Install and run the model locally:
 python -m pip install -r model/requirements.txt
 python -m unittest discover -s model -p 'test_*.py'
 python model/prepare_corpus.py --input data/approved-records.jsonl
-python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --eval-batches 10 --batch-size 4 --grad-accum-steps 8
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --manifest data/prepared/manifest.json --steps 2000 --eval-batches 10 --batch-size 4 --grad-accum-steps 8
 # Resume an interrupted run from its latest atomic checkpoint:
-python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --resume checkpoints/dream-small.pt
-python model/evaluate.py --checkpoint checkpoints/dream-small.pt --data data/prepared/test.txt --out eval-results/dream-small.json
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --manifest data/prepared/manifest.json --steps 2000 --resume checkpoints/dream-small.pt
+python model/evaluate.py --checkpoint checkpoints/dream-small.pt --data data/prepared/test.txt --manifest data/prepared/manifest.json --out eval-results/dream-small.json
 # Then instruction-tune on separate, reviewed conversation JSONL files:
 python model/sft.py --checkpoint checkpoints/dream-small.pt --train-data data/sft-train.jsonl --validation-data data/sft-validation.jsonl --pretraining-manifest data/prepared/manifest.json --pretraining-test-data data/prepared/test.txt --steps 1000 --batch-size 2 --grad-accum-steps 4 --out checkpoints/dream-instruct.pt
 python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER: Hello DREAM.\nASSISTANT:"
@@ -55,7 +55,7 @@ The training corpus path above is an example, not a file already present. Each J
 - `npm run validate:evals`: validates the evaluation set.
 - `npm run eval`: records outputs and latency from a configured self-hosted model runtime for human review.
 
-The current benchmark is an initial seed, not a certification of quality.
+The current benchmark is an initial seed, not a certification of quality. Provenance-verified training checkpoints require `model/evaluate.py --manifest` to match the exact held-out test file and original manifest; the report records the manifest hash and held-out source-group count.
 
 ## Runtime architecture
 
