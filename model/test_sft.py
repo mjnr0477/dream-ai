@@ -10,6 +10,7 @@ from pathlib import Path
 import torch
 
 from dream_transformer import DreamConfig, DreamTransformer, DreamByteTokenizer
+from dream_bpe import DreamBPETokenizer
 from sft import load_examples
 
 SCRIPT = Path(__file__).with_name("sft.py")
@@ -115,6 +116,50 @@ class DreamSFTTests(unittest.TestCase):
                 with self.assertRaises(SystemExit) as raised:
                     load_examples(path, DreamByteTokenizer(), self.config.block_size)
                 self.assertIn("source_date", str(raised.exception))
+
+    def test_sft_preserves_bpe_tokenizer_from_pretraining(self):
+        tokenizer = DreamBPETokenizer.train(
+            "DREAM native training material for instruction tuning " * 12,
+            vocab_size=300
+        )
+        config = DreamConfig(
+            vocab_size=tokenizer.vocab_size, block_size=64, d_model=16,
+            n_heads=4, n_layers=1, dropout=0.0
+        )
+        base_model = DreamTransformer(config)
+        bpe_base = self.root / "pretrained-bpe.pt"
+        torch.save({
+            "model_state": base_model.state_dict(),
+            "config": config.__dict__,
+            "tokenizer": DreamBPETokenizer.format_version,
+            "tokenizer_data": tokenizer.to_dict(),
+            "training": {"completed_steps": 2, "initialization": "test-fixture"}
+        }, bpe_base)
+        train_path = self.root / "bpe-train.jsonl"
+        val_path = self.root / "bpe-validation.jsonl"
+        self.write_records(train_path, "bpe-train")
+        self.write_records(val_path, "bpe-validation")
+        output = self.root / "dream-bpe-instruct.pt"
+        result = subprocess.run(
+            [
+                sys.executable, str(SCRIPT),
+                "--checkpoint", str(bpe_base),
+                "--train-data", str(train_path),
+                "--validation-data", str(val_path),
+                "--pretraining-manifest", str(self.manifest),
+                "--pretraining-test-data", str(self.test_data),
+                "--out", str(output), "--steps", "1",
+                "--batch-size", "2", "--grad-accum-steps", "1",
+                "--eval-every", "1", "--eval-batches", "1",
+                "--checkpoint-every", "1"
+            ],
+            capture_output=True, text=True, timeout=120
+        )
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        saved = torch.load(output, map_location="cpu", weights_only=True)
+        self.assertEqual(saved["tokenizer"], DreamBPETokenizer.format_version)
+        self.assertEqual(saved["tokenizer_data"], tokenizer.to_dict())
+        self.assertEqual(saved["config"]["vocab_size"], tokenizer.vocab_size)
 
     def test_sft_training_creates_resumable_checkpoint(self):
         train_path = self.root / "train.jsonl"
