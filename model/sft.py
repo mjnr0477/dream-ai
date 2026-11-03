@@ -192,6 +192,8 @@ def main():
         optimizer.load_state_dict(saved["optimizer_state"])
         if "torch_rng_state" in saved:
             torch.set_rng_state(saved["torch_rng_state"].cpu())
+        if "python_rng_state" in saved:
+            random.setstate(saved["python_rng_state"])
         if device == "cuda" and saved.get("cuda_rng_state"):
             torch.cuda.set_rng_state_all(saved["cuda_rng_state"])
         start_step = int(meta.get("completed_steps", 0))
@@ -218,6 +220,7 @@ def main():
             "model_state": {key: value.detach().cpu() for key, value in model.state_dict().items()},
             "optimizer_state": optimizer.state_dict(),
             "torch_rng_state": torch.get_rng_state().cpu(),
+            "python_rng_state": random.getstate(),
             "cuda_rng_state": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else [],
             "config": config.__dict__,
             "tokenizer": "utf8-byte-v1",
