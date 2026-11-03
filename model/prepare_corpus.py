@@ -6,6 +6,7 @@ Input record:
 import argparse
 import hashlib
 import json
+from datetime import date
 from pathlib import Path
 
 
@@ -38,9 +39,17 @@ def main():
         except json.JSONDecodeError as exc:
             raise SystemExit(f"Invalid JSON at line {line_number}: {exc}") from exc
 
-        required = ("id", "source", "source_group", "license", "language", "text")
+        required = ("id", "source", "source_group", "license", "source_date", "language", "text")
         if any(not isinstance(item.get(key), str) or not item[key].strip() for key in required):
             raise SystemExit(f"Missing required metadata or text at line {line_number}")
+        try:
+            parsed_source_date = date.fromisoformat(item["source_date"])
+            if parsed_source_date.isoformat() != item["source_date"]:
+                raise ValueError("source_date must use YYYY-MM-DD")
+        except ValueError as exc:
+            raise SystemExit(
+                f"Invalid source_date at line {line_number}; expected YYYY-MM-DD"
+            ) from exc
         if item.get("rights_confirmed") is not True:
             raise SystemExit(f"Rights not confirmed at line {line_number}; refusing dataset")
         if item.get("privacy_reviewed") is not True:
@@ -65,6 +74,7 @@ def main():
             "source": item["source"],
             "source_group": item["source_group"],
             "license": item["license"],
+            "source_date": item["source_date"],
             "language": item["language"],
             "text": item["text"].strip()
         })
@@ -94,11 +104,26 @@ def main():
         split_by_group[group] = "test"
 
     output.mkdir(parents=True, exist_ok=True)
+    language_counts = {}
+    license_counts = {}
+    source_date_range = {"earliest": None, "latest": None}
+    for row in records:
+        language_counts[row["language"]] = language_counts.get(row["language"], 0) + 1
+        license_counts[row["license"]] = license_counts.get(row["license"], 0) + 1
+        current_date = row["source_date"]
+        if source_date_range["earliest"] is None or current_date < source_date_range["earliest"]:
+            source_date_range["earliest"] = current_date
+        if source_date_range["latest"] is None or current_date > source_date_range["latest"]:
+            source_date_range["latest"] = current_date
+
     manifest = {
         "schema": "dream-corpus-v1",
         "input_sha256": sha256(source),
         "records": len(records),
         "source_groups": group_count,
+        "language_counts": dict(sorted(language_counts.items())),
+        "license_counts": dict(sorted(license_counts.items())),
+        "source_date_range": source_date_range,
         "split_strategy": "deterministic source-group hash ranking; no group crosses splits",
         "splits": {}
     }
