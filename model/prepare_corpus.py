@@ -1,21 +1,12 @@
-"""Validate licensed DREAM JSONL records and make leakage-aware text splits.
+"""Validate licensed DREAM JSONL records and create source-isolated splits.
 
-Input record example:
+Input record:
 {"id":"lesson-001","source":"DREAM-authored lesson","source_group":"dream-math-v1","license":"CC0-1.0","rights_confirmed":true,"language":"en","text":"..."}
 """
 import argparse
 import hashlib
 import json
 from pathlib import Path
-
-
-def stable_split(group: str) -> str:
-    bucket = int(hashlib.sha256(group.encode("utf-8")).hexdigest()[:8], 16) % 100
-    if bucket < 90:
-        return "train"
-    if bucket < 95:
-        return "validation"
-    return "test"
 
 
 def sha256(path: Path) -> str:
@@ -37,7 +28,7 @@ def main():
     records = []
     seen_ids = set()
     seen_text = set()
-    seen_groups = {}
+    groups = set()
 
     for line_number, line in enumerate(source.read_text(encoding="utf-8").splitlines(), 1):
         if not line.strip():
@@ -56,40 +47,59 @@ def main():
             raise SystemExit(f"Text too short at line {line_number}")
         if item["id"] in seen_ids:
             raise SystemExit(f"Duplicate record id: {item['id']}")
+
         normalized = " ".join(item["text"].split()).casefold()
         fingerprint = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
         if fingerprint in seen_text:
             continue
 
-        split = stable_split(item["source_group"])
-        prior = seen_groups.setdefault(item["source_group"], split)
-        if prior != split:
-            raise SystemExit("Source group leakage detected")
         seen_ids.add(item["id"])
         seen_text.add(fingerprint)
+        groups.add(item["source_group"])
         records.append({
             "id": item["id"],
             "source": item["source"],
             "source_group": item["source_group"],
             "license": item["license"],
             "language": item["language"],
-            "text": item["text"].strip(),
-            "split": split
+            "text": item["text"].strip()
         })
 
-    if len(records) < 3:
-        raise SystemExit("At least three unique, rights-confirmed records are required")
+    if len(records) < 3 or len(groups) < 3:
+        raise SystemExit(
+            "At least three unique records from three independent source groups are required "
+            "to create leakage-aware train/validation/test splits."
+        )
+
+    ordered_groups = sorted(
+        groups,
+        key=lambda value: hashlib.sha256(value.encode("utf-8")).hexdigest()
+    )
+    group_count = len(ordered_groups)
+    test_count = max(1, round(group_count * 0.05))
+    validation_count = max(1, round(group_count * 0.05))
+    if test_count + validation_count >= group_count:
+        test_count = validation_count = 1
+    train_end = group_count - test_count - validation_count
+    split_by_group = {}
+    for group in ordered_groups[:train_end]:
+        split_by_group[group] = "train"
+    for group in ordered_groups[train_end:train_end + validation_count]:
+        split_by_group[group] = "validation"
+    for group in ordered_groups[train_end + validation_count:]:
+        split_by_group[group] = "test"
 
     output.mkdir(parents=True, exist_ok=True)
     manifest = {
         "schema": "dream-corpus-v1",
         "input_sha256": sha256(source),
         "records": len(records),
-        "split_strategy": "deterministic source_group hash 90/5/5",
+        "source_groups": group_count,
+        "split_strategy": "deterministic source-group hash ranking; no group crosses splits",
         "splits": {}
     }
     for split in ("train", "validation", "test"):
-        selected = [row for row in records if row["split"] == split]
+        selected = [row for row in records if split_by_group[row["source_group"]] == split]
         text_path = output / f"{split}.txt"
         text_path.write_text(
             "\n\n".join(row["text"] for row in selected) + "\n",
@@ -97,6 +107,7 @@ def main():
         )
         manifest["splits"][split] = {
             "records": len(selected),
+            "source_groups": len({row["source_group"] for row in selected}),
             "sha256": sha256(text_path)
         }
     (output / "manifest.json").write_text(
