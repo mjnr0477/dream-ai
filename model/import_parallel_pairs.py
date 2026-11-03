@@ -81,7 +81,7 @@ def main():
         source_normalized = " ".join(source_text.split()).casefold()
         target_normalized = " ".join(target_text.split()).casefold()
         pair_fingerprint = hashlib.sha256(
-            (source_normalized + "\\0" + target_normalized).encode("utf-8")
+            (source_normalized + "\0" + target_normalized).encode("utf-8")
         ).hexdigest()
         if pair_fingerprint in seen_pairs:
             duplicate_pairs_removed += 1
