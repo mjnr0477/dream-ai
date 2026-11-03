@@ -56,6 +56,9 @@ def main():
         raise SystemExit("Checkpoint model vocabulary does not match its tokenizer.")
     text = data_path.read_text(encoding="utf-8")
     evaluation_hash = sha256(data_path)
+    training_meta = checkpoint.get("training") or checkpoint.get("sft_training", {})
+    training_hash = training_meta.get("corpus_sha256", training_meta.get("train_sha256"))
+    validation_hash = training_meta.get("validation_sha256")
     manifest_hash = None
     manifest_test_groups = set()
     if args.manifest:
@@ -96,9 +99,6 @@ def main():
             if set(groups) & set(manifest_test_groups):
                 raise SystemExit(f"Evaluation manifest has source-group leakage between {split_name} and test.")
         manifest_hash = sha256(manifest_path)
-    training_meta = checkpoint.get("training") or checkpoint.get("sft_training", {})
-    training_hash = training_meta.get("corpus_sha256", training_meta.get("train_sha256"))
-    validation_hash = training_meta.get("validation_sha256")
     expected_manifest_hash = training_meta.get("corpus_manifest_sha256")
     sft_manifest_hash = (checkpoint.get("sft_training") or {}).get("pretraining_manifest_sha256")
     if manifest_hash is not None:
