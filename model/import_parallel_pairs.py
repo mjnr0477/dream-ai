@@ -55,6 +55,7 @@ def main():
     input_path = Path(args.input)
     records = []
     seen_pairs = set()
+    seen_sources = {}
     seen_ids = set()
     duplicate_pairs_removed = 0
     group_basis_counts = {"source_group": 0, "story_id": 0, "pair_content_hash": 0}
@@ -83,6 +84,12 @@ def main():
         pair_fingerprint = hashlib.sha256(
             (source_normalized + "\0" + target_normalized).encode("utf-8")
         ).hexdigest()
+        previous_target = seen_sources.get(source_normalized)
+        if previous_target is not None and previous_target != target_normalized:
+            raise SystemExit(
+                f"Conflicting translations for the same normalized source sentence at line {line_number}."
+            )
+        seen_sources[source_normalized] = target_normalized
         if pair_fingerprint in seen_pairs:
             duplicate_pairs_removed += 1
             continue
