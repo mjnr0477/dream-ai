@@ -28,6 +28,7 @@ Each JSONL record must include `source_url` and `license_url` as absolute HTTPS 
 For a locally exported JSONL file whose rows contain a `translation` object, `model/import_parallel_pairs.py` can create separate SFT train/validation *candidate* files. Example for Dawida/Kidaw'ida to Kiswahili:
 
 ```sh
+SOURCE_DATE='YYYY-MM-DD' # replace with the dataset's documented release/collection date
 python model/import_parallel_pairs.py \
   --input data/parallel/dav_swa-train.jsonl \
   --source-lang dav --target-lang swa \
@@ -35,7 +36,7 @@ python model/import_parallel_pairs.py \
   --source-url https://huggingface.co/datasets/thinkKenya/kenyan-low-resource-language-data \
   --license CC-BY-4.0 \
   --license-url https://creativecommons.org/licenses/by/4.0/ \
-  --source-date 2026-11-03 \
+  --source-date "$SOURCE_DATE" \
   --output-dir data/parallel-candidates
 ```
 
