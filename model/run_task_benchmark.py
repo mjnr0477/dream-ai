@@ -155,18 +155,25 @@ def main():
         "parameters": sum(parameter.numel() for parameter in model.parameters()),
         "completed_training_steps": completed_steps,
         "data_provenance_verified": bool(
-            training_meta.get("data_provenance_verified")
-            or training_meta.get("pretraining_manifest_sha256")
+            (checkpoint.get("training") or {}).get("data_provenance_verified")
+            or (checkpoint.get("sft_training") or {}).get("pretraining_manifest_sha256")
         ),
         "corpus_manifest_sha256": (
-            training_meta.get("corpus_manifest_sha256")
-            or training_meta.get("pretraining_manifest_sha256")
+            (checkpoint.get("training") or {}).get("corpus_manifest_sha256")
+            or (checkpoint.get("sft_training") or {}).get("pretraining_manifest_sha256")
         ),
-        "training_corpus_sha256": (
-            training_meta.get("corpus_sha256")
-            or training_meta.get("train_sha256")
-        ),
-        "validation_corpus_sha256": training_meta.get("validation_sha256"),
+        "pretraining_corpus_sha256": (
+            checkpoint.get("training") or {}
+        ).get("corpus_sha256"),
+        "pretraining_validation_sha256": (
+            checkpoint.get("training") or {}
+        ).get("validation_sha256"),
+        "sft_train_sha256": (
+            checkpoint.get("sft_training") or {}
+        ).get("train_sha256"),
+        "sft_validation_sha256": (
+            checkpoint.get("sft_training") or {}
+        ).get("validation_sha256"),
         "device": device,
         "seed": args.seed,
         "generation": {
