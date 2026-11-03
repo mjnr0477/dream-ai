@@ -14,6 +14,19 @@ class DreamTokenizerTests(unittest.TestCase):
     def test_byte_vocabulary_is_fixed(self):
         self.assertEqual(DreamByteTokenizer.vocab_size, 256)
 
+    def test_round_trip_across_diverse_writing_systems(self):
+        tokenizer = DreamByteTokenizer()
+        samples = [
+            "Hello, world!", "Habari za asubuhi — Kiswahili",
+            "مرحبا بالعالم", "नमस्ते दुनिया", "你好，世界",
+            "こんにちは世界", "안녕하세요 세계", "Bonjour le monde",
+            "Hola, mundo", "Ẹ káàbọ̀ sí ayé", "ሰላም ዓለም",
+            "স্বাগতম পৃথিবী", "Привет, мир", "🌍🚀"
+        ]
+        for sample in samples:
+            with self.subTest(sample=sample):
+                self.assertEqual(tokenizer.decode(tokenizer.encode(sample)), sample)
+
 
 class DreamTransformerTests(unittest.TestCase):
     def setUp(self):
