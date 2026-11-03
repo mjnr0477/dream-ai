@@ -129,6 +129,13 @@ async function getModelReply(messages, mode = "general") {
 
 async function handleChat(req, res) {
   const body = await readJson(req);
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return json(res, 400, { error: "Request body must be a JSON object." });
+  }
+  const mode = body.mode ?? "general";
+  if (!Object.hasOwn(MODES, mode)) {
+    return json(res, 400, { error: "Mode must be general, coding or learning." });
+  }
   if (!Array.isArray(body.messages) || body.messages.length === 0) {
     return json(res, 400, { error: "Send a non-empty messages array." });
   }
@@ -200,8 +207,8 @@ const server = http.createServer(async (req, res) => {
     return json(res, 200, {
       ok: true,
       name: "Dream AI",
-      version: "0.1.0",
-      modelConnected: Boolean(process.env.AI_BASE_URL && process.env.AI_API_KEY && process.env.AI_MODEL)
+      version: "0.1.1",
+      modelConfigured: Boolean(process.env.AI_BASE_URL && process.env.AI_API_KEY && process.env.AI_MODEL)
     });
   }
   if (req.method === "POST" && url.pathname === "/api/chat") {
