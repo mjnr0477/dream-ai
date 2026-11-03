@@ -44,6 +44,16 @@ def main():
     config = DreamConfig(**checkpoint["config"])
     tokenizer = DreamByteTokenizer()
     text = data_path.read_text(encoding="utf-8")
+    evaluation_hash = sha256(data_path)
+    training_meta = checkpoint.get("training", {})
+    if evaluation_hash in {
+        training_meta.get("corpus_sha256"),
+        training_meta.get("validation_sha256")
+    }:
+        raise SystemExit(
+            "Evaluation corpus hash matches training or validation data; "
+            "use a genuinely held-out test corpus."
+        )
     tokens = torch.tensor(tokenizer.encode(text), dtype=torch.long)
     if len(tokens) < config.block_size + 2:
         raise SystemExit("Evaluation corpus is too small for the checkpoint context length.")
@@ -60,7 +70,7 @@ def main():
     with torch.inference_mode():
         for _ in range(args.batches):
             starts = torch.randint(
-                max_start, (args.batch_size,), generator=generator, device="cpu"
+                max_start + 1, (args.batch_size,), generator=generator, device="cpu"
             ).tolist()
             x = torch.stack([
                 tokens[start:start + config.block_size] for start in starts
@@ -90,7 +100,7 @@ def main():
         "checkpoint": str(checkpoint_path),
         "checkpoint_sha256": sha256(checkpoint_path),
         "evaluation_corpus": str(data_path),
-        "evaluation_corpus_sha256": sha256(data_path),
+        "evaluation_corpus_sha256": evaluation_hash,
         "evaluation_bytes": len(tokens),
         "architecture": config.__dict__,
         "parameters": sum(parameter.numel() for parameter in model.parameters()),
