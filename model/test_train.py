@@ -214,6 +214,22 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
             self.assertTrue(saved["training"]["data_provenance_verified"])
             self.assertTrue(saved["training"]["corpus_manifest_sha256"])
+            evaluation = subprocess.run(
+                [
+                    sys.executable, str(EVALUATOR),
+                    "--checkpoint", str(checkpoint),
+                    "--data", str(root / "test.txt"),
+                    "--manifest", str(manifest_path),
+                    "--batch-size", "1", "--batches", "1",
+                    "--sample-tokens", "0",
+                    "--out", str(root / "manifest-evaluation.json")
+                ],
+                capture_output=True, text=True, timeout=60
+            )
+            self.assertEqual(evaluation.returncode, 0, evaluation.stdout + evaluation.stderr)
+            report = json.loads((root / "manifest-evaluation.json").read_text())
+            self.assertEqual(report["corpus_manifest_sha256"], hashlib.sha256(manifest_path.read_bytes()).hexdigest())
+            self.assertEqual(report["held_out_test_source_groups"], 1)
             resumed = self.run_training(
                 root, checkpoint,
                 extra=("--resume", str(checkpoint), "--manifest", str(manifest_path))
@@ -224,6 +240,54 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             )
             self.assertNotEqual(unverified_resume.returncode, 0)
             self.assertIn("corpus manifest does not match", unverified_resume.stderr)
+
+    def test_evaluator_rejects_manifest_mismatch_and_requires_manifest_for_verified_checkpoint(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            contents = {
+                "train": "DREAM licensed train split with enough distinct words. " * 8,
+                "validation": "Independent validation split with separate source material. " * 8,
+                "test": "Untouched held out test split for final model evaluation. " * 8
+            }
+            for split, content in contents.items():
+                (root / f"{split}.txt").write_text(content, encoding="utf-8")
+            manifest = {
+                "schema": "dream-corpus-v1",
+                "splits": {
+                    split: {
+                        "sha256": hashlib.sha256(content.encode("utf-8")).hexdigest(),
+                        "source_group_ids": [f"source-{split}"]
+                    }
+                    for split, content in contents.items()
+                }
+            }
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            checkpoint = root / "verified.pt"
+            trained = self.run_training(
+                root, checkpoint, extra=("--manifest", str(manifest_path))
+            )
+            self.assertEqual(trained.returncode, 0, trained.stdout + trained.stderr)
+
+            no_manifest = subprocess.run(
+                [sys.executable, str(EVALUATOR), "--checkpoint", str(checkpoint),
+                 "--data", str(root / "test.txt"), "--sample-tokens", "0"],
+                capture_output=True, text=True, timeout=30
+            )
+            self.assertNotEqual(no_manifest.returncode, 0)
+            self.assertIn("requires --manifest", no_manifest.stderr)
+
+            changed = root / "changed-manifest.json"
+            manifest["splits"]["test"]["sha256"] = "0" * 64
+            changed.write_text(json.dumps(manifest), encoding="utf-8")
+            mismatch = subprocess.run(
+                [sys.executable, str(EVALUATOR), "--checkpoint", str(checkpoint),
+                 "--data", str(root / "test.txt"), "--manifest", str(changed),
+                 "--sample-tokens", "0"],
+                capture_output=True, text=True, timeout=30
+            )
+            self.assertNotEqual(mismatch.returncode, 0)
+            self.assertIn("does not match the manifest", mismatch.stderr)
 
     def test_manifest_rejects_split_hash_mismatch_and_source_leakage(self):
         with tempfile.TemporaryDirectory() as directory:
