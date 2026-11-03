@@ -17,14 +17,14 @@ Every dataset release must include:
 - train/validation/test split with no cross-split leakage;
 - dataset version and SHA-256 manifest.
 
-Each JSONL record must set `rights_confirmed`, `privacy_reviewed` and `quality_reviewed` to `true`. These flags record a human review; the script cannot independently verify legal rights or detect all personal information.
+Each JSONL record must include `source_date` in strict `YYYY-MM-DD` form and set `rights_confirmed`, `privacy_reviewed` and `quality_reviewed` to `true`. The generated manifest reports record counts by language and license plus the source-date range; inspect these before training. These flags record a human review; the script cannot independently verify legal rights or detect all personal information.
 
 ## Supervised instruction records
 
 For instruction fine-tuning, each JSONL record uses the same provenance and review fields as pretraining records, plus a `messages` array. Messages must alternate `user` and `assistant`, may begin with one `system` message, and must end with an assistant response. Example shape:
 
 ```json
-{"id":"sft-001","source":"DREAM-authored dialogue","source_group":"dream-tutor-v1","license":"CC0-1.0","rights_confirmed":true,"privacy_reviewed":true,"quality_reviewed":true,"language":"en","messages":[{"role":"user","content":"Explain fractions."},{"role":"assistant","content":"A fraction represents part of a whole..."}]}
+{"id":"sft-001","source":"DREAM-authored dialogue","source_group":"dream-tutor-v1","license":"CC0-1.0","source_date":"2026-01-15","rights_confirmed":true,"privacy_reviewed":true,"quality_reviewed":true,"language":"en","messages":[{"role":"user","content":"Explain fractions."},{"role":"assistant","content":"A fraction represents part of a whole..."}]}
 ```
 
 Use distinct source groups, independently checked answers, and separate training/validation files. Pass the pretraining `manifest.json` and exact held-out `test.txt` file to SFT: it verifies their hash matches and its training and validation source groups must also be disjoint from the pretraining held-out test groups. The SFT checkpoint records the exact held-out test hash, and evaluation refuses any other corpus. SFT also rejects duplicate record IDs and normalized dialogue content across its training/validation files. The script verifies the review flags and data hashes; it cannot establish the truth of the underlying attestations.
