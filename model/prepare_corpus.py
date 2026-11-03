@@ -109,9 +109,11 @@ def main():
             "\n\n".join(row["text"] for row in selected) + "\n",
             encoding="utf-8"
         )
+        split_groups = sorted({row["source_group"] for row in selected})
         manifest["splits"][split] = {
             "records": len(selected),
-            "source_groups": len({row["source_group"] for row in selected}),
+            "source_groups": len(split_groups),
+            "source_group_ids": split_groups,
             "sha256": sha256(text_path)
         }
     (output / "manifest.json").write_text(

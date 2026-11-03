@@ -53,6 +53,14 @@ def main():
             "Evaluation corpus hash matches training or validation data; "
             "use a genuinely held-out test corpus."
         )
+    sft_metadata = checkpoint.get("sft_training")
+    if sft_metadata:
+        expected_test_hash = sft_metadata.get("pretraining_test_sha256")
+        if not expected_test_hash or evaluation_hash != expected_test_hash:
+            raise SystemExit(
+                "SFT checkpoint evaluation must use the exact held-out test corpus "
+                "recorded in its pretraining manifest."
+            )
     tokens = torch.tensor(tokenizer.encode(text), dtype=torch.long)
     if len(tokens) < config.block_size + 2:
         raise SystemExit("Evaluation corpus is too small for the checkpoint context length.")

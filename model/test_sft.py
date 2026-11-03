@@ -1,4 +1,5 @@
 """Tests for DREAM's assistant-response-only supervised fine-tuning."""
+import hashlib
 import json
 import subprocess
 import sys
@@ -31,9 +32,30 @@ class DreamSFTTests(unittest.TestCase):
             "tokenizer": "utf8-byte-v1",
             "training": {"completed_steps": 2, "initialization": "random"}
         }, self.base)
+        self.test_data = self.root / "pretraining-test.txt"
+        self.test_data.write_text(
+            "This is a separate held out corpus used only to test evaluation isolation. " * 4,
+            encoding="utf-8"
+        )
+        test_hash = hashlib.sha256(self.test_data.read_bytes()).hexdigest()
+        self.manifest = self.root / "pretraining-manifest.json"
+        self.write_manifest(["pretraining-test-group"], test_hash)
 
     def tearDown(self):
         self.temp.cleanup()
+
+    def write_manifest(self, test_groups, test_hash=None):
+        if test_hash is None:
+            test_hash = hashlib.sha256(self.test_data.read_bytes()).hexdigest()
+        self.manifest.write_text(json.dumps({
+            "schema": "dream-corpus-v1",
+            "splits": {
+                "test": {
+                    "source_group_ids": test_groups,
+                    "sha256": test_hash
+                }
+            }
+        }), encoding="utf-8")
 
     def write_records(self, path, source_prefix):
         rows = []
@@ -85,6 +107,9 @@ class DreamSFTTests(unittest.TestCase):
                 "--checkpoint", str(self.base),
                 "--train-data", str(train_path),
                 "--validation-data", str(val_path),
+                "--pretraining-manifest", str(self.manifest),
+                "--pretraining-test-data", str(self.test_data),
+                "--pretraining-test-data", str(self.test_data),
                 "--out", str(output),
                 "--steps", "2",
                 "--batch-size", "2",
@@ -105,6 +130,10 @@ class DreamSFTTests(unittest.TestCase):
         self.assertTrue(saved["base_checkpoint_sha256"])
         self.assertTrue(saved["sft_training"]["train_sha256"])
         self.assertTrue(saved["sft_training"]["validation_sha256"])
+        self.assertEqual(
+            saved["sft_training"]["pretraining_test_sha256"],
+            hashlib.sha256(self.test_data.read_bytes()).hexdigest()
+        )
         self.assertIn("python_rng_state", saved)
         self.assertIn("torch_rng_state", saved)
 
@@ -114,6 +143,8 @@ class DreamSFTTests(unittest.TestCase):
                 "--checkpoint", str(self.base),
                 "--train-data", str(train_path),
                 "--validation-data", str(val_path),
+                "--pretraining-manifest", str(self.manifest),
+                "--pretraining-test-data", str(self.test_data),
                 "--out", str(output),
                 "--steps", "1",
                 "--batch-size", "2",
@@ -142,6 +173,19 @@ class DreamSFTTests(unittest.TestCase):
         self.assertNotEqual(leaked.returncode, 0)
         self.assertIn("matches training or validation", leaked.stderr)
 
+        valid_eval = subprocess.run(
+            [
+                sys.executable, str(EVALUATOR),
+                "--checkpoint", str(output),
+                "--data", str(self.test_data),
+                "--sample-tokens", "0",
+                "--batches", "1", "--batch-size", "1",
+                "--out", str(self.root / "valid-evaluation.json")
+            ],
+            capture_output=True, text=True, timeout=30
+        )
+        self.assertEqual(valid_eval.returncode, 0, valid_eval.stdout + valid_eval.stderr)
+
     def test_rejects_overlapping_source_groups(self):
         train_path = self.root / "train.jsonl"
         val_path = self.root / "validation.jsonl"
@@ -161,12 +205,35 @@ class DreamSFTTests(unittest.TestCase):
                 "--checkpoint", str(self.base),
                 "--train-data", str(train_path),
                 "--validation-data", str(val_path),
+                "--pretraining-manifest", str(self.manifest),
+                "--pretraining-test-data", str(self.test_data),
                 "--steps", "1"
             ],
             capture_output=True, text=True, timeout=30
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("source groups must be disjoint", result.stderr)
+
+    def test_rejects_sft_sources_used_by_pretraining_test(self):
+        train_path = self.root / "train.jsonl"
+        val_path = self.root / "validation.jsonl"
+        self.write_records(train_path, "train")
+        self.write_records(val_path, "validation")
+        self.write_manifest(["train-group-0"])
+        result = subprocess.run(
+            [
+                sys.executable, str(SCRIPT),
+                "--checkpoint", str(self.base),
+                "--train-data", str(train_path),
+                "--validation-data", str(val_path),
+                "--pretraining-manifest", str(self.manifest),
+                "--pretraining-test-data", str(self.test_data),
+                "--steps", "1"
+            ],
+            capture_output=True, text=True, timeout=30
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("pretraining held-out test groups", result.stderr)
 
     def test_refuses_random_untrained_base(self):
         untrained = self.root / "untrained.pt"
@@ -186,7 +253,9 @@ class DreamSFTTests(unittest.TestCase):
                 sys.executable, str(SCRIPT),
                 "--checkpoint", str(untrained),
                 "--train-data", str(train_path),
-                "--validation-data", str(val_path)
+                "--validation-data", str(val_path),
+                "--pretraining-manifest", str(self.manifest),
+                "--pretraining-test-data", str(self.test_data)
             ],
             capture_output=True, text=True, timeout=30
         )

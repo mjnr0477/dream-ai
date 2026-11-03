@@ -55,6 +55,15 @@ class CorpusPreparationTests(unittest.TestCase):
                     if f"Record {i}" in text
                 }
                 self.assertTrue(text.strip())
+                self.assertEqual(
+                    set(manifest["splits"][split]["source_group_ids"]),
+                    groups[split]
+                )
+                import hashlib
+                self.assertEqual(
+                    manifest["splits"][split]["sha256"],
+                    hashlib.sha256(text.encode("utf-8")).hexdigest()
+                )
             self.assertFalse(groups["train"] & groups["validation"])
             self.assertFalse(groups["train"] & groups["test"])
             self.assertFalse(groups["validation"] & groups["test"])
