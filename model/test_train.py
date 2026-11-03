@@ -418,8 +418,8 @@ class DreamLanguageSamplingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             (root / "train.txt").write_text(
-                "<|language:en|>\\n" + ("English training text with varied words. " * 8)
-                + "\\n\\n<|language:sw|>\\n"
+                "<|language:en|>\n" + ("English training text with varied words. " * 8)
+                + "\n\n<|language:sw|>\n"
                 + ("Haya ni maandishi ya Kiswahili yenye maneno tofauti. " * 8),
                 encoding="utf-8"
             )
