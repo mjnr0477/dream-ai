@@ -43,6 +43,10 @@ def main():
             raise SystemExit(f"Missing required metadata or text at line {line_number}")
         if item.get("rights_confirmed") is not True:
             raise SystemExit(f"Rights not confirmed at line {line_number}; refusing dataset")
+        if item.get("privacy_reviewed") is not True:
+            raise SystemExit(f"Privacy review not confirmed at line {line_number}; refusing dataset")
+        if item.get("quality_reviewed") is not True:
+            raise SystemExit(f"Quality review not confirmed at line {line_number}; refusing dataset")
         if len(item["text"].strip()) < 40:
             raise SystemExit(f"Text too short at line {line_number}")
         if item["id"] in seen_ids:
