@@ -33,6 +33,16 @@ Never put a real key in GitHub, browser JavaScript, or a public issue. After sav
 
 The provider must support the chat-completions request format. Check the provider's current pricing, free-tier limits, privacy policy and model capabilities before connecting it. A connected provider supplies inference; it is not a model trained by this repository.
 
+## Recommended no-cost model connection
+
+The current provider adapter works with Groq's OpenAI-compatible chat API. To try the available free tier, create a Groq API key and add these values as private environment variables on the Render service:
+
+- AI_BASE_URL: `https://api.groq.com/openai/v1`
+- AI_API_KEY: your Groq API key (keep it private)
+- AI_MODEL: `openai/gpt-oss-120b`
+
+Groq's published Free Plan limits currently list this model at 30 requests per minute and 1,000 requests per day, with token limits; the exact limits shown in your Groq console take precedence. Free access is rate-limited and is not unlimited production capacity. Groq says inference inputs and outputs are not retained by default, with limited retention possible for reliability and abuse investigations. Review the current terms before sending sensitive information.
+
 ## Deploy on Render
 - Runtime: Node
 - Build command: npm install
