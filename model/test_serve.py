@@ -129,6 +129,16 @@ class DreamServingTests(unittest.TestCase):
         self.assertEqual(body["choices"][0]["message"]["role"], "assistant")
         self.assertEqual(len(body["choices"][0]["message"]["content"]), 1)
 
+    def test_zero_temperature_enables_greedy_decoding(self):
+        status, body = self.request(
+            "POST", "/v1/chat/completions",
+            {"model": "dream-test", "messages": [{"role": "user", "content": "Hello"}],
+             "max_tokens": 1, "temperature": 0},
+            token="test-secret-token"
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(body["choices"][0]["message"]["content"], "A")
+
     def test_rejects_invalid_temperature(self):
         status, body = self.request(
             "POST", "/v1/chat/completions",
