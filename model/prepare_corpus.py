@@ -1,7 +1,7 @@
 """Validate licensed DREAM JSONL records and create source-isolated splits.
 
 Input record:
-{"id":"lesson-001","source":"DREAM-authored lesson","source_group":"dream-math-v1","license":"CC0-1.0","rights_confirmed":true,"language":"en","text":"..."}
+{"id":"lesson-001","source":"DREAM-authored lesson","source_group":"dream-math-v1","license":"CC0-1.0","source_date":"2026-01-15","rights_confirmed":true,"privacy_reviewed":true,"quality_reviewed":true,"language":"en","text":"..."}
 """
 import argparse
 import hashlib
@@ -30,6 +30,7 @@ def main():
     seen_ids = set()
     seen_text = set()
     groups = set()
+    duplicate_text_records = 0
 
     for line_number, line in enumerate(source.read_text(encoding="utf-8").splitlines(), 1):
         if not line.strip():
@@ -65,6 +66,7 @@ def main():
         normalized = " ".join(item["text"].split()).casefold()
         fingerprint = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
         if fingerprint in seen_text:
+            duplicate_text_records += 1
             continue
 
         seen_text.add(fingerprint)
@@ -120,6 +122,7 @@ def main():
         "schema": "dream-corpus-v1",
         "input_sha256": sha256(source),
         "records": len(records),
+        "duplicate_text_records_removed": duplicate_text_records,
         "source_groups": group_count,
         "language_counts": dict(sorted(language_counts.items())),
         "license_counts": dict(sorted(license_counts.items())),
