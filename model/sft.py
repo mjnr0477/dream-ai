@@ -162,14 +162,26 @@ def load_examples(path, tokenizer, block_size):
                               for message_role, message_text in prefix_messages)
             prefix += "ASSISTANT:"
             prefix_ids = tokenizer.encode(prefix)
+            language_prefix_ids = tokenizer.encode(
+                f"<|language:{item['language'].strip().lower()}|>\n"
+            )
             answer_ids = tokenizer.encode(" " + answer + "\n")
             if len(answer_ids) >= block_size:
                 raise SystemExit(
                     f"Assistant answer exceeds block_size at line {line_number}; "
                     "split or shorten the reviewed example."
                 )
-            available_prefix = max(0, block_size - len(answer_ids))
-            prefix_ids = prefix_ids[-available_prefix:] if available_prefix else []
+            available_prefix = block_size - len(answer_ids)
+            if len(language_prefix_ids) > available_prefix:
+                raise SystemExit(
+                    f"Language marker leaves no room for the prompt at line {line_number}; "
+                    "increase block_size or shorten the assistant answer."
+                )
+            if len(prefix_ids) > available_prefix:
+                tail_length = available_prefix - len(language_prefix_ids)
+                prefix_ids = language_prefix_ids + (
+                    prefix_ids[-tail_length:] if tail_length else []
+                )
             sequence = prefix_ids + answer_ids
             labels = ([-100] * len(prefix_ids)) + answer_ids
             if len(sequence) < 2:
