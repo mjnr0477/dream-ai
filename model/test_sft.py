@@ -131,10 +131,30 @@ class DreamSFTTests(unittest.TestCase):
         self.assertEqual(set(grouped), {"en", "sw"})
         self.assertEqual(len(grouped["en"]), 2)
         self.assertEqual(len(grouped["sw"]), 1)
-        inputs, targets = make_balanced_batch(grouped, 6, "cpu")
-        self.assertEqual(inputs.shape[0], 6)
+        import random
+        random.seed(2026)
+        tokenizer = DreamByteTokenizer()
+        inputs, targets = make_balanced_batch(grouped, 200, "cpu")
+        self.assertEqual(inputs.shape[0], 200)
         self.assertEqual(inputs.shape, targets.shape)
-        self.assertTrue(torch.all((targets == -100) | (targets >= 0)))
+        self.assertTrue(torch.any(targets == -100))
+        self.assertTrue(torch.any(targets >= 0))
+        language_prefixes = {
+            language: torch.tensor(
+                tokenizer.encode(f"<|language:{language}|>\\n"), dtype=torch.long
+            )
+            for language in grouped
+        }
+        counts = {
+            language: int(torch.all(
+                inputs[:, :len(prefix)] == prefix, dim=1
+            ).sum().item())
+            for language, prefix in language_prefixes.items()
+        }
+        self.assertGreater(counts["en"], 80)
+        self.assertLess(counts["en"], 120)
+        self.assertGreater(counts["sw"], 80)
+        self.assertLess(counts["sw"], 120)
 
     def test_language_marker_survives_prompt_truncation(self):
         train_path = self.root / "truncated-language.jsonl"
