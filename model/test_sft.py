@@ -483,31 +483,41 @@ class DreamSFTTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("hash does not match", result.stderr)
 
-    def test_rejects_sft_sources_used_by_pretraining_test(self):
+    def test_rejects_sft_sources_used_by_any_pretraining_split(self):
         train_path = self.root / "train.jsonl"
         val_path = self.root / "validation.jsonl"
         self.write_records(train_path, "train")
         self.write_records(val_path, "validation")
-        self.write_manifest(["train-group-0"])
-        base_payload = torch.load(self.base, map_location="cpu", weights_only=True)
-        base_payload["training"]["corpus_manifest_sha256"] = hashlib.sha256(
-            self.manifest.read_bytes()
-        ).hexdigest()
-        torch.save(base_payload, self.base)
-        result = subprocess.run(
-            [
-                sys.executable, str(SCRIPT),
-                "--checkpoint", str(self.base),
-                "--train-data", str(train_path),
-                "--validation-data", str(val_path),
-                "--pretraining-manifest", str(self.manifest),
-                "--pretraining-test-data", str(self.test_data),
-                "--steps", "1"
-            ],
-            capture_output=True, text=True, timeout=30
-        )
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("pretraining held-out test groups", result.stderr)
+        for split_name, overlapping_group in (
+            ("train", "train-group-0"),
+            ("validation", "validation-group-0"),
+            ("test", "test-group-0")
+        ):
+            with self.subTest(split=split_name):
+                self.write_manifest([overlapping_group])
+                manifest_payload = json.loads(self.manifest.read_text(encoding="utf-8"))
+                if split_name != "test":
+                    manifest_payload["splits"]["test"]["source_group_ids"] = ["pretraining-test-group"]
+                    self.manifest.write_text(json.dumps(manifest_payload), encoding="utf-8")
+                base_payload = torch.load(self.base, map_location="cpu", weights_only=True)
+                base_payload["training"]["corpus_manifest_sha256"] = hashlib.sha256(
+                    self.manifest.read_bytes()
+                ).hexdigest()
+                torch.save(base_payload, self.base)
+                result = subprocess.run(
+                    [
+                        sys.executable, str(SCRIPT),
+                        "--checkpoint", str(self.base),
+                        "--train-data", str(train_path),
+                        "--validation-data", str(val_path),
+                        "--pretraining-manifest", str(self.manifest),
+                        "--pretraining-test-data", str(self.test_data),
+                        "--steps", "1"
+                    ],
+                    capture_output=True, text=True, timeout=30
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("SFT training/validation source groups must be disjoint from every pretraining split", result.stderr)
 
     def test_refuses_random_untrained_base(self):
         untrained = self.root / "untrained.pt"
