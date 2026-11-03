@@ -87,8 +87,9 @@ def record_signatures(path):
     return record_ids, content_hashes
 
 
-def load_examples(path, tokenizer, block_size):
+def load_examples(path, tokenizer, block_size, group_by_language=False):
     examples = []
+    examples_by_language = {}
     seen_ids = set()
     for line_number, line in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1):
         if not line.strip():
@@ -190,22 +191,39 @@ def load_examples(path, tokenizer, block_size):
             target_ids = labels[1:]
             if not any(target != -100 for target in target_ids):
                 continue
-            examples.append((input_ids, target_ids))
+            example = (input_ids, target_ids)
+            examples.append(example)
+            language = item["language"].strip().lower()
+            examples_by_language.setdefault(language, []).append(example)
 
     if not examples:
         raise SystemExit(f"No usable supervised assistant examples found in {path}")
-    return examples
+    return examples_by_language if group_by_language else examples
 
 
-def make_batch(examples, batch_size, device):
-    selected = random.choices(examples, k=batch_size)
+def collate_batch(selected, device):
     length = max(len(input_ids) for input_ids, _ in selected)
-    inputs = torch.zeros((batch_size, length), dtype=torch.long)
-    targets = torch.full((batch_size, length), -100, dtype=torch.long)
+    inputs = torch.zeros((len(selected), length), dtype=torch.long)
+    targets = torch.full((len(selected), length), -100, dtype=torch.long)
     for row, (input_ids, target_ids) in enumerate(selected):
         inputs[row, :len(input_ids)] = torch.tensor(input_ids, dtype=torch.long)
         targets[row, :len(target_ids)] = torch.tensor(target_ids, dtype=torch.long)
     return inputs.to(device), targets.to(device)
+
+
+def make_batch(examples, batch_size, device):
+    return collate_batch(random.choices(examples, k=batch_size), device)
+
+
+def make_balanced_batch(examples_by_language, batch_size, device):
+    languages = tuple(sorted(examples_by_language))
+    if not languages:
+        raise ValueError("No language groups are available for balanced SFT sampling.")
+    selected = [
+        random.choice(examples_by_language[random.choice(languages)])
+        for _ in range(batch_size)
+    ]
+    return collate_batch(selected, device)
 
 
 def main():
@@ -231,6 +249,9 @@ def main():
     parser.add_argument("--eval-batches", type=int, default=10)
     parser.add_argument("--checkpoint-every", type=int, default=250)
     parser.add_argument("--seed", type=int, default=2026)
+    parser.add_argument("--language-sampling", choices=("proportional", "balanced"),
+                        default="proportional",
+                        help="Sample SFT examples proportionally or choose languages uniformly")
     args = parser.parse_args()
 
     if any(value < 1 for value in (
@@ -350,7 +371,17 @@ def main():
         raise SystemExit(
             "SFT training/validation source groups must be disjoint from every pretraining split."
         )
-    train_examples = load_examples(train_path, tokenizer, config.block_size)
+    if args.language_sampling == "balanced":
+        train_examples_by_language = load_examples(
+            train_path, tokenizer, config.block_size, group_by_language=True
+        )
+        train_examples = [
+            example for language in sorted(train_examples_by_language)
+            for example in train_examples_by_language[language]
+        ]
+    else:
+        train_examples_by_language = None
+        train_examples = load_examples(train_path, tokenizer, config.block_size)
     validation_examples = load_examples(validation_path, tokenizer, config.block_size)
 
     model = DreamTransformer(config)
@@ -371,6 +402,8 @@ def main():
             raise SystemExit("SFT resume hyperparameters do not match.")
         if meta.get("grad_accum_steps") != args.grad_accum_steps or meta.get("eval_batches") != args.eval_batches:
             raise SystemExit("SFT resume accumulation/evaluation settings do not match.")
+        if meta.get("language_sampling", "proportional") != args.language_sampling:
+            raise SystemExit("SFT resume language sampling mode does not match.")
         if (
             meta.get("pretraining_test_sha256") != pretraining_test_hash
             or meta.get("pretraining_manifest_sha256") != pretraining_manifest_hash
@@ -430,6 +463,11 @@ def main():
                 "grad_accum_steps": args.grad_accum_steps,
                 "effective_batch_size": args.batch_size * args.grad_accum_steps,
                 "eval_batches": args.eval_batches,
+                "language_sampling": args.language_sampling,
+                "training_examples_by_language": ({
+                    language: len(examples)
+                    for language, examples in train_examples_by_language.items()
+                } if train_examples_by_language is not None else None),
                 "last_train_loss": train_loss,
                 "last_validation_loss": validation_loss,
                 "device": device
@@ -445,7 +483,12 @@ def main():
         model.train()
         optimizer.zero_grad(set_to_none=True)
         for _ in range(args.grad_accum_steps):
-            x, y = make_batch(train_examples, args.batch_size, device)
+            if train_examples_by_language is None:
+                x, y = make_batch(train_examples, args.batch_size, device)
+            else:
+                x, y = make_balanced_batch(
+                    train_examples_by_language, args.batch_size, device
+                )
             _, loss = model(x, y)
             if loss is None or not torch.isfinite(loss):
                 raise RuntimeError("Invalid SFT training loss.")
