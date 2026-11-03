@@ -1,7 +1,7 @@
 """Validate licensed DREAM JSONL records and create source-isolated splits.
 
 Input record:
-{"id":"lesson-001","source":"DREAM-authored lesson","source_group":"dream-math-v1","license":"CC0-1.0","source_date":"2026-01-15","rights_confirmed":true,"privacy_reviewed":true,"quality_reviewed":true,"language":"en","text":"..."}
+{"id":"lesson-001","source":"DREAM-authored lesson","source_group":"dream-math-v1","source_url":"https://example.org/lesson","license":"CC0-1.0","license_url":"https://creativecommons.org/publicdomain/zero/1.0/","rights_basis":"original-authorship","source_date":"2026-01-15","rights_confirmed":true,"privacy_reviewed":true,"quality_reviewed":true,"language":"en","text":"..."}
 """
 import argparse
 import hashlib
