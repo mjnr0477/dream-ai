@@ -27,7 +27,7 @@ See [model/BASELINE.md](model/BASELINE.md) for the architecture, commands and re
 - `model/train.py`: trains from random initialization.
 - `model/generate.py`: local checkpoint inference.
 - `model/serve.py`: serves DREAM checkpoints through a local HTTP API; the JSON protocol does not call an external AI.
-- `model/test_dream_transformer.py`: tests core model behavior.
+- `model/test_dream_transformer.py`, `model/test_train.py` and `model/test_serve.py`: test model behavior, training/checkpoint resume and the local authenticated HTTP API.
 - `data/README.md`: strict data provenance, privacy and licensing rules.
 
 Install and run the model locally:
@@ -36,7 +36,7 @@ Install and run the model locally:
 python -m pip install -r model/requirements.txt
 python -m unittest discover -s model -p 'test_*.py'
 python model/prepare_corpus.py --input data/approved-records.jsonl
-python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --eval-batches 10
 # Resume an interrupted run from its latest atomic checkpoint:
 python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --resume checkpoints/dream-small.pt
 python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER: Hello DREAM.\nASSISTANT:"
@@ -59,7 +59,7 @@ The Node app connects to a DREAM model server through the independent adapter:
 - `DREAM_MODEL_NAME`: model identifier, currently `dream-native`.
 - `DREAM_MODEL_TOKEN`: optional private bearer token; required when exposing the model server beyond localhost.
 
-The model server defaults to localhost. Use HTTPS, authentication, network restrictions and resource limits before exposing it to any remote service. Never put tokens in GitHub or browser JavaScript.
+The model server defaults to localhost, handles one inference request at a time and validates payload sizes and sampling parameters. A bearer token is mandatory when binding beyond localhost. Its built-in HTTP server is not a hardened public deployment: use HTTPS, a reverse proxy, network restrictions and resource limits before any remote exposure. Never put tokens in GitHub or browser JavaScript.
 
 ## Compute and deployment
 

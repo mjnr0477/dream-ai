@@ -19,7 +19,7 @@ The first configurable experiment defaults to 6 layers, width 256, 8 attention h
 - `model/train.py` trains from random initialization on an authorized UTF-8 text corpus.
 - `model/generate.py` runs local inference from a DREAM checkpoint.
 - `model/serve.py` exposes the native checkpoint over a local HTTP endpoint. Its chat-completions-shaped JSON is only a transport protocol; no external model is called.
-- `model/test_dream_transformer.py` tests tokenizer round-trip, causal attention, tensor shapes, loss and generation.
+- `model/test_dream_transformer.py`, `model/test_train.py` and `model/test_serve.py` test model behavior, checkpoint/resume and local HTTP serving.
 - `data/README.md` defines dataset provenance, privacy, licensing and quality gates.
 
 Install the model dependencies from `model/requirements.txt`. Run the training script from the repository root with a sufficiently large, high-quality corpus:
@@ -27,7 +27,7 @@ Install the model dependencies from `model/requirements.txt`. Run the training s
 ```sh
 python -m pip install -r model/requirements.txt
 python model/prepare_corpus.py --input data/approved-records.jsonl
-python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --eval-batches 10
 # Resume the saved run later, keeping the same corpus, architecture and optimizer settings:
 python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --resume checkpoints/dream-small.pt
 python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER: Explain photosynthesis.\nASSISTANT:"
@@ -39,7 +39,7 @@ To serve a trained checkpoint locally:
 DREAM_CHECKPOINT=checkpoints/dream-small.pt python model/serve.py
 ```
 
-The server binds to localhost by default. Set `DREAM_SERVER_TOKEN` before binding to a non-local interface.
+The server binds to localhost by default, processes one request at a time to bound inference concurrency, and enforces request-size and parameter limits. Set `DREAM_SERVER_TOKEN` before binding to a non-local interface. The built-in server is a development/runtime baseline, not a hardened public internet deployment.
 
 ## Data and evaluation
 
@@ -54,7 +54,7 @@ The free Render web service hosts the Node application; it is not the training o
 A successful training run must save:
 - model checkpoint and architecture config;
 - exact dataset version/hash and split;
-- random seed, optimizer, learning rate and step count;
+- random seed, optimizer, learning rate, evaluation batch count and step count;
 - train and validation loss/perplexity;
 - hardware and runtime details;
 - evaluation report and known limitations.

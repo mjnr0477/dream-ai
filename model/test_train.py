@@ -52,6 +52,9 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             self.assertTrue(saved["training"]["corpus_sha256"])
             self.assertTrue(saved["training"]["validation_sha256"])
             self.assertIsNotNone(saved["training"]["last_validation_loss"])
+            self.assertEqual(saved["training"]["eval_batches"], 10)
+            self.assertIn("torch_rng_state", saved)
+            self.assertIn("cuda_rng_state", saved)
 
             resumed = self.run_training(
                 root, checkpoint, extra=("--resume", str(checkpoint))
