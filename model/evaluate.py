@@ -108,12 +108,16 @@ def main():
             raise SystemExit("Evaluation manifest does not match the SFT checkpoint pretraining manifest.")
     elif expected_manifest_hash or sft_manifest_hash:
         raise SystemExit("This checkpoint requires --manifest for provenance-verified evaluation.")
-    if evaluation_hash in {training_hash, validation_hash}:
+    sft_metadata = checkpoint.get("sft_training") or {}
+    sft_train_hash = sft_metadata.get("train_sha256")
+    sft_validation_hash = sft_metadata.get("validation_sha256")
+    if evaluation_hash in {
+        training_hash, validation_hash, sft_train_hash, sft_validation_hash
+    }:
         raise SystemExit(
             "Evaluation corpus hash matches training or validation data; "
             "use a genuinely held-out test corpus."
         )
-    sft_metadata = checkpoint.get("sft_training")
     if sft_metadata:
         expected_test_hash = sft_metadata.get("pretraining_test_sha256")
         if not expected_test_hash or evaluation_hash != expected_test_hash:
