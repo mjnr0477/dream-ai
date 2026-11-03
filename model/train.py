@@ -78,6 +78,11 @@ def main():
                 digest.update(chunk)
         return digest.hexdigest()
 
+    training_hash = file_sha256(args.data)
+    validation_hash = file_sha256(validation_path)
+    if training_hash == validation_hash:
+        raise SystemExit("Training and validation content hashes must differ.")
+
     config = DreamConfig(
         block_size=args.block_size, d_model=args.d_model,
         n_heads=args.heads, n_layers=args.layers
@@ -92,9 +97,9 @@ def main():
         if checkpoint.get("config") != config.__dict__:
             raise SystemExit("Resume checkpoint architecture does not match this run.")
         training_meta = checkpoint.get("training", {})
-        if training_meta.get("corpus_sha256") != file_sha256(args.data):
+        if training_meta.get("corpus_sha256") != training_hash:
             raise SystemExit("Resume checkpoint training corpus hash does not match.")
-        if training_meta.get("validation_sha256") != file_sha256(validation_path):
+        if training_meta.get("validation_sha256") != validation_hash:
             raise SystemExit("Resume checkpoint validation corpus hash does not match.")
         if training_meta.get("learning_rate") != args.learning_rate:
             raise SystemExit("Resume checkpoint learning rate does not match.")
@@ -148,9 +153,9 @@ def main():
             "completed_steps": completed_steps,
             "seed": args.seed,
             "corpus": str(Path(args.data)),
-            "corpus_sha256": file_sha256(args.data),
+            "corpus_sha256": training_hash,
             "validation_corpus": str(validation_path),
-            "validation_sha256": file_sha256(validation_path),
+            "validation_sha256": validation_hash,
             "initialization": "random" if not args.resume else "resumed-from-dream-checkpoint",
             "optimizer": "AdamW",
             "learning_rate": args.learning_rate,
