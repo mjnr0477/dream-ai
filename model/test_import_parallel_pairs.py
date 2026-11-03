@@ -6,6 +6,9 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from dream_transformer import DreamByteTokenizer
+from sft import load_examples
+
 SCRIPT = Path(__file__).with_name("import_parallel_pairs.py")
 
 
@@ -78,6 +81,20 @@ class ParallelPairImportTests(unittest.TestCase):
             self.assertEqual(summary["input_pairs"], 40)
             self.assertEqual(summary["duplicate_pairs_removed"], 0)
             self.assertEqual(summary["review_status"], "human_review_required")
+
+            # The importer output becomes valid SFT input only after a human
+            # has explicitly completed the three review attestations.
+            reviewed_path = root / "reviewed-sft-train.jsonl"
+            for row in train:
+                row["rights_confirmed"] = True
+                row["privacy_reviewed"] = True
+                row["quality_reviewed"] = True
+            reviewed_path.write_text(
+                "".join(json.dumps(row, ensure_ascii=False) + "\\n" for row in train),
+                encoding="utf-8"
+            )
+            examples = load_examples(reviewed_path, DreamByteTokenizer(), block_size=128)
+            self.assertEqual(len(examples), len(train))
 
     def test_deduplicates_identical_parallel_pairs(self):
         with tempfile.TemporaryDirectory() as directory:
