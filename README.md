@@ -57,11 +57,11 @@ The current benchmark is an initial seed, not a certification of quality.
 ## Runtime architecture
 
 The Node app connects to a DREAM model server through the independent adapter:
-- `DREAM_MODEL_URL`: private base URL of the native DREAM model server.
+- `DREAM_MODEL_URL`: native server API base, including the `/v1` path (for example `http://127.0.0.1:8090/v1` for a same-machine setup or `https://your-private-model-host/v1` for a secured remote runtime).
 - `DREAM_MODEL_NAME`: model identifier, currently `dream-native`.
 - `DREAM_MODEL_TOKEN`: optional private bearer token; required when exposing the model server beyond localhost.
 
-The model server defaults to localhost, handles one inference request at a time and validates payload sizes and sampling parameters. A bearer token is mandatory when binding beyond localhost. Its built-in HTTP server is not a hardened public deployment: use HTTPS, a reverse proxy, network restrictions and resource limits before any remote exposure. Never put tokens in GitHub or browser JavaScript.
+The Node adapter sends requests to `/v1/chat/completions`; configure `DREAM_MODEL_URL` with the `/v1` suffix. The model server defaults to localhost, handles one inference request at a time and validates payload sizes and sampling parameters. A bearer token is mandatory when binding beyond localhost. Its built-in HTTP server is not a hardened public deployment: use HTTPS, a reverse proxy, network restrictions and resource limits before any remote exposure. Never put tokens in GitHub or browser JavaScript.
 
 ## Compute and deployment
 
