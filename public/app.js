@@ -120,7 +120,7 @@ async function checkHealth() {
     const response = await fetch("/api/health");
     const health = await response.json();
     if (!response.ok) throw new Error("Health check failed");
-    statusText.textContent = health.modelConnected ? "AI model connected" : "Service online · model setup needed";
+    statusText.textContent = health.modelConfigured ? "Model configured · ready to test" : "Service online · model setup needed";
     statusDot.classList.add("online");
   } catch {
     statusText.textContent = "Service connection unavailable";
