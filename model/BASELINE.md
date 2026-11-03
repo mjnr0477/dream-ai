@@ -41,7 +41,7 @@ The server binds to localhost by default. Set `DREAM_SERVER_TOKEN` before bindin
 
 ## Data and evaluation
 
-No dataset is silently assumed or bundled as training data. Every corpus must have a recorded source, permission/license, privacy review, deduplication, quality checks and leakage-safe train/validation/test splits. See `data/README.md`.
+No dataset is silently assumed or bundled as training data. Every record must carry human-confirmed rights, privacy and quality review flags; the script checks these attestations, deduplicates records and keeps source groups isolated across train/validation/test splits. These flags are not a substitute for actual legal and privacy review. See `data/README.md`.
 
 The 12-case initial DREAM evaluation set is a starting point, not enough to certify model quality. We must expand it, add independent human-reviewed scoring and test for memorization, factuality, bias, safety and multilingual performance.
 

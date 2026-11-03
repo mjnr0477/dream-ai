@@ -6,6 +6,7 @@ DREAM's own checkpoint loaded by this process.
 import json
 import os
 import secrets
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 import torch
@@ -21,6 +22,7 @@ if HOST not in ("127.0.0.1", "localhost", "::1") and not TOKEN:
     raise RuntimeError("DREAM_SERVER_TOKEN is required when binding beyond localhost")
 MAX_BODY = 64 * 1024
 MAX_OUTPUT_TOKENS = 256
+INFERENCE_LOCK = threading.BoundedSemaphore(1)
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
 
@@ -76,6 +78,8 @@ class Handler(BaseHTTPRequestHandler):
             if length < 1 or length > MAX_BODY:
                 return self._json(413, {"error": "invalid_body_size"})
             body = json.loads(self.rfile.read(length))
+            if not isinstance(body, dict):
+                return self._json(400, {"error": "invalid_request"})
             messages = body.get("messages")
             if not isinstance(messages, list) or not messages:
                 return self._json(400, {"error": "messages_required"})
@@ -95,17 +99,21 @@ class Handler(BaseHTTPRequestHandler):
             if not prompt_ids:
                 return self._json(400, {"error": "empty_prompt"})
             max_tokens = body.get("max_tokens", 128)
-            if not isinstance(max_tokens, int) or not 1 <= max_tokens <= MAX_OUTPUT_TOKENS:
+            if isinstance(max_tokens, bool) or not isinstance(max_tokens, int) or not 1 <= max_tokens <= MAX_OUTPUT_TOKENS:
                 return self._json(400, {"error": "max_tokens_out_of_range"})
-
-            ids = torch.tensor(
-                [prompt_ids[-CONFIG.block_size:]], dtype=torch.long, device=DEVICE
-            )
-            with torch.inference_mode():
-                generated = MODEL.generate(
-                    ids, max_new_tokens=max_tokens,
-                    temperature=max(0.1, min(float(body.get("temperature", 0.8)), 1.5))
-                )[0].tolist()
+            if not INFERENCE_LOCK.acquire(blocking=False):
+                return self._json(503, {"error": "model_busy_try_again"})
+            try:
+                ids = torch.tensor(
+                    [prompt_ids[-CONFIG.block_size:]], dtype=torch.long, device=DEVICE
+                )
+                with torch.inference_mode():
+                    generated = MODEL.generate(
+                        ids, max_new_tokens=max_tokens,
+                        temperature=max(0.1, min(float(body.get("temperature", 0.8)), 1.5))
+                    )[0].tolist()
+            finally:
+                INFERENCE_LOCK.release()
             answer = TOKENIZER.decode(generated[len(ids[0]):]).strip()
             if not answer:
                 answer = TOKENIZER.decode(generated).strip()
