@@ -90,7 +90,7 @@ class ParallelPairImportTests(unittest.TestCase):
                 row["privacy_reviewed"] = True
                 row["quality_reviewed"] = True
             reviewed_path.write_text(
-                "".join(json.dumps(row, ensure_ascii=False) + "\\n" for row in train),
+                "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in train),
                 encoding="utf-8"
             )
             examples = load_examples(reviewed_path, DreamByteTokenizer(), block_size=128)
