@@ -108,6 +108,7 @@ class DreamSFTTests(unittest.TestCase):
                 "--train-data", str(train_path),
                 "--validation-data", str(val_path),
                 "--pretraining-manifest", str(self.manifest),
+                "--pretraining-test-data", str(self.test_data),
                 "--out", str(output),
                 "--steps", "2",
                 "--batch-size", "2",
