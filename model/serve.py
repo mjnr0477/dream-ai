@@ -38,7 +38,7 @@ def load_model(checkpoint_path, device):
         raise ValueError("Unsupported DREAM tokenizer in checkpoint.")
     metadata = checkpoint.get("sft_training") or checkpoint.get("training") or {}
     completed_steps = metadata.get("completed_steps", 0)
-    if not isinstance(completed_steps, int) or completed_steps < 1:
+    if not isinstance(completed_steps, int) or isinstance(completed_steps, bool) or completed_steps < 1:
         raise ValueError("Refusing to serve a checkpoint without completed DREAM training.")
     config = DreamConfig(**checkpoint["config"])
     if config.vocab_size != tokenizer.vocab_size:
@@ -125,7 +125,15 @@ def create_handler(model, tokenizer, config, model_name, token, device):
                     or len(item["content"]) > MAX_MESSAGE_CHARS
                 ):
                     return self.send_json(400, {"error": {"message": "Invalid message role or content"}})
-            if messages[-1]["role"] != "user":
+            dialogue = messages[1:] if messages[0]["role"] == "system" else messages
+            if not dialogue or dialogue[0]["role"] != "user":
+                return self.send_json(400, {"error": {"message": "Conversation must start with a user message"}})
+            if any(
+                item["role"] != ("user" if index % 2 == 0 else "assistant")
+                for index, item in enumerate(dialogue)
+            ):
+                return self.send_json(400, {"error": {"message": "Conversation roles must alternate user and assistant"}})
+            if dialogue[-1]["role"] != "user":
                 return self.send_json(400, {"error": {"message": "Last message must be from user"}})
 
             try:
