@@ -144,7 +144,7 @@ def main():
             "A low validation loss does not certify safety, reasoning, usefulness or generalization.",
             "Sample generation is qualitative and must be reviewed by humans."
         ]
-    }
+    })
 
     output = Path(args.out)
     output.parent.mkdir(parents=True, exist_ok=True)
