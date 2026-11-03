@@ -292,6 +292,36 @@ class DreamSFTTests(unittest.TestCase):
         )
         self.assertEqual(valid_eval.returncode, 0, valid_eval.stdout + valid_eval.stderr)
 
+    def test_sft_rejects_unverified_pretraining_checkpoint(self):
+        unverified_base = self.root / "unverified-base.pt"
+        base_payload = torch.load(self.base, map_location="cpu", weights_only=True)
+        base_payload["training"].pop("data_provenance_verified", None)
+        base_payload["training"].pop("corpus_manifest_sha256", None)
+        torch.save(base_payload, unverified_base)
+        train_path = self.root / "unverified-train.jsonl"
+        val_path = self.root / "unverified-validation.jsonl"
+        self.write_records(train_path, "unverified-train")
+        self.write_records(val_path, "unverified-validation")
+        result = subprocess.run(
+            [
+                sys.executable, str(SCRIPT),
+                "--checkpoint", str(unverified_base),
+                "--train-data", str(train_path),
+                "--validation-data", str(val_path),
+                "--pretraining-manifest", str(self.manifest),
+                "--pretraining-test-data", str(self.test_data),
+                "--out", str(self.root / "unverified-sft.pt"),
+                "--steps", "1", "--batch-size", "1",
+                "--eval-batches", "1", "--checkpoint-every", "1"
+            ],
+            capture_output=True, text=True, timeout=30
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn(
+            "requires a pretraining checkpoint whose corpus provenance was verified",
+            result.stderr
+        )
+
     def test_sft_rejects_manifest_not_bound_to_verified_base_checkpoint(self):
         verified_base = self.root / "verified-base.pt"
         base_payload = torch.load(self.base, map_location="cpu", weights_only=True)
