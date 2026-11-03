@@ -24,6 +24,8 @@ The web interface is not itself a trained model. Until a trained native DREAM ch
 See [model/BASELINE.md](model/BASELINE.md) for the architecture, commands and release gates. For a phone-friendly, free-tier training workflow, open the [DREAM from-scratch Colab notebook](https://colab.research.google.com/github/mjnr0477/dream-ai/blob/main/training/dream_train_colab.ipynb). Colab GPU availability and session limits are controlled by Google; download the checkpoint and evaluation report before the session ends.
 
 - `model/dream_transformer.py`: DREAM's own transformer blocks, causal attention, embeddings and UTF-8 byte tokenizer.
+- `model/dream_bpe.py`: experimental deterministic byte-fallback BPE tokenizer; it is not yet integrated into model checkpoints or serving.
+- `model/benchmark_multilingual_tokenizer.py`: measures BPE token efficiency per language on held-out UTF-8 text, checks train/test text overlap and verifies exact Unicode round trips. This measures compression only, not language understanding.
 - `model/train.py`: trains from random initialization.
 - `model/evaluate.py`: produces a held-out corpus report with cross-entropy, bits-per-byte, perplexity-per-byte, corpus/checkpoint hashes and a sample generation.
 - `model/generate.py`: local checkpoint inference.
@@ -55,7 +57,7 @@ The training corpus path above is an example, not a file already present. Each J
 - `npm run eval`: records outputs and latency from a configured self-hosted model runtime for human review.
 - Human reviewers score each result from 0 to 4 using its rubric, filling `humanScore` and `reviewerNotes` in the JSONL file. `npm run summarize:evals -- eval-results/scored.jsonl eval-results/summary.json` reports honest overall, category and language averages, latency, and unscored counts; missing scores are never inferred.
 
-The current benchmark is an initial seed, not a certification of quality.
+The current benchmark is an initial seed, not a certification of quality. For held-out BPE efficiency experiments, prepare separate JSONL files containing `language` and `text` fields, then run `python model/benchmark_multilingual_tokenizer.py --train-data data/tokenizer-train.jsonl --test-data data/tokenizer-test.jsonl`. The test text must not overlap the tokenizer-training text. This experiment does not change the active byte-tokenizer model.
 
 ## Runtime architecture
 
