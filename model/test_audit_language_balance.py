@@ -11,7 +11,7 @@ class LanguageBalanceTests(unittest.TestCase):
     def write_rows(self, root, rows):
         path = root / "corpus.jsonl"
         path.write_text(
-            "".join(json.dumps(row, ensure_ascii=False) + "\\n" for row in rows),
+            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
             encoding="utf-8"
         )
         return path
