@@ -8,6 +8,7 @@ import hashlib
 import json
 import math
 import random
+from datetime import date
 from pathlib import Path
 
 import torch
@@ -75,9 +76,17 @@ def load_examples(path, tokenizer, block_size):
             item = json.loads(line)
         except json.JSONDecodeError as exc:
             raise SystemExit(f"Invalid JSON at line {line_number}: {exc}") from exc
-        for field in ("id", "source", "source_group", "license", "language"):
+        for field in ("id", "source", "source_group", "license", "source_date", "language"):
             if not isinstance(item.get(field), str) or not item[field].strip():
                 raise SystemExit(f"Missing {field} at line {line_number}")
+        try:
+            parsed_source_date = date.fromisoformat(item["source_date"])
+            if parsed_source_date.isoformat() != item["source_date"]:
+                raise ValueError("source_date must use YYYY-MM-DD")
+        except ValueError as exc:
+            raise SystemExit(
+                f"Invalid source_date at line {line_number}; expected YYYY-MM-DD"
+            ) from exc
         for field, label in (
             ("rights_confirmed", "rights"),
             ("privacy_reviewed", "privacy"),
