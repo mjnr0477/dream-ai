@@ -9,6 +9,7 @@ from pathlib import Path
 import torch
 
 from dream_transformer import DreamConfig, DreamTransformer, DreamByteTokenizer
+from dream_bpe import DreamBPETokenizer
 
 SCRIPT = Path(__file__).with_name("run_task_benchmark.py")
 
@@ -94,6 +95,45 @@ class NativeTaskBenchmarkTests(unittest.TestCase):
             self.assertTrue(all(score is None for score in report["results"][0]["rubric_scores"]))
             self.assertIn("response", report["results"][0])
             self.assertIsNone(report["results"][0]["human_score"])
+
+    def test_runs_native_bpe_checkpoint(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            tokenizer = DreamBPETokenizer.train(
+                "DREAM native benchmark tokenizer material " * 20,
+                vocab_size=280
+            )
+            config = DreamConfig(
+                vocab_size=tokenizer.vocab_size, block_size=64, d_model=16,
+                n_heads=4, n_layers=1, dropout=0.0
+            )
+            model = DreamTransformer(config)
+            checkpoint = root / "dream-bpe-test.pt"
+            torch.save({
+                "model_state": model.state_dict(),
+                "config": config.__dict__,
+                "tokenizer": DreamBPETokenizer.format_version,
+                "tokenizer_data": tokenizer.to_dict(),
+                "training": {"completed_steps": 2}
+            }, checkpoint)
+            benchmark = self.make_benchmark(root)
+            output = root / "bpe-report.json"
+            result = subprocess.run(
+                [
+                    sys.executable, str(SCRIPT),
+                    "--checkpoint", str(checkpoint),
+                    "--benchmark", str(benchmark),
+                    "--out", str(output),
+                    "--max-new-tokens", "2",
+                    "--temperature", "0",
+                    "--limit", "1"
+                ],
+                capture_output=True, text=True, timeout=60
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            report = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(report["tokenizer"], DreamBPETokenizer.format_version)
+            self.assertEqual(report["task_count"], 1)
 
     def test_rejects_duplicate_task_ids(self):
         with tempfile.TemporaryDirectory() as directory:
