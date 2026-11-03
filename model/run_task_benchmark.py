@@ -147,6 +147,19 @@ def main():
         "architecture": config.__dict__,
         "parameters": sum(parameter.numel() for parameter in model.parameters()),
         "completed_training_steps": completed_steps,
+        "data_provenance_verified": bool(
+            training_meta.get("data_provenance_verified")
+            or training_meta.get("pretraining_manifest_sha256")
+        ),
+        "corpus_manifest_sha256": (
+            training_meta.get("corpus_manifest_sha256")
+            or training_meta.get("pretraining_manifest_sha256")
+        ),
+        "training_corpus_sha256": (
+            training_meta.get("corpus_sha256")
+            or training_meta.get("train_sha256")
+        ),
+        "validation_corpus_sha256": training_meta.get("validation_sha256"),
         "device": device,
         "seed": args.seed,
         "generation": {
