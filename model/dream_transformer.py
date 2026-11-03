@@ -25,14 +25,22 @@ class DreamConfig:
             self.vocab_size, self.block_size, self.d_model,
             self.n_heads, self.n_layers
         )
-        if any(not isinstance(value, int) or value < 1 for value in dimensions):
+        if any(
+            not isinstance(value, int) or isinstance(value, bool) or value < 1
+            for value in dimensions
+        ):
             raise ValueError("Model dimensions must be positive integers")
         if self.vocab_size != 256:
             raise ValueError("The current DREAM byte tokenizer requires vocab_size=256")
         if self.d_model % self.n_heads:
             raise ValueError("d_model must be divisible by n_heads")
-        if not isinstance(self.dropout, (int, float)) or not 0 <= self.dropout < 1:
-            raise ValueError("dropout must be in the range [0, 1)")
+        if (
+            isinstance(self.dropout, bool)
+            or not isinstance(self.dropout, (int, float))
+            or not math.isfinite(self.dropout)
+            or not 0 <= self.dropout < 1
+        ):
+            raise ValueError("dropout must be a finite number in the range [0, 1)")
 
 
 class DreamByteTokenizer:
