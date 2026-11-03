@@ -28,9 +28,21 @@ def sha256(path):
 
 def source_groups(path):
     groups = set()
-    for line in Path(path).read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            groups.add(json.loads(line)["source_group"])
+    for line_number, line in enumerate(
+        Path(path).read_text(encoding="utf-8").splitlines(), 1
+    ):
+        if not line.strip():
+            continue
+        try:
+            item = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise SystemExit(f"Invalid JSON at line {line_number}: {exc}") from exc
+        if not isinstance(item, dict):
+            raise SystemExit(f"SFT record at line {line_number} must be a JSON object.")
+        group = item.get("source_group")
+        if not isinstance(group, str) or not group.strip():
+            raise SystemExit(f"Missing source_group at line {line_number}")
+        groups.add(group)
     return groups
 
 
@@ -47,6 +59,8 @@ def record_signatures(path):
             item = json.loads(line)
         except json.JSONDecodeError as exc:
             raise SystemExit(f"Invalid JSON at line {line_number}: {exc}") from exc
+        if not isinstance(item, dict):
+            raise SystemExit(f"SFT record at line {line_number} must be a JSON object.")
         record_id = item.get("id")
         if isinstance(record_id, str) and record_id:
             record_ids.add(record_id)
@@ -78,6 +92,8 @@ def load_examples(path, tokenizer, block_size):
             item = json.loads(line)
         except json.JSONDecodeError as exc:
             raise SystemExit(f"Invalid JSON at line {line_number}: {exc}") from exc
+        if not isinstance(item, dict):
+            raise SystemExit(f"SFT record at line {line_number} must be a JSON object.")
         for field in ("id", "source", "source_group", "source_url", "license", "license_url", "rights_basis", "source_date", "language"):
             if not isinstance(item.get(field), str) or not item[field].strip():
                 raise SystemExit(f"Missing {field} at line {line_number}")
