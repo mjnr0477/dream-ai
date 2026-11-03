@@ -95,6 +95,61 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             self.assertTrue(report["evaluation_corpus_sha256"])
             self.assertIn("does not certify safety", " ".join(report["limitations"]))
 
+    def test_bpe_train_resume_and_evaluate_round_trip(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "train.txt").write_text(
+                ("DREAM BPE training corpus with repeated Kiswahili and English words. " * 10),
+                encoding="utf-8"
+            )
+            (root / "validation.txt").write_text(
+                ("Independent validation corpus for tokenization and model loss. " * 10),
+                encoding="utf-8"
+            )
+            (root / "test.txt").write_text(
+                ("Held out evaluation corpus that is never used for tokenizer fitting. " * 10),
+                encoding="utf-8"
+            )
+            checkpoint = root / "dream-bpe.pt"
+            trained = self.run_training(
+                root, checkpoint,
+                extra=("--tokenizer", "bpe", "--tokenizer-vocab-size", "300")
+            )
+            self.assertEqual(trained.returncode, 0, trained.stdout + trained.stderr)
+            import torch
+            from dream_bpe import DreamBPETokenizer
+            saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
+            self.assertEqual(saved["tokenizer"], DreamBPETokenizer.format_version)
+            tokenizer = DreamBPETokenizer.from_dict(saved["tokenizer_data"])
+            self.assertEqual(saved["config"]["vocab_size"], tokenizer.vocab_size)
+            self.assertGreater(tokenizer.vocab_size, 256)
+
+            resumed = self.run_training(
+                root, checkpoint, extra=("--resume", str(checkpoint))
+            )
+            self.assertEqual(resumed.returncode, 0, resumed.stdout + resumed.stderr)
+            saved_again = torch.load(checkpoint, map_location="cpu", weights_only=True)
+            self.assertEqual(saved_again["training"]["completed_steps"], 4)
+            self.assertEqual(saved_again["tokenizer_data"], saved["tokenizer_data"])
+
+            report_path = root / "bpe-evaluation.json"
+            evaluation = subprocess.run(
+                [
+                    sys.executable, str(EVALUATOR),
+                    "--checkpoint", str(checkpoint),
+                    "--data", str(root / "test.txt"),
+                    "--batch-size", "2", "--batches", "2",
+                    "--sample-tokens", "4", "--out", str(report_path)
+                ],
+                capture_output=True, text=True, timeout=60
+            )
+            self.assertEqual(evaluation.returncode, 0,
+                             evaluation.stdout + evaluation.stderr)
+            report = __import__("json").loads(report_path.read_text())
+            self.assertEqual(report["tokenizer"], DreamBPETokenizer.format_version)
+            self.assertGreater(report["bits_per_token"], 0)
+            self.assertNotIn("bits_per_byte", report)
+
     def test_rejects_same_train_and_validation_file(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
