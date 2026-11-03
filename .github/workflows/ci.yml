@@ -73,5 +73,6 @@ jobs:
           python model/evaluate.py
           --checkpoint /tmp/dream-smoke-instruct.pt
           --data /tmp/dream-smoke-data/test.txt
+          --manifest /tmp/dream-smoke-data/manifest.json
           --batch-size 1 --batches 1 --sample-tokens 8
           --out /tmp/dream-smoke-instruct-eval.json
