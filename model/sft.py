@@ -128,6 +128,10 @@ def main():
         "--pretraining-manifest", required=True,
         help="Manifest from the pretraining corpus; SFT sources must not overlap its held-out test split"
     )
+    parser.add_argument(
+        "--pretraining-test-data", required=True,
+        help="Exact held-out test text file recorded in the pretraining manifest"
+    )
     parser.add_argument("--out", default="checkpoints/dream-instruct.pt")
     parser.add_argument("--resume", default="")
     parser.add_argument("--steps", type=int, default=1000)
@@ -188,6 +192,12 @@ def main():
         or any(not isinstance(group, str) or not group for group in pretraining_test_groups)
     ):
         raise SystemExit("Pretraining manifest has invalid held-out test provenance.")
+    pretraining_test_path = Path(args.pretraining_test_data)
+    if sha256(pretraining_test_path) != pretraining_test_hash:
+        raise SystemExit(
+            "Pretraining held-out test file hash does not match the supplied manifest."
+        )
+    pretraining_manifest_hash = sha256(args.pretraining_manifest)
 
     train_groups = source_groups(train_path)
     validation_groups = source_groups(validation_path)
@@ -216,7 +226,10 @@ def main():
             raise SystemExit("SFT resume hyperparameters do not match.")
         if meta.get("grad_accum_steps") != args.grad_accum_steps or meta.get("eval_batches") != args.eval_batches:
             raise SystemExit("SFT resume accumulation/evaluation settings do not match.")
-        if meta.get("pretraining_test_sha256") != pretraining_test_hash:
+        if (
+            meta.get("pretraining_test_sha256") != pretraining_test_hash
+            or meta.get("pretraining_manifest_sha256") != pretraining_manifest_hash
+        ):
             raise SystemExit("SFT resume held-out test manifest does not match.")
         model.load_state_dict(saved["model_state"])
         optimizer.load_state_dict(saved["optimizer_state"])
@@ -263,8 +276,9 @@ def main():
                 "validation_data": str(validation_path),
                 "validation_sha256": validation_hash,
                 "pretraining_test_sha256": pretraining_test_hash,
+                "pretraining_test_data": str(pretraining_test_path),
                 "pretraining_test_source_groups": sorted(pretraining_test_groups),
-                "pretraining_manifest_sha256": sha256(args.pretraining_manifest),
+                "pretraining_manifest_sha256": pretraining_manifest_hash,
                 "learning_rate": args.learning_rate,
                 "batch_size": args.batch_size,
                 "grad_accum_steps": args.grad_accum_steps,
