@@ -21,7 +21,7 @@ The web interface is not itself a trained model. Until a trained native DREAM ch
 
 ## Native DREAM model
 
-See [model/BASELINE.md](model/BASELINE.md) for the architecture, commands and release gates.
+See [model/BASELINE.md](model/BASELINE.md) for the architecture, commands and release gates. For a phone-friendly, free-tier training workflow, open the [DREAM from-scratch Colab notebook](https://colab.research.google.com/github/mjnr0477/dream-ai/blob/main/training/dream_train_colab.ipynb). Colab GPU availability and session limits are controlled by Google; download the checkpoint and evaluation report before the session ends.
 
 - `model/dream_transformer.py`: DREAM's own transformer blocks, causal attention, embeddings and UTF-8 byte tokenizer.
 - `model/train.py`: trains from random initialization.
