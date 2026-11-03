@@ -93,7 +93,7 @@ class DreamSFTTests(unittest.TestCase):
             self.assertIn(-100, targets)
             self.assertTrue(any(target != -100 for target in targets))
             supervised = bytes(target for target in targets if target != -100)
-            self.assertIn(b"Answer number", supervised)
+            self.assertIn(b"Answer from train number", supervised)
 
     def test_sft_training_creates_resumable_checkpoint(self):
         train_path = self.root / "train.jsonl"
