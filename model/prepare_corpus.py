@@ -164,10 +164,10 @@ def main():
         selected = [row for row in records if split_by_group[row["source_group"]] == split]
         text_path = output / f"{split}.txt"
         text_path.write_text(
-            "\\n\\n".join(
-                f"<|language:{row['language']}|>\\n{row['text']}"
+            "\n\n".join(
+                f"<|language:{row['language']}|>\n{row['text']}"
                 for row in selected
-            ) + "\\n",
+            ) + "\n",
             encoding="utf-8"
         )
         split_groups = sorted({row["source_group"] for row in selected})
