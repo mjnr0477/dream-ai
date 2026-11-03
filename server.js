@@ -1,6 +1,6 @@
 import http from "node:http";
 import { readFile } from "node:fs/promises";
-import { extname, join, normalize } from "node:path";
+import { extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
@@ -154,12 +154,25 @@ async function handleChat(req, res) {
   }
 }
 
-async function serveStatic(pathname, res) {
+async function serveStatic(encodedPathname, res) {
+  let pathname;
+  try {
+    pathname = decodeURIComponent(encodedPathname);
+  } catch {
+    res.writeHead(400, { "content-type": "text/plain; charset=utf-8" });
+    res.end("Invalid URL path");
+    return;
+  }
   const requested = pathname === "/" ? "/index.html" : pathname;
-  const safePath = normalize(requested).replace(/^([.][.][/\\])+/, "");
-  const filePath = join(PUBLIC_DIR, safePath);
-  if (!filePath.startsWith(PUBLIC_DIR)) {
-    res.writeHead(403).end("Forbidden");
+  const filePath = resolve(PUBLIC_DIR, "." + requested);
+  const pathFromPublic = relative(PUBLIC_DIR, filePath);
+  if (
+    pathFromPublic === ".." ||
+    pathFromPublic.startsWith(".." + sep) ||
+    resolve(filePath) === resolve(PUBLIC_DIR)
+  ) {
+    res.writeHead(403, { "content-type": "text/plain; charset=utf-8" });
+    res.end("Forbidden");
     return;
   }
   try {
@@ -195,7 +208,7 @@ const server = http.createServer(async (req, res) => {
       });
     }
   }
-  if (req.method === "GET") return serveStatic(decodeURIComponent(url.pathname), res);
+  if (req.method === "GET") return serveStatic(url.pathname, res);
   res.writeHead(405, { allow: "GET, POST" }).end("Method not allowed");
 });
 
