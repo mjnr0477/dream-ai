@@ -1,3 +1,4 @@
+import hashlib
 import json
 import subprocess
 import sys
@@ -56,13 +57,18 @@ class CorpusPreparationTests(unittest.TestCase):
                     if f"Record {i}" in text
                 }
                 self.assertTrue(text.strip())
+                split_manifest = manifest["splits"][split]
+                self.assertEqual(set(split_manifest["source_group_ids"]), groups[split])
+                self.assertEqual(split_manifest["records"], len(groups[split]))
+                self.assertEqual(split_manifest["source_groups"], len(groups[split]))
+                self.assertEqual(split_manifest["utf8_bytes"], len(text.encode("utf-8")))
+                self.assertEqual(split_manifest["record_ids"], sorted(
+                    f"record-{i}" for i in range(6) if f"Record {i}" in text
+                ))
+                self.assertEqual(split_manifest["language_counts"], {"en": len(groups[split])})
+                self.assertEqual(split_manifest["license_counts"], {"CC0-1.0": len(groups[split])})
                 self.assertEqual(
-                    set(manifest["splits"][split]["source_group_ids"]),
-                    groups[split]
-                )
-                import hashlib
-                self.assertEqual(
-                    manifest["splits"][split]["sha256"],
+                    split_manifest["sha256"],
                     hashlib.sha256(text.encode("utf-8")).hexdigest()
                 )
             self.assertFalse(groups["train"] & groups["validation"])
