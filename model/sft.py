@@ -264,13 +264,13 @@ def main():
     pretraining_manifest_hash = sha256(args.pretraining_manifest)
     base_training_meta = base.get("training", {})
     base_manifest_hash = base_training_meta.get("corpus_manifest_sha256")
-    if base_manifest_hash and base_manifest_hash != pretraining_manifest_hash:
+    if base_training_meta.get("data_provenance_verified") is not True or not base_manifest_hash:
+        raise SystemExit(
+            "SFT requires a pretraining checkpoint whose corpus provenance was verified by a manifest."
+        )
+    if base_manifest_hash != pretraining_manifest_hash:
         raise SystemExit(
             "Pretraining manifest does not match the manifest bound to the base DREAM checkpoint."
-        )
-    if base_training_meta.get("data_provenance_verified") is True and not base_manifest_hash:
-        raise SystemExit(
-            "Base DREAM checkpoint claims verified corpus provenance but has no manifest hash."
         )
 
     # Validate every split's source-group declaration and ensure no source group
