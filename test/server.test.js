@@ -73,3 +73,15 @@ test("chat endpoint rejects invalid message roles", async () => {
   });
   assert.equal(response.status, 400);
 });
+
+test("root serves the Dream AI application", async () => {
+  const response = await fetch(`${base}/`);
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type"), /text\/html/);
+  assert.match(await response.text(), /DREAM AI/);
+});
+
+test("static server blocks encoded traversal attempts", async () => {
+  const response = await fetch(`${base}/%2e%2e%2fserver.js`);
+  assert.notEqual(response.status, 200);
+});
