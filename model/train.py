@@ -245,6 +245,12 @@ def main():
         optimizer.load_state_dict(checkpoint["optimizer_state"])
         if "torch_rng_state" in checkpoint:
             torch.set_rng_state(checkpoint["torch_rng_state"].cpu())
+        if "python_rng_state" in checkpoint:
+            random.setstate(checkpoint["python_rng_state"])
+        elif args.language_sampling == "balanced":
+            raise SystemExit(
+                "Balanced-sampling resume checkpoint is missing Python RNG state."
+            )
         if device == "cuda" and checkpoint.get("cuda_rng_state"):
             torch.cuda.set_rng_state_all(checkpoint["cuda_rng_state"])
         start_step = int(training_meta.get("completed_steps", 0))
@@ -311,6 +317,7 @@ def main():
             "model_state": {key: value.detach().cpu() for key, value in model.state_dict().items()},
             "optimizer_state": optimizer.state_dict(),
             "torch_rng_state": torch.get_rng_state().cpu(),
+            "python_rng_state": random.getstate(),
             "cuda_rng_state": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else [],
             "config": config.__dict__,
             "tokenizer": tokenizer_name,
