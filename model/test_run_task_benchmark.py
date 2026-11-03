@@ -81,6 +81,8 @@ class NativeTaskBenchmarkTests(unittest.TestCase):
             self.assertEqual(report["scoring_policy"],
                              "Human rubric scoring only; no model-based automatic grading.")
             self.assertEqual(report["results"][0]["id"], "math-test")
+            self.assertEqual(report["results"][0]["prompt_tokens_used"], report["results"][0]["prompt_tokens_original"])
+            self.assertFalse(report["results"][0]["prompt_truncated"])
             self.assertIn("rubric", report["results"][0])
             self.assertIn("response", report["results"][0])
             self.assertIsNone(report["results"][0]["human_score"])
