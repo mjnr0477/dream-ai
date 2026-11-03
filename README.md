@@ -26,7 +26,8 @@ See [model/BASELINE.md](model/BASELINE.md) for the architecture, commands and re
 - `model/dream_transformer.py`: DREAM's own transformer blocks, causal attention and embeddings.
 - `model/dream_bpe.py`: deterministic byte-fallback BPE tokenizer (`dream-bpe-v1`) with lossless UTF-8 round trips. Pretraining can opt in with `--tokenizer bpe --tokenizer-vocab-size 2048`; BPE is fitted only on the training split and serialized inside checkpoints. Existing byte checkpoints remain supported.
 - `model/benchmark_tokenizer.py`: fits BPE merges on training text and reports token reduction only on a separate held-out corpus, with hashes for both corpora and the tokenizer.
-- `model/audit_corpus.py`: performs privacy-conscious pre-ingestion triage for JSONL corpora; it flags metadata gaps, duplicate content and likely contact details without exposing raw text or granting approval.\n- `model/train.py`: trains from random initialization.
+- `model/audit_corpus.py`: performs privacy-conscious pre-ingestion triage for JSONL corpora; it flags metadata gaps, duplicate content and likely contact details without exposing raw text or granting approval.
+- `model/train.py`: trains from random initialization.
 - `model/evaluate.py`: produces a held-out corpus report with cross-entropy and per-token metrics, corpus/checkpoint hashes and a sample generation; legacy byte checkpoints also retain the original per-byte report keys.
 - `model/generate.py`: local checkpoint inference.
 - `model/serve.py`: serves DREAM checkpoints through a local HTTP API; the JSON protocol does not call an external AI.
@@ -38,7 +39,8 @@ Install and run the model locally:
 ```sh
 python -m pip install -r model/requirements.txt
 python -m unittest discover -s model -p 'test_*.py'
-python model/audit_corpus.py --input data/approved-records.jsonl --out eval-results/corpus-audit.json\npython model/prepare_corpus.py --input data/approved-records.jsonl
+python model/audit_corpus.py --input data/approved-records.jsonl --out eval-results/corpus-audit.json
+python model/prepare_corpus.py --input data/approved-records.jsonl
 # Measure tokenizer efficiency on the untouched held-out test split:
 python model/benchmark_tokenizer.py --data data/prepared/train.txt --validation-data data/prepared/test.txt --vocab-size 2048
 python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --manifest data/prepared/manifest.json --steps 2000 --eval-batches 10 --batch-size 4 --grad-accum-steps 8
@@ -47,7 +49,8 @@ python model/train.py --data data/prepared/train.txt --validation-data data/prep
 python model/evaluate.py --checkpoint checkpoints/dream-small.pt --data data/prepared/test.txt --manifest data/prepared/manifest.json --out eval-results/dream-small.json
 # Then instruction-tune on separate, reviewed conversation JSONL files:
 python model/sft.py --checkpoint checkpoints/dream-small.pt --train-data data/sft-train.jsonl --validation-data data/sft-validation.jsonl --pretraining-manifest data/prepared/manifest.json --pretraining-test-data data/prepared/test.txt --steps 1000 --batch-size 2 --grad-accum-steps 4 --out checkpoints/dream-instruct.pt
-python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER: Hello DREAM.\nASSISTANT:"
+python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER: Hello DREAM.
+ASSISTANT:"
 ```
 
 The training corpus path above is an example, not a file already present. Each JSONL record must include `source_date` in `YYYY-MM-DD` form and contain `rights_confirmed: true`, `privacy_reviewed: true` and `quality_reviewed: true` after actual human review. The corpus manifest reports license/language distributions and source-date coverage. The script verifies these declarations, not the underlying legal claims. Do not train on data without appropriate rights and privacy review. Do not market a small research checkpoint as a frontier model.
