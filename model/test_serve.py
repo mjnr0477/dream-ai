@@ -104,8 +104,8 @@ class DreamServingTests(unittest.TestCase):
 
     def test_reply_decoder_stops_before_next_user_turn(self):
         tokenizer = DreamByteTokenizer()
-        prompt = "USER: hello\\nASSISTANT:"
-        generated = tokenizer.encode(prompt + "Hello there.\\nUSER: next question")
+        prompt = "USER: hello\nASSISTANT:"
+        generated = tokenizer.encode(prompt + "Hello there.\nUSER: next question")
         answer, stopped = decode_assistant_reply(
             tokenizer, generated, len(tokenizer.encode(prompt))
         )
@@ -114,7 +114,7 @@ class DreamServingTests(unittest.TestCase):
 
     def test_reply_decoder_preserves_role_words_inside_answer(self):
         tokenizer = DreamByteTokenizer()
-        prompt = "USER: hello\\nASSISTANT:"
+        prompt = "USER: hello\nASSISTANT:"
         generated = tokenizer.encode(prompt + "The label USER: is a role name.")
         answer, stopped = decode_assistant_reply(
             tokenizer, generated, len(tokenizer.encode(prompt))
