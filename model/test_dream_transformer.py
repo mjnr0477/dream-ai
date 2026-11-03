@@ -108,8 +108,23 @@ class DreamTransformerTests(unittest.TestCase):
 
     def test_invalid_generation_temperature_is_rejected(self):
         prompt = torch.tensor([[65, 66]], dtype=torch.long)
-        with self.assertRaises(ValueError):
-            self.model.generate(prompt, temperature=float("nan"))
+        for temperature in (float("nan"), float("inf"), True, False):
+            with self.subTest(temperature=temperature):
+                with self.assertRaises(ValueError):
+                    self.model.generate(prompt, temperature=temperature)
+
+    def test_generation_integer_arguments_reject_booleans(self):
+        prompt = torch.tensor([[65, 66]], dtype=torch.long)
+        for kwargs in ({"max_new_tokens": True}, {"top_k": False}):
+            with self.subTest(kwargs=kwargs):
+                with self.assertRaises(ValueError):
+                    self.model.generate(prompt, **kwargs)
+
+    def test_generation_validates_prompt_even_without_new_tokens(self):
+        with self.assertRaises(TypeError):
+            self.model.generate(torch.tensor([[65.0]]), max_new_tokens=0)
+        with self.assertRaisesRegex(ValueError, "outside the configured vocabulary"):
+            self.model.generate(torch.tensor([[256]]), max_new_tokens=0)
 
     def test_out_of_range_input_tokens_are_rejected(self):
         with self.assertRaisesRegex(ValueError, "outside the configured vocabulary"):
