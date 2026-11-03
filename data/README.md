@@ -19,6 +19,16 @@ Every dataset release must include:
 
 Each JSONL record must set `rights_confirmed`, `privacy_reviewed` and `quality_reviewed` to `true`. These flags record a human review; the script cannot independently verify legal rights or detect all personal information.
 
+## Supervised instruction records
+
+For instruction fine-tuning, each JSONL record uses the same provenance and review fields as pretraining records, plus a `messages` array. Messages must alternate `user` and `assistant`, may begin with one `system` message, and must end with an assistant response. Example shape:
+
+```json
+{"id":"sft-001","source":"DREAM-authored dialogue","source_group":"dream-tutor-v1","license":"CC0-1.0","rights_confirmed":true,"privacy_reviewed":true,"quality_reviewed":true,"language":"en","messages":[{"role":"user","content":"Explain fractions."},{"role":"assistant","content":"A fraction represents part of a whole..."}]}
+```
+
+Use distinct source groups, independently checked answers, and separate training/validation files. The SFT script verifies the review flags and data hashes; it cannot establish the truth of the underlying attestations.
+
 ## First target domains
 
 1. General language and instruction following.

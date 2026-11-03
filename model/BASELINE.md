@@ -17,6 +17,7 @@ The first configurable experiment defaults to 6 layers, width 256, 8 attention h
 ## Training and inference
 
 - `model/train.py` trains from random initialization on an authorized UTF-8 text corpus.
+- `model/sft.py` performs assistant-response-only supervised instruction fine-tuning from a trained DREAM checkpoint; prompt tokens are masked from the loss.
 - `model/generate.py` runs local inference from a DREAM checkpoint.
 - `model/evaluate.py` reports held-out cross-entropy, bits-per-byte, perplexity-per-byte, SHA-256 provenance and a qualitative sample.
 - `model/serve.py` exposes the native checkpoint over a local HTTP endpoint. Its chat-completions-shaped JSON is only a transport protocol; no external model is called.
@@ -32,6 +33,9 @@ python model/train.py --data data/prepared/train.txt --validation-data data/prep
 # Resume the saved run later, keeping the same corpus, architecture and optimizer settings:
 python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --resume checkpoints/dream-small.pt
 python model/evaluate.py --checkpoint checkpoints/dream-small.pt --data data/prepared/test.txt --out eval-results/dream-small.json
+# After pretraining, prepare separate reviewed train/validation conversation JSONL files:
+python model/sft.py --checkpoint checkpoints/dream-small.pt --train-data data/sft-train.jsonl --validation-data data/sft-validation.jsonl --steps 1000 --batch-size 2 --grad-accum-steps 4 --out checkpoints/dream-instruct.pt
+python model/evaluate.py --checkpoint checkpoints/dream-instruct.pt --data data/prepared/test.txt --out eval-results/dream-instruct.json
 python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER: Explain photosynthesis.\nASSISTANT:"
 ```
 
@@ -45,7 +49,9 @@ The server binds to localhost by default, processes one request at a time to bou
 
 ## Data and evaluation
 
-No dataset is silently assumed or bundled as training data. Every record must carry human-confirmed rights, privacy and quality review flags; the script checks these attestations, deduplicates records and keeps source groups isolated across train/validation/test splits. These flags are not a substitute for actual legal and privacy review. See `data/README.md`.
+No dataset is silently assumed or bundled as training data. Every pretraining and instruction record must carry human-confirmed rights, privacy and quality review flags; the script checks these attestations, deduplicates records and keeps source groups isolated across train/validation/test splits. These flags are not a substitute for actual legal and privacy review. See `data/README.md`.
+
+Instruction data uses JSONL records with the same provenance/review fields plus alternating `messages` entries (`user`, `assistant`; optional initial `system`). SFT masks user/system/prompt tokens and optimizes assistant response tokens only. Keep training and validation conversation files separate by content hash.
 
 The 12-case initial DREAM application evaluation set is a starting point, not enough to certify model quality. The native checkpoint evaluator measures next-byte prediction on held-out text; it does not establish reasoning, instruction following, factuality or safety. We must expand it, add independent human-reviewed scoring and test for memorization, factuality, bias, safety and multilingual performance.
 
