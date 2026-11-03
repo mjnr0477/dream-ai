@@ -78,7 +78,7 @@ def load_examples(path, tokenizer, block_size):
             prefix += "ASSISTANT:"
             prefix_ids = tokenizer.encode(prefix)
             answer_ids = tokenizer.encode(" " + answer + "\n")
-            if len(answer_ids) > block_size:
+            if len(answer_ids) >= block_size:
                 raise SystemExit(
                     f"Assistant answer exceeds block_size at line {line_number}; "
                     "split or shorten the reviewed example."
@@ -152,6 +152,9 @@ def main():
     base = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
     if base.get("tokenizer") != "utf8-byte-v1":
         raise SystemExit("Unsupported base DREAM tokenizer.")
+    base_steps = base.get("training", {}).get("completed_steps", 0)
+    if not isinstance(base_steps, int) or base_steps < 1:
+        raise SystemExit("SFT requires a DREAM checkpoint with completed pretraining steps.")
     config = DreamConfig(**base["config"])
     tokenizer = DreamByteTokenizer()
     train_examples = load_examples(train_path, tokenizer, config.block_size)
