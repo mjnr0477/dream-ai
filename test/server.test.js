@@ -4,39 +4,39 @@ import { spawn } from "node:child_process";
 import http from "node:http";
 
 const port = 3197;
-const providerPort = 3198;
+const modelPort = 3198;
 const base = `http://127.0.0.1:${port}`;
 let server;
-let provider;
-const providerRequests = [];
+let model;
+const modelRequests = [];
 
 before(async () => {
-  provider = http.createServer((req, res) => {
+  model = http.createServer((req, res) => {
     const chunks = [];
     req.on("data", chunk => chunks.push(chunk));
     req.on("end", () => {
-      providerRequests.push({
+      modelRequests.push({
         headers: req.headers,
         body: JSON.parse(Buffer.concat(chunks).toString("utf8"))
       });
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({
-        choices: [{ message: { content: "Mock provider response from Dream AI." } }]
+        choices: [{ message: { content: "Test response from the DREAM model runtime." } }]
       }));
     });
   });
   await new Promise((resolve, reject) => {
-    provider.once("error", reject);
-    provider.listen(providerPort, "127.0.0.1", resolve);
+    model.once("error", reject);
+    model.listen(modelPort, "127.0.0.1", resolve);
   });
 
   server = spawn(process.execPath, ["server.js"], {
     env: {
       ...process.env,
       PORT: String(port),
-      AI_BASE_URL: `http://127.0.0.1:${providerPort}/v1`,
-      AI_API_KEY: "test-only-key",
-      AI_MODEL: "mock-model"
+      DREAM_MODEL_URL: `http://127.0.0.1:${modelPort}/v1`,
+      DREAM_MODEL_NAME: "dream-test-model",
+      DREAM_MODEL_TOKEN: ""
     },
     stdio: "ignore"
   });
@@ -47,7 +47,7 @@ before(async () => {
     } catch {}
     await new Promise(resolve => setTimeout(resolve, 100));
   }
-  throw new Error("Dream AI server did not start for tests.");
+  throw new Error("DREAM AI server did not start for tests.");
 });
 
 after(async () => {
@@ -57,7 +57,7 @@ after(async () => {
       server.kill("SIGTERM");
     });
   }
-  if (provider) await new Promise(resolve => provider.close(resolve));
+  if (model) await new Promise(resolve => model.close(resolve));
 });
 
 async function postChat(payload, rawBody) {
@@ -68,14 +68,16 @@ async function postChat(payload, rawBody) {
   });
 }
 
-test("health endpoint reports Dream AI and configured provider", async () => {
+test("health endpoint identifies the DREAM engine and configured model", async () => {
   const response = await fetch(`${base}/api/health`);
   assert.equal(response.status, 200);
   const data = await response.json();
   assert.equal(data.ok, true);
-  assert.equal(data.name, "Dream AI");
+  assert.equal(data.name, "DREAM AI");
+  assert.equal(data.engine, "dream-engine");
   assert.equal(data.modelConfigured, true);
-  assert.equal(data.version, "0.1.1");
+  assert.equal(data.modelName, "dream-test-model");
+  assert.equal(data.version, "0.2.0");
 });
 
 test("chat endpoint validates missing messages", async () => {
@@ -88,27 +90,28 @@ test("chat endpoint rejects malformed JSON", async () => {
   assert.equal(response.status, 400);
 });
 
-test("chat endpoint uses the configured provider in all supported modes", async () => {
+test("chat endpoint uses the DREAM runtime in all supported modes", async () => {
   for (const mode of ["general", "coding", "learning"]) {
     const response = await postChat({
       mode,
-      messages: [{ role: "user", content: "Hello Dream AI" }]
+      messages: [{ role: "user", content: "Hello DREAM AI" }]
     });
     assert.equal(response.status, 200);
     const data = await response.json();
     assert.equal(data.mode, mode);
-    assert.equal(data.reply, "Mock provider response from Dream AI.");
+    assert.equal(data.source, "dream-model");
+    assert.equal(data.reply, "Test response from the DREAM model runtime.");
   }
 
-  assert.equal(providerRequests.length, 3);
-  for (const request of providerRequests) {
-    assert.equal(request.headers.authorization, "Bearer test-only-key");
-    assert.equal(request.body.model, "mock-model");
-    assert.equal(request.body.messages.at(-1).content, "Hello Dream AI");
+  assert.equal(modelRequests.length, 3);
+  for (const request of modelRequests) {
+    assert.equal(request.body.model, "dream-test-model");
+    assert.equal(request.body.messages.at(-1).content, "Hello DREAM AI");
+    assert.equal(request.headers.authorization, undefined);
   }
-  assert.match(providerRequests[0].body.messages[0].content, /Answer clearly/);
-  assert.match(providerRequests[1].body.messages[0].content, /senior software engineer/);
-  assert.match(providerRequests[2].body.messages[0].content, /patient expert tutor/);
+  assert.match(modelRequests[0].body.messages[0].content, /Answer clearly/);
+  assert.match(modelRequests[1].body.messages[0].content, /senior software engineer/);
+  assert.match(modelRequests[2].body.messages[0].content, /patient expert tutor/);
 });
 
 test("chat endpoint rejects unsupported modes", async () => {
@@ -140,7 +143,7 @@ test("chat endpoint enforces the request body limit", async () => {
   assert.equal(response.status, 413);
 });
 
-test("root serves the Dream AI application", async () => {
+test("root serves the DREAM AI application", async () => {
   const response = await fetch(`${base}/`);
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type"), /text\/html/);
