@@ -34,5 +34,40 @@ jobs:
         run: python -m compileall -q model
       - name: Validate Colab notebook structure
         run: python -c "import json; n=json.load(open('training/dream_train_colab.ipynb', encoding='utf-8')); assert n['nbformat']==4 and n['cells'] and all(c['cell_type'] in ('code','markdown') for c in n['cells'])"
-      - name: Test DREAM transformer
+      - name: Test DREAM transformer and runtime
         run: python -m unittest discover -s model -p 'test_*.py' -v
+      - name: Prepare synthetic pretraining smoke corpus
+        run: python model/prepare_corpus.py --input data/smoke-test.jsonl --output /tmp/dream-smoke-data
+      - name: Train a tiny DREAM checkpoint from random initialization
+        run: >-
+          python model/train.py
+          --data /tmp/dream-smoke-data/train.txt
+          --validation-data /tmp/dream-smoke-data/validation.txt
+          --out /tmp/dream-smoke-small.pt
+          --steps 2 --batch-size 2 --grad-accum-steps 1
+          --block-size 32 --d-model 16 --layers 1 --heads 4
+          --eval-every 1 --checkpoint-every 2 --eval-batches 1
+      - name: Evaluate native DREAM checkpoint on held-out test split
+        run: >-
+          python model/evaluate.py
+          --checkpoint /tmp/dream-smoke-small.pt
+          --data /tmp/dream-smoke-data/test.txt
+          --batch-size 1 --batches 1 --sample-tokens 8
+          --out /tmp/dream-smoke-eval.json
+      - name: Fine-tune DREAM on synthetic assistant-only examples
+        run: >-
+          python model/sft.py
+          --checkpoint /tmp/dream-smoke-small.pt
+          --train-data data/sft-smoke-train.jsonl
+          --validation-data data/sft-smoke-validation.jsonl
+          --out /tmp/dream-smoke-instruct.pt
+          --steps 2 --batch-size 1 --grad-accum-steps 1
+          --learning-rate 0.0001 --eval-every 1
+          --eval-batches 1 --checkpoint-every 2
+      - name: Evaluate native DREAM instruction checkpoint
+        run: >-
+          python model/evaluate.py
+          --checkpoint /tmp/dream-smoke-instruct.pt
+          --data /tmp/dream-smoke-data/test.txt
+          --batch-size 1 --batches 1 --sample-tokens 8
+          --out /tmp/dream-smoke-instruct-eval.json
