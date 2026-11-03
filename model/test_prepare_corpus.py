@@ -17,6 +17,7 @@ class CorpusPreparationTests(unittest.TestCase):
                 "source": f"DREAM authored source {index}",
                 "source_group": f"independent-group-{index}",
                 "license": "CC0-1.0",
+                "source_date": "2026-01-15",
                 "rights_confirmed": rights,
                 "privacy_reviewed": True,
                 "quality_reviewed": True,
@@ -76,6 +77,34 @@ class CorpusPreparationTests(unittest.TestCase):
             result = self.run_prepare(Path(directory), rows)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Duplicate record id", result.stderr)
+
+    def test_manifest_reports_license_language_and_date_coverage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            result = self.run_prepare(root, self.make_records())
+            self.assertEqual(result.returncode, 0, result.stderr)
+            manifest = json.loads((root / "prepared" / "manifest.json").read_text())
+            self.assertEqual(manifest["language_counts"], {"en": 6})
+            self.assertEqual(manifest["license_counts"], {"CC0-1.0": 6})
+            self.assertEqual(
+                manifest["source_date_range"],
+                {"earliest": "2026-01-15", "latest": "2026-01-15"}
+            )
+
+    def test_rejects_missing_or_invalid_source_date(self):
+        for value in (None, "15-01-2026", "2026-02-30"):
+            rows = self.make_records()
+            if value is None:
+                del rows[0]["source_date"]
+            else:
+                rows[0]["source_date"] = value
+            with self.subTest(value=value), tempfile.TemporaryDirectory() as directory:
+                result = self.run_prepare(Path(directory), rows)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertTrue(
+                    "Missing required metadata" in result.stderr
+                    or "Invalid source_date" in result.stderr
+                )
 
     def test_rejects_unconfirmed_rights(self):
         with tempfile.TemporaryDirectory() as directory:
