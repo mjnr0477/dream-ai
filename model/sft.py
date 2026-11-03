@@ -422,11 +422,16 @@ def main():
             raise SystemExit("Invalid SFT completed step count.")
 
     @torch.no_grad()
-    def estimate(examples):
+    def estimate(examples, examples_by_language=None):
         model.eval()
         losses = []
         for _ in range(args.eval_batches):
-            x, y = make_batch(examples, args.batch_size, device)
+            if examples_by_language is None:
+                x, y = make_batch(examples, args.batch_size, device)
+            else:
+                x, y = make_balanced_batch(
+                    examples_by_language, args.batch_size, device
+                )
             _, loss = model(x, y)
             if loss is None or not torch.isfinite(loss):
                 raise RuntimeError("Invalid SFT evaluation loss.")
@@ -464,6 +469,8 @@ def main():
                 "effective_batch_size": args.batch_size * args.grad_accum_steps,
                 "eval_batches": args.eval_batches,
                 "language_sampling": args.language_sampling,
+                "train_loss_sampling": args.language_sampling,
+                "validation_loss_sampling": "proportional",
                 "training_examples_by_language": ({
                     language: len(examples)
                     for language, examples in train_examples_by_language.items()
@@ -497,7 +504,7 @@ def main():
         optimizer.step()
 
         if step == start_step + 1 or step % args.eval_every == 0 or step % args.checkpoint_every == 0 or step == final_step:
-            train_loss = estimate(train_examples)
+            train_loss = estimate(train_examples, train_examples_by_language)
             validation_loss = estimate(validation_examples)
             print(json.dumps({
                 "step": step,
