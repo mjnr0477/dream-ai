@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 SCRIPT = Path(__file__).with_name("train.py")
+EVALUATOR = Path(__file__).with_name("evaluate.py")
 
 
 class DreamTrainingSmokeTests(unittest.TestCase):
@@ -63,6 +64,29 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             saved_again = torch.load(checkpoint, map_location="cpu", weights_only=True)
             self.assertEqual(saved_again["training"]["completed_steps"], 4)
             self.assertIn("Resuming DREAM training at step 2", resumed.stdout)
+
+            report_path = root / "evaluation.json"
+            evaluation = subprocess.run(
+                [
+                    sys.executable, str(EVALUATOR),
+                    "--checkpoint", str(checkpoint),
+                    "--data", str(root / "validation.txt"),
+                    "--batch-size", "2",
+                    "--batches", "2",
+                    "--sample-tokens", "4",
+                    "--out", str(report_path)
+                ],
+                capture_output=True, text=True, timeout=60
+            )
+            self.assertEqual(evaluation.returncode, 0,
+                             evaluation.stdout + evaluation.stderr)
+            report = __import__("json").loads(report_path.read_text())
+            self.assertEqual(report["schema"], "dream-evaluation-v1")
+            self.assertEqual(report["batches"], 2)
+            self.assertGreater(report["bits_per_byte"], 0)
+            self.assertTrue(report["checkpoint_sha256"])
+            self.assertTrue(report["evaluation_corpus_sha256"])
+            self.assertIn("do not certify", " ".join(report["limitations"]))
 
     def test_rejects_same_train_and_validation_file(self):
         with tempfile.TemporaryDirectory() as directory:
