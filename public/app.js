@@ -64,6 +64,57 @@ function renderHistory() {
   }
 }
 
+
+function renderAssistantContent(container, content) {
+  container.replaceChildren();
+  const segments = content.split(/```([A-Za-z0-9_+-]*)\\n([\\s\\S]*?)```/g);
+
+  function appendInline(parent, text) {
+    const pattern = /(`[^`]+?`|\\*\\*[^*]+?\\*\\*|\\*[^*]+?\\*)/g;
+    let cursor = 0;
+    for (const match of text.matchAll(pattern)) {
+      const token = match[0];
+      const start = match.index;
+      if (start > cursor) parent.append(document.createTextNode(text.slice(cursor, start)));
+      const node = document.createElement(token.startsWith("`") ? "code" : token.startsWith("**") ? "strong" : "em");
+      node.textContent = token.startsWith("`") ? token.slice(1, -1) : token.startsWith("**") ? token.slice(2, -2) : token.slice(1, -1);
+      if (node.tagName === "CODE") node.className = "inline-code";
+      parent.append(node);
+      cursor = start + token.length;
+    }
+    if (cursor < text.length) parent.append(document.createTextNode(text.slice(cursor)));
+  }
+
+  for (let i = 0; i < segments.length; i += 3) {
+    const prose = segments[i];
+    if (prose) appendInline(container, prose);
+    const language = segments[i + 1];
+    const codeText = segments[i + 2];
+    if (codeText !== undefined) {
+      const block = document.createElement("div");
+      block.className = "code-block";
+      const header = document.createElement("div");
+      header.className = "code-block-header";
+      const label = document.createElement("span");
+      label.textContent = language || "CODE";
+      const copy = document.createElement("button");
+      copy.type = "button";
+      copy.textContent = "Copy code";
+      copy.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(codeText); copy.textContent = "Copied"; }
+        catch { copy.textContent = "Copy unavailable"; }
+      });
+      header.append(label, copy);
+      const pre = document.createElement("pre");
+      const code = document.createElement("code");
+      code.textContent = codeText;
+      pre.append(code);
+      block.append(header, pre);
+      container.append(block);
+    }
+  }
+}
+
 function addMessage(role, content) {
   const row = document.createElement("article");
   row.className = `message ${role}`;
@@ -72,7 +123,8 @@ function addMessage(role, content) {
   avatar.textContent = role === "user" ? "Y" : "✳";
   const body = document.createElement("div");
   body.className = "message-content";
-  body.textContent = content;
+  if (role === "assistant") renderAssistantContent(body, content);
+  else body.textContent = content;
   row.append(avatar, body);
   conversation.append(row);
   if (role === "assistant" && content && !/thinking/i.test(content)) {
@@ -82,7 +134,7 @@ function addMessage(role, content) {
     copy.type = "button";
     copy.textContent = "Copy response";
     copy.addEventListener("click", async () => {
-      try { await navigator.clipboard.writeText(body.textContent); copy.textContent = "Copied"; }
+      try { await navigator.clipboard.writeText(content); copy.textContent = "Copied"; }
       catch { copy.textContent = "Copy unavailable"; }
     });
     tools.append(copy);
@@ -147,7 +199,7 @@ async function sendMessage(text) {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "The request failed.");
-    replyNode.textContent = data.reply;
+    renderAssistantContent(replyNode, data.reply);
     const tools = document.createElement("div");
     tools.className = "message-tools";
     const copy = document.createElement("button");
