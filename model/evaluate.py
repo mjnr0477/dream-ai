@@ -45,11 +45,10 @@ def main():
     tokenizer = DreamByteTokenizer()
     text = data_path.read_text(encoding="utf-8")
     evaluation_hash = sha256(data_path)
-    training_meta = checkpoint.get("training", {})
-    if evaluation_hash in {
-        training_meta.get("corpus_sha256"),
-        training_meta.get("validation_sha256")
-    }:
+    training_meta = checkpoint.get("training") or checkpoint.get("sft_training", {})
+    training_hash = training_meta.get("corpus_sha256", training_meta.get("train_sha256"))
+    validation_hash = training_meta.get("validation_sha256")
+    if evaluation_hash in {training_hash, validation_hash}:
         raise SystemExit(
             "Evaluation corpus hash matches training or validation data; "
             "use a genuinely held-out test corpus."
