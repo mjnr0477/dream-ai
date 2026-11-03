@@ -24,6 +24,20 @@ def sha256(path):
     return digest.hexdigest()
 
 
+def fit_prompt_to_context(prompt_ids, assistant_marker_ids, block_size):
+    """Truncate a single-turn prompt while preserving its assistant role marker."""
+    if type(block_size) is not int or block_size < 1:
+        raise ValueError("block_size must be a positive integer")
+    prompt_ids = list(prompt_ids)
+    assistant_marker_ids = list(assistant_marker_ids)
+    if len(prompt_ids) <= block_size:
+        return prompt_ids, False
+    if not assistant_marker_ids or len(assistant_marker_ids) >= block_size:
+        raise ValueError("Context window is too small to preserve the assistant marker.")
+    prefix_budget = block_size - len(assistant_marker_ids)
+    return prompt_ids[:prefix_budget] + assistant_marker_ids, True
+
+
 def load_tasks(path, limit=0):
     tasks = []
     seen_ids = set()
@@ -121,9 +135,11 @@ def main():
             prompt_text = f"USER: {task['prompt'].strip()}\nASSISTANT:"
             prompt_ids = tokenizer.encode(prompt_text)
             original_prompt_tokens = len(prompt_ids)
-            # Benchmark prompts are single-turn tasks: preserve their beginning
-            # and role marker if the task exceeds the model's context window.
-            prompt_ids = prompt_ids[:config.block_size]
+            # Preserve the prompt's beginning and the final assistant marker.
+            assistant_marker_ids = tokenizer.encode("\\nASSISTANT:")
+            prompt_ids, prompt_truncated = fit_prompt_to_context(
+                prompt_ids, assistant_marker_ids, config.block_size
+            )
             input_ids = torch.tensor([prompt_ids], dtype=torch.long, device=device)
             generated = model.generate(
                 input_ids,
@@ -137,7 +153,7 @@ def main():
                 "response": response,
                 "prompt_tokens_original": original_prompt_tokens,
                 "prompt_tokens_used": len(prompt_ids),
-                "prompt_truncated": original_prompt_tokens > len(prompt_ids),
+                "prompt_truncated": prompt_truncated,
                 "response_tokens": len(generated) - len(prompt_ids),
                 "rubric_scores": [None for _ in task["rubric"]],
                 "human_score": None,
