@@ -11,7 +11,7 @@ import torch
 
 from dream_transformer import DreamConfig, DreamTransformer, DreamByteTokenizer
 from dream_bpe import DreamBPETokenizer
-from sft import load_examples
+from sft import load_examples, make_balanced_batch
 
 SCRIPT = Path(__file__).with_name("sft.py")
 EVALUATOR = Path(__file__).with_name("evaluate.py")
@@ -114,6 +114,27 @@ class DreamSFTTests(unittest.TestCase):
             self.assertTrue(any(target != -100 for target in targets))
             supervised = bytes(target for target in targets if target != -100)
             self.assertIn(b"Answer from train number", supervised)
+
+    def test_sft_groups_examples_by_language_and_builds_balanced_batches(self):
+        train_path = self.root / "multilingual-sft.jsonl"
+        self.write_records(train_path, "multilingual")
+        rows = [json.loads(line) for line in train_path.read_text().splitlines()]
+        rows[1]["language"] = "sw"
+        train_path.write_text(
+            "".join(json.dumps(row) + "\\n" for row in rows),
+            encoding="utf-8"
+        )
+        grouped = load_examples(
+            train_path, DreamByteTokenizer(), self.config.block_size,
+            group_by_language=True
+        )
+        self.assertEqual(set(grouped), {"en", "sw"})
+        self.assertEqual(len(grouped["en"]), 2)
+        self.assertEqual(len(grouped["sw"]), 1)
+        inputs, targets = make_balanced_batch(grouped, 6, "cpu")
+        self.assertEqual(inputs.shape[0], 6)
+        self.assertEqual(inputs.shape, targets.shape)
+        self.assertTrue(torch.all((targets == -100) | (targets >= 0)))
 
     def test_language_marker_survives_prompt_truncation(self):
         train_path = self.root / "truncated-language.jsonl"
@@ -243,7 +264,8 @@ class DreamSFTTests(unittest.TestCase):
                 "--out", str(output), "--steps", "1",
                 "--batch-size", "2", "--grad-accum-steps", "1",
                 "--eval-every", "1", "--eval-batches", "1",
-                "--checkpoint-every", "1"
+                "--checkpoint-every", "1",
+                "--language-sampling", "balanced"
             ],
             capture_output=True, text=True, timeout=120
         )
@@ -258,6 +280,12 @@ class DreamSFTTests(unittest.TestCase):
         val_path = self.root / "validation.jsonl"
         self.write_records(train_path, "train")
         self.write_records(val_path, "validation")
+        train_rows = [json.loads(line) for line in train_path.read_text().splitlines()]
+        train_rows[1]["language"] = "sw"
+        train_path.write_text(
+            "".join(json.dumps(row) + "\\n" for row in train_rows),
+            encoding="utf-8"
+        )
         output = self.root / "dream-instruct.pt"
         result = subprocess.run(
             [
@@ -284,6 +312,11 @@ class DreamSFTTests(unittest.TestCase):
         self.assertEqual(saved["sft_training"]["method"],
                          "assistant-response-only-supervised-finetuning")
         self.assertEqual(saved["sft_training"]["effective_batch_size"], 4)
+        self.assertEqual(saved["sft_training"]["language_sampling"], "balanced")
+        self.assertEqual(
+            saved["sft_training"]["training_examples_by_language"],
+            {"en": 2, "sw": 1}
+        )
         self.assertTrue(saved["base_checkpoint_sha256"])
         self.assertTrue(saved["sft_training"]["train_sha256"])
         self.assertTrue(saved["sft_training"]["validation_sha256"])
@@ -309,6 +342,7 @@ class DreamSFTTests(unittest.TestCase):
                 "--eval-every", "1",
                 "--eval-batches", "2",
                 "--checkpoint-every", "1",
+                "--language-sampling", "balanced",
                 "--resume", str(output)
             ],
             capture_output=True, text=True, timeout=120
