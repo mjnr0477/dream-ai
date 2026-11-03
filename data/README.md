@@ -11,10 +11,13 @@ Every dataset release must include:
 - source and collection date;
 - written permission or an explicit license permitting the intended use;
 - language and subject labels;
+- human-confirmed rights, privacy and quality review for each record;
 - personal-data review and redaction record;
 - deduplication and quality-review report;
 - train/validation/test split with no cross-split leakage;
 - dataset version and SHA-256 manifest.
+
+Each JSONL record must set `rights_confirmed`, `privacy_reviewed` and `quality_reviewed` to `true`. These flags record a human review; the script cannot independently verify legal rights or detect all personal information.
 
 ## First target domains
 
