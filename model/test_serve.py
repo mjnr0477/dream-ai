@@ -149,6 +149,30 @@ class DreamServingTests(unittest.TestCase):
         self.assertEqual(body["choices"][0]["message"]["role"], "assistant")
         self.assertEqual(len(body["choices"][0]["message"]["content"]), 1)
 
+    def test_rejects_non_alternating_conversation_roles(self):
+        status, body = self.request(
+            "POST", "/v1/chat/completions",
+            {"model": "dream-test", "messages": [
+                {"role": "user", "content": "Hello"},
+                {"role": "user", "content": "Another question"}
+            ], "max_tokens": 1},
+            token="test-secret-token"
+        )
+        self.assertEqual(status, 400)
+        self.assertIn("alternate", body["error"]["message"])
+
+    def test_accepts_system_then_alternating_dialogue(self):
+        status, body = self.request(
+            "POST", "/v1/chat/completions",
+            {"model": "dream-test", "messages": [
+                {"role": "system", "content": "You are DREAM."},
+                {"role": "user", "content": "Hello"}
+            ], "max_tokens": 1},
+            token="test-secret-token"
+        )
+        self.assertEqual(status, 200)
+        self.assertEqual(body["choices"][0]["message"]["role"], "assistant")
+
     def test_zero_temperature_enables_greedy_decoding(self):
         status, body = self.request(
             "POST", "/v1/chat/completions",
