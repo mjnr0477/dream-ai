@@ -18,8 +18,12 @@ before(async () => {
       modelRequests.push({
         headers: req.headers,
         url: req.url,
-        body: JSON.parse(Buffer.concat(chunks).toString("utf8"))
+        body: chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) : null
       });
+      if (req.url === "/redirect") {
+        res.writeHead(302, { location: `http://127.0.0.1:${modelPort}/v1/chat/completions` });
+        return res.end();
+      }
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({
         choices: [{ message: { content: "Test response from the DREAM model runtime." } }]
@@ -158,7 +162,7 @@ test("static server blocks encoded traversal attempts", async () => {
 });
 
 
-import { validateRuntimeUrl } from "../lib/dream-engine.js";
+import { generateDreamReply, validateRuntimeUrl } from "../lib/dream-engine.js";
 
 test("runtime URL allows local HTTP endpoints", () => {
   for (const value of [
@@ -187,5 +191,19 @@ test("runtime URL rejects unsupported protocols", () => {
   assert.throws(
     () => validateRuntimeUrl("file:///tmp/model"),
     /HTTP or HTTPS/
+  );
+});
+
+test("DREAM runtime refuses redirects rather than following a possible HTTPS downgrade", async () => {
+  await assert.rejects(
+    generateDreamReply(
+      [{ role: "user", content: "Private prompt" }],
+      "general",
+      {
+        DREAM_MODEL_URL: `http://127.0.0.1:${modelPort}/redirect`,
+        DREAM_MODEL_NAME: "dream-test-model",
+        DREAM_MODEL_TOKEN: "test-token"
+      }
+    )
   );
 });
