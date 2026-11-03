@@ -34,7 +34,7 @@ See [model/BASELINE.md](model/BASELINE.md) for the architecture, commands and re
 - `model/generate.py`: local checkpoint inference.
 - `model/serve.py`: serves DREAM checkpoints through a local HTTP API; the JSON protocol does not call an external AI.
 - `model/test_*.py`: tests cover transformer behavior, corpus preparation, training/checkpoint resume, SFT masking and provenance, notebook code cells, and the local authenticated HTTP API. CI also runs a full tiny pretraining → held-out evaluation → SFT → held-out evaluation sequence.
-- `data/README.md`: strict data provenance, privacy and licensing rules. SFT rejects source groups that appear in any pretraining split, duplicate record IDs or normalized dialogue content across its train/validation splits; it verifies the manifest against the exact held-out test file, and its evaluator requires that exact test-corpus hash.
+- `data/README.md`: strict data provenance, privacy and licensing rules. SFT rejects source groups that appear in any pretraining split, duplicate record IDs or normalized dialogue content across its train/validation splits; it verifies the manifest against the exact held-out test file, and its evaluator requires that exact test-corpus hash. Each SFT prompt is also prefixed with the record's `<|language:TAG|>` marker, so supervised examples receive the same explicit language-conditioning cue as pretraining documents.
 
 Install and run the model locally:
 
