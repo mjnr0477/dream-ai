@@ -14,7 +14,7 @@ from pathlib import Path
 from dream_bpe import DreamBPETokenizer
 
 
-LANGUAGE_TAG = re.compile(r"^[a-z]{2,3}(?:-[A-Z]{2})?$")
+LANGUAGE_TAG = re.compile(r"^[A-Za-z]{2,3}(?:[-+][A-Za-z0-9]{2,8})*$")
 
 
 def load_records(path):
@@ -26,6 +26,8 @@ def load_records(path):
             row = json.loads(line)
         except json.JSONDecodeError as exc:
             raise ValueError(f"Invalid JSON at {path}:{line_number}") from exc
+        if not isinstance(row, dict):
+            raise ValueError(f"Record at {path}:{line_number} must be an object")
         language = row.get("language")
         text = row.get("text")
         if not isinstance(language, str) or not LANGUAGE_TAG.fullmatch(language):
