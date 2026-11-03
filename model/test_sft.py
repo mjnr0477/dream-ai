@@ -70,8 +70,8 @@ class DreamSFTTests(unittest.TestCase):
                 "quality_reviewed": True,
                 "language": "en",
                 "messages": [
-                    {"role": "user", "content": f"Question number {index}?"},
-                    {"role": "assistant", "content": f"Answer number {index}."}
+                    {"role": "user", "content": f"Question from {source_prefix} number {index}?"},
+                    {"role": "assistant", "content": f"Answer from {source_prefix} number {index}."}
                 ]
             })
         path.write_text(
