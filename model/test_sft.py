@@ -254,7 +254,8 @@ class DreamSFTTests(unittest.TestCase):
                 "--checkpoint", str(untrained),
                 "--train-data", str(train_path),
                 "--validation-data", str(val_path),
-                "--pretraining-manifest", str(self.manifest)
+                "--pretraining-manifest", str(self.manifest),
+                "--pretraining-test-data", str(self.test_data)
             ],
             capture_output=True, text=True, timeout=30
         )
