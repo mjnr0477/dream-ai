@@ -23,7 +23,11 @@ class DreamNotebookTests(unittest.TestCase):
         all_code = "\n".join(code)
         self.assertIn("sft_completed = False", all_code)
         self.assertIn("sft_completed = True", all_code)
+        self.assertIn("sft_available =", all_code)
+        self.assertIn("if sft_available:", all_code)
         self.assertIn("if sft_completed:", all_code)
+        self.assertIn("Instruction tuning skipped", all_code)
+        self.assertNotIn("raise RuntimeError('Upload both sft-train.jsonl", all_code)
 
     def test_sft_uses_pretraining_manifest_for_test_isolation(self):
         notebook = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
