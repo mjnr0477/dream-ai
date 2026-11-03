@@ -89,6 +89,14 @@ class CorpusPreparationTests(unittest.TestCase):
             self.assertEqual(manifest["records"], 5)
             self.assertEqual(manifest["duplicate_text_records_removed"], 1)
 
+    def test_rejects_non_object_jsonl_records(self):
+        rows = self.make_records()
+        rows[0] = ["not", "a", "record", "object"]
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_prepare(Path(directory), rows)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("must be a JSON object", result.stderr)
+
     def test_rejects_duplicate_id_even_after_duplicate_text_was_skipped(self):
         rows = self.make_records()
         rows[1]["text"] = rows[0]["text"]
