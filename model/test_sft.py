@@ -10,7 +10,7 @@ from pathlib import Path
 import torch
 
 from dream_transformer import DreamConfig, DreamTransformer, DreamByteTokenizer
-from sft import load_examples
+from sft import load_examples, record_signatures
 
 SCRIPT = Path(__file__).with_name("sft.py")
 EVALUATOR = Path(__file__).with_name("evaluate.py")
@@ -95,6 +95,30 @@ class DreamSFTTests(unittest.TestCase):
             self.assertTrue(any(target != -100 for target in targets))
             supervised = bytes(target for target in targets if target != -100)
             self.assertIn(b"Answer from train number", supervised)
+
+    def test_rejects_duplicate_dialogue_inside_one_sft_split(self):
+        train_path = self.root / "train.jsonl"
+        self.write_records(train_path, "train")
+        rows = [json.loads(line) for line in train_path.read_text().splitlines()]
+        rows[1]["messages"] = rows[0]["messages"]
+        train_path.write_text(
+            "".join(json.dumps(row) + "\\n" for row in rows),
+            encoding="utf-8"
+        )
+        with self.assertRaisesRegex(SystemExit, "Duplicate SFT dialogue content within"):
+            record_signatures(train_path)
+
+    def test_rejects_duplicate_id_inside_one_sft_split(self):
+        train_path = self.root / "train.jsonl"
+        self.write_records(train_path, "train")
+        rows = [json.loads(line) for line in train_path.read_text().splitlines()]
+        rows[1]["id"] = rows[0]["id"]
+        train_path.write_text(
+            "".join(json.dumps(row) + "\\n" for row in rows),
+            encoding="utf-8"
+        )
+        with self.assertRaisesRegex(SystemExit, "Duplicate SFT record ID within"):
+            record_signatures(train_path)
 
     def test_sft_rejects_missing_or_invalid_source_date(self):
         train_path = self.root / "train.jsonl"
