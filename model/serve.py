@@ -60,7 +60,7 @@ def decode_assistant_reply(tokenizer, generated_ids, prompt_length):
     """Decode only the assistant turn, stopping before the next role marker."""
     generated_text = tokenizer.decode(generated_ids[prompt_length:])
     stop_positions = [
-        position for marker in ("\\nUSER:", "\\nSYSTEM:")
+        position for marker in ("\nUSER:", "\nSYSTEM:")
         if (position := generated_text.find(marker)) >= 0
     ]
     stopped = bool(stop_positions)
