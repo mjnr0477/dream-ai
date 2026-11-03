@@ -59,6 +59,15 @@ class CorpusPreparationTests(unittest.TestCase):
             self.assertFalse(groups["train"] & groups["test"])
             self.assertFalse(groups["validation"] & groups["test"])
 
+    def test_rejects_duplicate_id_even_after_duplicate_text_was_skipped(self):
+        rows = self.make_records()
+        rows[1]["text"] = rows[0]["text"]
+        rows[2]["id"] = rows[1]["id"]
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_prepare(Path(directory), rows)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Duplicate record id", result.stderr)
+
     def test_rejects_unconfirmed_rights(self):
         with tempfile.TemporaryDirectory() as directory:
             result = self.run_prepare(Path(directory), self.make_records(rights=False))

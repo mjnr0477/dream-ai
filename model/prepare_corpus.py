@@ -52,12 +52,12 @@ def main():
         if item["id"] in seen_ids:
             raise SystemExit(f"Duplicate record id: {item['id']}")
 
+        seen_ids.add(item["id"])
         normalized = " ".join(item["text"].split()).casefold()
         fingerprint = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
         if fingerprint in seen_text:
             continue
 
-        seen_ids.add(item["id"])
         seen_text.add(fingerprint)
         groups.add(item["source_group"])
         records.append({
