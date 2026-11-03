@@ -109,10 +109,14 @@ class DreamBPETokenizer:
         return output
 
     def decode(self, token_ids):
-        try:
-            raw = b"".join(self._pieces[int(token)] for token in token_ids)
-        except (IndexError, TypeError, ValueError):
-            raise ValueError("Token ID is outside this tokenizer vocabulary") from None
+        pieces = []
+        for token in token_ids:
+            if not isinstance(token, int) or isinstance(token, bool):
+                raise ValueError("Token IDs must be integers")
+            if token < 0 or token >= self.vocab_size:
+                raise ValueError("Token ID is outside this tokenizer vocabulary")
+            pieces.append(self._pieces[token])
+        raw = b"".join(pieces)
         return raw.decode("utf-8", errors="replace")
 
     def to_dict(self):
