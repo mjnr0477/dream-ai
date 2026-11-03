@@ -276,11 +276,17 @@ def main():
     }, indent=2))
 
     @torch.no_grad()
-    def estimate(data):
+    def estimate(data, language_streams_for_sampling=None):
         model.eval()
         losses = []
         for _ in range(args.eval_batches):
-            x, y = batches(data, args.batch_size, args.block_size, device)
+            if language_streams_for_sampling is None:
+                x, y = batches(data, args.batch_size, args.block_size, device)
+            else:
+                x, y = balanced_batches(
+                    language_streams_for_sampling, args.batch_size,
+                    args.block_size, device
+                )
             _, loss = model(x, y)
             losses.append(float(loss.item()))
         model.train()
@@ -307,6 +313,8 @@ def main():
             "effective_batch_size": args.batch_size * args.grad_accum_steps,
             "eval_batches": args.eval_batches,
             "language_sampling": args.language_sampling,
+            "train_loss_sampling": args.language_sampling,
+            "validation_loss_sampling": "proportional",
             "training_tokens_by_language": ({key: len(value) for key, value in language_streams.items()}
                                              if language_streams is not None else None),
             "device": device,
@@ -351,7 +359,7 @@ def main():
             or step % args.checkpoint_every == 0
             or step == final_step
         ):
-            train_loss = estimate(train_data)
+            train_loss = estimate(train_data, language_streams)
             val_loss = estimate(val_data)
             print(json.dumps({
                 "step": step,
