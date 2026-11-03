@@ -29,7 +29,7 @@ See [model/BASELINE.md](model/BASELINE.md) for the architecture, commands and re
 - `model/audit_corpus.py`: performs privacy-conscious pre-ingestion triage for JSONL corpora; it flags metadata gaps, duplicate content and likely contact details without exposing raw text or granting approval.
 - `model/audit_language_balance.py`: reports per-language record/source-group counts, language shares and approximate Unicode writing-system coverage without exposing corpus text; flags low counts and dominance but never approves a corpus.
 - `model/prepare_corpus.py`: validates approved records and writes source-isolated train/validation/test splits. Each document is prefixed with a visible `<|language:TAG|>` marker so the native model receives an explicit language-conditioning signal; this is ordinary text tokenized by DREAM, not a special learned embedding.
-- `model/train.py`: trains from random initialization.
+- `model/train.py`: trains from random initialization. Its default `--language-sampling proportional` preserves token-proportional sampling; opt into `--language-sampling balanced` to choose a language uniformly per batch item from the tagged training streams. Balanced mode requires each language stream to contain at least `block_size + 2` tokens and is recorded in checkpoints so resume cannot silently change the sampling policy.
 - `model/evaluate.py`: produces a held-out corpus report with cross-entropy and per-token metrics, corpus/checkpoint hashes and a sample generation; legacy byte checkpoints also retain the original per-byte report keys.
 - `model/generate.py`: local checkpoint inference.
 - `model/serve.py`: serves DREAM checkpoints through a local HTTP API; the JSON protocol does not call an external AI.
@@ -47,6 +47,8 @@ python model/prepare_corpus.py --input data/approved-records.jsonl
 # Measure tokenizer efficiency on the untouched held-out test split:
 python model/benchmark_tokenizer.py --data data/prepared/train.txt --validation-data data/prepared/test.txt --vocab-size 2048
 python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --manifest data/prepared/manifest.json --steps 2000 --eval-batches 10 --batch-size 4 --grad-accum-steps 8
+# Optional: reduce language imbalance when every tagged language has enough training tokens:
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --manifest data/prepared/manifest.json --language-sampling balanced --steps 2000 --eval-batches 10 --batch-size 4 --grad-accum-steps 8
 # Resume an interrupted run from its latest atomic checkpoint:
 python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --manifest data/prepared/manifest.json --steps 2000 --resume checkpoints/dream-small.pt
 python model/evaluate.py --checkpoint checkpoints/dream-small.pt --data data/prepared/test.txt --manifest data/prepared/manifest.json --out eval-results/dream-small.json
