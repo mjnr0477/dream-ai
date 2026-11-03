@@ -27,6 +27,8 @@ def main():
     parser.add_argument("--data", default="data/prepared/train.txt")
     parser.add_argument("--validation-data", required=True,
                         help="Independent source-isolated validation text file")
+    parser.add_argument("--manifest", default="",
+                        help="Optional prepare_corpus manifest; verifies train/validation/test hashes and source isolation")
     parser.add_argument("--out", default="checkpoints/dream-small.pt")
     parser.add_argument("--resume", default="", help="Resume from a DREAM checkpoint")
     parser.add_argument("--checkpoint-every", type=int, default=500)
@@ -102,6 +104,53 @@ def main():
     validation_hash = file_sha256(validation_path)
     if training_hash == validation_hash:
         raise SystemExit("Training and validation content hashes must differ.")
+
+    manifest_hash = None
+    if args.manifest:
+        manifest_path = Path(args.manifest)
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise SystemExit(f"Could not read corpus manifest: {exc}") from exc
+        if manifest.get("schema") != "dream-corpus-v1":
+            raise SystemExit("Unsupported corpus manifest schema.")
+        split_metadata = manifest.get("splits")
+        if not isinstance(split_metadata, dict):
+            raise SystemExit("Corpus manifest is missing split metadata.")
+
+        supplied_paths = {
+            "train": Path(args.data),
+            "validation": validation_path,
+            "test": manifest_path.parent / "test.txt"
+        }
+        split_groups = {}
+        for split, split_path in supplied_paths.items():
+            details = split_metadata.get(split)
+            if not isinstance(details, dict):
+                raise SystemExit(f"Corpus manifest is missing the {split} split.")
+            if not split_path.is_file():
+                raise SystemExit(f"Manifest-verified {split} file does not exist: {split_path}")
+            actual_hash = file_sha256(split_path)
+            if details.get("sha256") != actual_hash:
+                raise SystemExit(f"{split.capitalize()} corpus hash does not match the manifest.")
+            group_ids = details.get("source_group_ids")
+            if (
+                not isinstance(group_ids, list)
+                or not group_ids
+                or any(not isinstance(group, str) or not group.strip() for group in group_ids)
+                or len(group_ids) != len(set(group_ids))
+            ):
+                raise SystemExit(f"Manifest has invalid {split} source-group metadata.")
+            split_groups[split] = set(group_ids)
+
+        split_names = ("train", "validation", "test")
+        for index, left in enumerate(split_names):
+            for right in split_names[index + 1:]:
+                if split_groups[left] & split_groups[right]:
+                    raise SystemExit(
+                        f"Corpus manifest has source-group leakage between {left} and {right}."
+                    )
+        manifest_hash = file_sha256(manifest_path)
 
     config = DreamConfig(
         vocab_size=tokenizer.vocab_size,
@@ -181,6 +230,8 @@ def main():
             "corpus_sha256": training_hash,
             "validation_corpus": str(validation_path),
             "validation_sha256": validation_hash,
+            "corpus_manifest_sha256": manifest_hash,
+            "data_provenance_verified": manifest_hash is not None,
             "initialization": "random" if not args.resume else "resumed-from-dream-checkpoint",
             "optimizer": "AdamW",
             "learning_rate": args.learning_rate,
