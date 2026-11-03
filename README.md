@@ -37,7 +37,7 @@ Install and run the model locally:
 python -m pip install -r model/requirements.txt
 python -m unittest discover -s model -p 'test_*.py'
 python model/prepare_corpus.py --input data/approved-records.jsonl
-python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --eval-batches 10
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --eval-batches 10 --batch-size 4 --grad-accum-steps 8
 # Resume an interrupted run from its latest atomic checkpoint:
 python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --resume checkpoints/dream-small.pt
 python model/evaluate.py --checkpoint checkpoints/dream-small.pt --data data/prepared/test.txt --out eval-results/dream-small.json
