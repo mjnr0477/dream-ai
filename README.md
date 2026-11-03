@@ -35,7 +35,8 @@ Install and run the model locally:
 ```sh
 python -m pip install -r model/requirements.txt
 python -m unittest discover -s model -p 'test_*.py'
-python model/train.py --data data/your-approved-corpus.txt --steps 2000
+python model/prepare_corpus.py --input data/approved-records.jsonl
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000
 python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER: Hello DREAM.\nASSISTANT:"
 ```
 
