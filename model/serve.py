@@ -17,6 +17,7 @@ from urllib.parse import urlparse
 import torch
 
 from dream_transformer import DreamByteTokenizer, DreamConfig, DreamTransformer
+from dream_bpe import DreamBPETokenizer
 
 
 MAX_BODY_BYTES = 64 * 1024
@@ -28,17 +29,24 @@ MODEL_LOCK = threading.Lock()
 
 def load_model(checkpoint_path, device):
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
-    if checkpoint.get("tokenizer") != "utf8-byte-v1":
+    tokenizer_name = checkpoint.get("tokenizer", "utf8-byte-v1")
+    if tokenizer_name == "utf8-byte-v1":
+        tokenizer = DreamByteTokenizer()
+    elif tokenizer_name == DreamBPETokenizer.format_version:
+        tokenizer = DreamBPETokenizer.from_dict(checkpoint["tokenizer_data"])
+    else:
         raise ValueError("Unsupported DREAM tokenizer in checkpoint.")
     metadata = checkpoint.get("sft_training") or checkpoint.get("training") or {}
     completed_steps = metadata.get("completed_steps", 0)
     if not isinstance(completed_steps, int) or completed_steps < 1:
         raise ValueError("Refusing to serve a checkpoint without completed DREAM training.")
     config = DreamConfig(**checkpoint["config"])
+    if config.vocab_size != tokenizer.vocab_size:
+        raise ValueError("Checkpoint model vocabulary does not match its tokenizer.")
     model = DreamTransformer(config)
     model.load_state_dict(checkpoint["model_state"], strict=True)
     model.to(device).eval()
-    return model, DreamByteTokenizer(), config, metadata
+    return model, tokenizer, config, metadata
 
 
 def format_prompt(messages):
