@@ -9,6 +9,7 @@ from pathlib import Path
 import torch
 
 from dream_transformer import DreamByteTokenizer, DreamConfig, DreamTransformer
+from dream_bpe import DreamBPETokenizer
 
 
 def sha256(path):
@@ -39,10 +40,19 @@ def main():
     checkpoint_path = Path(args.checkpoint)
     data_path = Path(args.data)
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
-    if checkpoint.get("tokenizer") != "utf8-byte-v1":
+    tokenizer_name = checkpoint.get("tokenizer", "utf8-byte-v1")
+    if tokenizer_name == "utf8-byte-v1":
+        tokenizer = DreamByteTokenizer()
+    elif tokenizer_name == DreamBPETokenizer.format_version:
+        try:
+            tokenizer = DreamBPETokenizer.from_dict(checkpoint["tokenizer_data"])
+        except (KeyError, TypeError, ValueError) as exc:
+            raise SystemExit(f"Invalid checkpoint BPE tokenizer: {exc}") from exc
+    else:
         raise SystemExit("Unsupported checkpoint tokenizer.")
     config = DreamConfig(**checkpoint["config"])
-    tokenizer = DreamByteTokenizer()
+    if config.vocab_size != tokenizer.vocab_size:
+        raise SystemExit("Checkpoint model vocabulary does not match its tokenizer.")
     text = data_path.read_text(encoding="utf-8")
     evaluation_hash = sha256(data_path)
     training_meta = checkpoint.get("training") or checkpoint.get("sft_training", {})
@@ -108,20 +118,21 @@ def main():
         "checkpoint_sha256": sha256(checkpoint_path),
         "evaluation_corpus": str(data_path),
         "evaluation_corpus_sha256": evaluation_hash,
-        "evaluation_bytes": len(tokens),
+        "evaluation_tokens": len(tokens),
+        "tokenizer": tokenizer_name,
         "architecture": config.__dict__,
         "parameters": sum(parameter.numel() for parameter in model.parameters()),
         "device": device,
         "seed": args.seed,
         "batches": args.batches,
         "batch_size": args.batch_size,
-        "mean_cross_entropy_nats_per_byte": mean_loss,
-        "bits_per_byte": mean_loss / math.log(2),
-        "perplexity_per_byte": math.exp(min(mean_loss, 20)),
+        "mean_cross_entropy_nats_per_token": mean_loss,
+        "bits_per_token": mean_loss / math.log(2),
+        "perplexity_per_token": math.exp(min(mean_loss, 20)),
         "sample_prompt": args.sample_prompt,
         "sample_generation": sample,
         "limitations": [
-            "Byte-level next-token metrics do not measure instruction following or factual accuracy.",
+            "Next-token metrics do not measure instruction following or factual accuracy.",
             "A low validation loss does not certify safety, reasoning, usefulness or generalization.",
             "Sample generation is qualitative and must be reviewed by humans."
         ]
