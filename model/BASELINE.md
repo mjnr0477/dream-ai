@@ -29,13 +29,13 @@ Install the model dependencies from `model/requirements.txt`. Run the training s
 ```sh
 python -m pip install -r model/requirements.txt
 python model/prepare_corpus.py --input data/approved-records.jsonl
-python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --eval-batches 10 --batch-size 4 --grad-accum-steps 8
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --manifest data/prepared/manifest.json --steps 2000 --eval-batches 10 --batch-size 4 --grad-accum-steps 8
 # Resume the saved run later, keeping the same corpus, architecture and optimizer settings:
-python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --resume checkpoints/dream-small.pt
-python model/evaluate.py --checkpoint checkpoints/dream-small.pt --data data/prepared/test.txt --out eval-results/dream-small.json
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --manifest data/prepared/manifest.json --steps 2000 --resume checkpoints/dream-small.pt
+python model/evaluate.py --checkpoint checkpoints/dream-small.pt --data data/prepared/test.txt --manifest data/prepared/manifest.json --out eval-results/dream-small.json
 # After pretraining, prepare separate reviewed train/validation conversation JSONL files:
 python model/sft.py --checkpoint checkpoints/dream-small.pt --train-data data/sft-train.jsonl --validation-data data/sft-validation.jsonl --pretraining-manifest data/prepared/manifest.json --pretraining-test-data data/prepared/test.txt --steps 1000 --batch-size 2 --grad-accum-steps 4 --out checkpoints/dream-instruct.pt
-python model/evaluate.py --checkpoint checkpoints/dream-instruct.pt --data data/prepared/test.txt --out eval-results/dream-instruct.json
+python model/evaluate.py --checkpoint checkpoints/dream-instruct.pt --data data/prepared/test.txt --manifest data/prepared/manifest.json --out eval-results/dream-instruct.json
 python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER: Explain photosynthesis.\nASSISTANT:"
 ```
 
@@ -53,7 +53,7 @@ The server binds to localhost by default, serializes model generation to bound i
 
 No dataset is silently assumed or bundled as training data. Every pretraining and instruction record must carry HTTPS source and license URLs, a declared rights basis (`original-authorship`, `public-domain`, `open-license` or `explicit-permission`), and a strict ISO `source_date` (`YYYY-MM-DD`) and human-confirmed rights, privacy and quality review flags; the script checks these attestations, deduplicates records and keeps source groups isolated across train/validation/test splits. The manifest records each split's exact record IDs, source-group IDs, UTF-8 byte count, language/license coverage, source-date range and content hash, in addition to corpus-wide coverage. These flags are not a substitute for actual legal and privacy review. See `data/README.md`.
 
-Instruction data uses JSONL records with the same provenance/review fields plus alternating `messages` entries (`user`, `assistant`; optional initial `system`). SFT masks user/system/prompt tokens and optimizes assistant response tokens only. Keep training and validation conversation files separate by content hash. SFT rejects source groups present in the pretraining held-out test split, duplicate record IDs and normalized dialogue content across SFT train/validation files. It verifies the manifest against the exact held-out test file, and instruction-checkpoint evaluation must use that exact test-corpus SHA-256.
+Instruction data uses JSONL records with the same provenance/review fields plus alternating `messages` entries (`user`, `assistant`; optional initial `system`). SFT masks user/system/prompt tokens and optimizes assistant response tokens only. Pretraining training/evaluation commands should pass the generated `--manifest`; provenance-verified checkpoints require the exact manifest at evaluation and reject held-out files matching either pretraining or SFT train/validation data. Keep training and validation conversation files separate by content hash. SFT rejects source groups present in the pretraining held-out test split, duplicate record IDs and normalized dialogue content across SFT train/validation files. It verifies the manifest against the exact held-out test file, and instruction-checkpoint evaluation must use that exact test-corpus SHA-256.
 
 The 31-case DREAM application evaluation set covers reasoning, mathematics, coding, teaching, Kenyan context, English/Kiswahili, factual calibration, uncertainty, context-following, safety, security, privacy, fairness, research methods and structured output. It is still a starter benchmark, not enough to certify model quality. The native checkpoint evaluator measures next-byte prediction on held-out text; it does not establish reasoning, instruction following, factuality or safety. We must expand it, add independent human-reviewed scoring and test for memorization, factuality, bias, safety and multilingual performance.
 
