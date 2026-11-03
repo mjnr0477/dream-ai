@@ -289,6 +289,18 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             self.assertNotEqual(mismatch.returncode, 0)
             self.assertIn("does not match the manifest", mismatch.stderr)
 
+            manifest["splits"]["test"]["sha256"] = hashlib.sha256(contents["test"].encode("utf-8")).hexdigest()
+            manifest["splits"]["train"]["source_group_ids"] = []
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            invalid_groups = subprocess.run(
+                [sys.executable, str(EVALUATOR), "--checkpoint", str(checkpoint),
+                 "--data", str(root / "test.txt"), "--manifest", str(manifest_path),
+                 "--sample-tokens", "0"],
+                capture_output=True, text=True, timeout=30
+            )
+            self.assertNotEqual(invalid_groups.returncode, 0)
+            self.assertIn("invalid train source-group metadata", invalid_groups.stderr)
+
     def test_manifest_rejects_split_hash_mismatch_and_source_leakage(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
