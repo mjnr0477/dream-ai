@@ -124,6 +124,10 @@ def main():
     parser.add_argument("--checkpoint", required=True, help="DREAM pretrained checkpoint")
     parser.add_argument("--train-data", required=True, help="Reviewed training JSONL")
     parser.add_argument("--validation-data", required=True, help="Independent reviewed validation JSONL")
+    parser.add_argument(
+        "--pretraining-manifest", required=True,
+        help="Manifest from the pretraining corpus; SFT sources must not overlap its held-out test split"
+    )
     parser.add_argument("--out", default="checkpoints/dream-instruct.pt")
     parser.add_argument("--resume", default="")
     parser.add_argument("--steps", type=int, default=1000)
@@ -165,10 +169,34 @@ def main():
         raise SystemExit("SFT requires a DREAM checkpoint with completed pretraining steps.")
     config = DreamConfig(**base["config"])
     tokenizer = DreamByteTokenizer()
+    try:
+        pretraining_manifest = json.loads(
+            Path(args.pretraining_manifest).read_text(encoding="utf-8")
+        )
+        test_split = pretraining_manifest["splits"]["test"]
+        pretraining_test_hash = test_split["sha256"]
+        pretraining_test_groups = set(test_split["source_group_ids"])
+    except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+        raise SystemExit(
+            "Invalid pretraining manifest: expected a test split with sha256 and source_group_ids."
+        ) from exc
+    if (
+        pretraining_manifest.get("schema") != "dream-corpus-v1"
+        or not isinstance(pretraining_test_hash, str)
+        or len(pretraining_test_hash) != 64
+        or not pretraining_test_groups
+        or any(not isinstance(group, str) or not group for group in pretraining_test_groups)
+    ):
+        raise SystemExit("Pretraining manifest has invalid held-out test provenance.")
+
     train_groups = source_groups(train_path)
     validation_groups = source_groups(validation_path)
     if train_groups & validation_groups:
         raise SystemExit("SFT training and validation source groups must be disjoint.")
+    if (train_groups | validation_groups) & pretraining_test_groups:
+        raise SystemExit(
+            "SFT training/validation source groups must be disjoint from the pretraining held-out test groups."
+        )
     train_examples = load_examples(train_path, tokenizer, config.block_size)
     validation_examples = load_examples(validation_path, tokenizer, config.block_size)
 
@@ -188,6 +216,8 @@ def main():
             raise SystemExit("SFT resume hyperparameters do not match.")
         if meta.get("grad_accum_steps") != args.grad_accum_steps or meta.get("eval_batches") != args.eval_batches:
             raise SystemExit("SFT resume accumulation/evaluation settings do not match.")
+        if meta.get("pretraining_test_sha256") != pretraining_test_hash:
+            raise SystemExit("SFT resume held-out test manifest does not match.")
         model.load_state_dict(saved["model_state"])
         optimizer.load_state_dict(saved["optimizer_state"])
         if "torch_rng_state" in saved:
@@ -232,6 +262,9 @@ def main():
                 "train_sha256": train_hash,
                 "validation_data": str(validation_path),
                 "validation_sha256": validation_hash,
+                "pretraining_test_sha256": pretraining_test_hash,
+                "pretraining_test_source_groups": sorted(pretraining_test_groups),
+                "pretraining_manifest_sha256": sha256(args.pretraining_manifest),
                 "learning_rate": args.learning_rate,
                 "batch_size": args.batch_size,
                 "grad_accum_steps": args.grad_accum_steps,
