@@ -376,6 +376,22 @@ class DreamTrainingSmokeTests(unittest.TestCase):
 
 
 class DreamLanguageSamplingTests(unittest.TestCase):
+    def run_training(self, root, checkpoint, extra=()):
+        return subprocess.run(
+            [
+                sys.executable, str(SCRIPT),
+                "--data", str(root / "train.txt"),
+                "--validation-data", str(root / "validation.txt"),
+                "--out", str(checkpoint),
+                "--steps", "2", "--batch-size", "2",
+                "--grad-accum-steps", "2", "--block-size", "8",
+                "--d-model", "16", "--layers", "1", "--heads", "4",
+                "--eval-every", "1", "--checkpoint-every", "1",
+                *extra
+            ],
+            capture_output=True, text=True, timeout=60
+        )
+
     def test_splits_language_tagged_documents_into_independent_streams(self):
         from train import split_language_streams
 
