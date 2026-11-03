@@ -46,8 +46,15 @@ class DreamByteTokenizer:
         return list(text.encode("utf-8"))
 
     def decode(self, token_ids) -> str:
-        raw = bytes(int(token) for token in token_ids if 0 <= int(token) <= 255)
-        return raw.decode("utf-8", errors="replace")
+        """Decode byte IDs without silently dropping or coercing invalid values."""
+        values = []
+        for token in token_ids:
+            if not isinstance(token, int) or isinstance(token, bool):
+                raise ValueError("Token IDs must be integers")
+            if token < 0 or token >= self.vocab_size:
+                raise ValueError("Token ID is outside the UTF-8 byte vocabulary")
+            values.append(token)
+        return bytes(values).decode("utf-8", errors="replace")
 
 
 class CausalSelfAttention(nn.Module):
@@ -143,6 +150,8 @@ class DreamTransformer(nn.Module):
             raise ValueError("Input sequence length is outside configured block_size")
         if token_ids.dtype != torch.long:
             raise TypeError("token_ids must use torch.long")
+        if torch.any((token_ids < 0) | (token_ids >= self.config.vocab_size)):
+            raise ValueError("token_ids contain IDs outside the configured vocabulary")
         positions = torch.arange(length, device=token_ids.device)
         x = self.dropout(
             self.token_embedding(token_ids) +
@@ -155,6 +164,8 @@ class DreamTransformer(nn.Module):
         if targets is not None:
             if targets.shape != token_ids.shape or targets.dtype != torch.long:
                 raise ValueError("targets must be torch.long and match token_ids shape")
+            if torch.any((targets < 0) | (targets >= self.config.vocab_size)):
+                raise ValueError("targets contain IDs outside the configured vocabulary")
             loss = F.cross_entropy(
                 logits.reshape(-1, logits.size(-1)),
                 targets.reshape(-1)
