@@ -6,6 +6,7 @@ Input record:
 import argparse
 import hashlib
 import json
+import re
 from datetime import date
 from urllib.parse import urlparse
 from pathlib import Path
@@ -25,6 +26,10 @@ def counts(rows, field):
         value = row[field]
         result[value] = result.get(value, 0) + 1
     return dict(sorted(result.items()))
+
+
+
+LANGUAGE_TAG = re.compile(r"^[A-Za-z]{2,3}(?:[-+][A-Za-z0-9]{2,8})*$")
 
 
 def main():
@@ -54,6 +59,8 @@ def main():
         required = ("id", "source", "source_group", "source_url", "license", "license_url", "rights_basis", "source_date", "language", "text")
         if any(not isinstance(item.get(key), str) or not item[key].strip() for key in required):
             raise SystemExit(f"Missing required metadata or text at line {line_number}")
+        if not LANGUAGE_TAG.fullmatch(item["language"].strip()):
+            raise SystemExit(f"Invalid language tag at line {line_number}")
         try:
             parsed_source_date = date.fromisoformat(item["source_date"])
             if parsed_source_date.isoformat() != item["source_date"]:
@@ -141,6 +148,8 @@ def main():
         "duplicate_text_records_removed": duplicate_text_records,
         "source_groups": group_count,
         "language_counts": language_counts,
+        "language_conditioning": "Each document is prefixed with <|language:{language}|> before its text.",
+        "language_prefix_format": "<|language:{language}|>",
         "license_counts": license_counts,
         "rights_basis_counts": counts(records, "rights_basis"),
         "source_catalog": sorted({
@@ -155,7 +164,10 @@ def main():
         selected = [row for row in records if split_by_group[row["source_group"]] == split]
         text_path = output / f"{split}.txt"
         text_path.write_text(
-            "\n\n".join(row["text"] for row in selected) + "\n",
+            "\\n\\n".join(
+                f"<|language:{row['language']}|>\\n{row['text']}"
+                for row in selected
+            ) + "\\n",
             encoding="utf-8"
         )
         split_groups = sorted({row["source_group"] for row in selected})
