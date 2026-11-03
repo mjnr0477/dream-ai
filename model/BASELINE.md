@@ -28,6 +28,8 @@ Install the model dependencies from `model/requirements.txt`. Run the training s
 python -m pip install -r model/requirements.txt
 python model/prepare_corpus.py --input data/approved-records.jsonl
 python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000
+# Resume the saved run later, keeping the same corpus, architecture and optimizer settings:
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --resume checkpoints/dream-small.pt
 python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER: Explain photosynthesis.\nASSISTANT:"
 ```
 
