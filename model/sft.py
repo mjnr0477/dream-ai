@@ -23,6 +23,14 @@ def sha256(path):
     return digest.hexdigest()
 
 
+def source_groups(path):
+    groups = set()
+    for line in Path(path).read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            groups.add(json.loads(line)["source_group"])
+    return groups
+
+
 def load_examples(path, tokenizer, block_size):
     examples = []
     seen_ids = set()
@@ -157,6 +165,10 @@ def main():
         raise SystemExit("SFT requires a DREAM checkpoint with completed pretraining steps.")
     config = DreamConfig(**base["config"])
     tokenizer = DreamByteTokenizer()
+    train_groups = source_groups(train_path)
+    validation_groups = source_groups(validation_path)
+    if train_groups & validation_groups:
+        raise SystemExit("SFT training and validation source groups must be disjoint.")
     train_examples = load_examples(train_path, tokenizer, config.block_size)
     validation_examples = load_examples(validation_path, tokenizer, config.block_size)
 
