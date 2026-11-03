@@ -3,7 +3,6 @@
 DREAM AI is an independent AI research and application project, separate from Dream Education, Dream Wi-Fi and VYBORA.
 
 ## Project status
-
 DREAM has its own decoder-only transformer architecture, byte tokenizer, random initialization, training script, inference script and native model-serving API in `model/`. This is the beginning of a from-scratch model, not a borrowed foundation-model checkpoint.
 
 **No production-trained DREAM checkpoint is being claimed yet.** CI now proves that a tiny model can train from random initialization, complete assistant-only instruction tuning and pass held-out smoke evaluation. Those synthetic tests validate the pipeline only; they do not establish useful model intelligence. The Node web app and model runtime are separate. The Render web service hosts the application; training and inference run on suitable compute that we control.
@@ -24,6 +23,8 @@ The web interface is not itself a trained model. Until a trained native DREAM ch
 See [model/BASELINE.md](model/BASELINE.md) for the architecture, commands and release gates. For a phone-friendly, free-tier training workflow, open the [DREAM from-scratch Colab notebook](https://colab.research.google.com/github/mjnr0477/dream-ai/blob/main/training/dream_train_colab.ipynb). Colab GPU availability and session limits are controlled by Google; download the checkpoint and evaluation report before the session ends.
 
 - `model/dream_transformer.py`: DREAM's own transformer blocks, causal attention, embeddings and UTF-8 byte tokenizer.
+- `model/dream_bpe.py`: experimental, deterministic byte-fallback BPE tokenizer; not yet used by production checkpoints.
+- `model/benchmark_tokenizer.py`: trains BPE merges on a training corpus and measures lossless token efficiency on a separate held-out corpus. The evaluation corpus is never used to learn merges.
 - `model/train.py`: trains from random initialization.
 - `model/evaluate.py`: produces a held-out corpus report with cross-entropy, bits-per-byte, perplexity-per-byte, corpus/checkpoint hashes and a sample generation.
 - `model/generate.py`: local checkpoint inference.
@@ -38,12 +39,15 @@ python -m pip install -r model/requirements.txt
 python -m unittest discover -s model -p 'test_*.py'
 python model/prepare_corpus.py --input data/approved-records.jsonl
 python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --eval-batches 10 --batch-size 4 --grad-accum-steps 8
+# Compare BPE token efficiency without training on the held-out evaluation split:
+python model/benchmark_tokenizer.py --data data/prepared/train.txt --validation-data data/prepared/test.txt --vocab-size 1024
 # Resume an interrupted run from its latest atomic checkpoint:
 python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --resume checkpoints/dream-small.pt
 python model/evaluate.py --checkpoint checkpoints/dream-small.pt --data data/prepared/test.txt --out eval-results/dream-small.json
 # Then instruction-tune on separate, reviewed conversation JSONL files:
 python model/sft.py --checkpoint checkpoints/dream-small.pt --train-data data/sft-train.jsonl --validation-data data/sft-validation.jsonl --pretraining-manifest data/prepared/manifest.json --pretraining-test-data data/prepared/test.txt --steps 1000 --batch-size 2 --grad-accum-steps 4 --out checkpoints/dream-instruct.pt
-python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER: Hello DREAM.\nASSISTANT:"
+python model/evaluate.py --checkpoint checkpoints/dream-instruct.pt --data data/prepared/test.txt --out eval-results/dream-instruct.json
+python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER: Hello DREAM.\\nASSISTANT:"
 ```
 
 The training corpus path above is an example, not a file already present. Each JSONL record must include `source_date` in `YYYY-MM-DD` form and contain `rights_confirmed: true`, `privacy_reviewed: true` and `quality_reviewed: true` after actual human review. The corpus manifest reports license/language distributions and source-date coverage. The script verifies these declarations, not the underlying legal claims. Do not train on data without appropriate rights and privacy review. Do not market a small research checkpoint as a frontier model.
