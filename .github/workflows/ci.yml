@@ -83,6 +83,11 @@ jobs:
           --benchmark evals/core-v1.jsonl
           --out /tmp/dream-native-task-benchmark.json
           --max-new-tokens 8 --temperature 0 --limit 4
+      - name: Validate human scoring aggregation on the unscored smoke report
+        run: >-
+          python model/score_task_benchmark.py
+          --input /tmp/dream-native-task-benchmark.json
+          --out /tmp/dream-native-human-score-summary.json
       - name: Benchmark native DREAM inference performance
         run: >-
           python model/benchmark_inference.py
@@ -96,4 +101,5 @@ jobs:
           path: |
             /tmp/dream-native-task-benchmark.json
             /tmp/dream-native-inference-benchmark.json
+            /tmp/dream-native-human-score-summary.json
           retention-days: 7
