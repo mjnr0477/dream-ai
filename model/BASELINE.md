@@ -20,6 +20,7 @@ The first configurable experiment defaults to 6 layers, width 256, 8 attention h
 - `model/sft.py` performs assistant-response-only supervised instruction fine-tuning from a trained DREAM checkpoint; prompt tokens are masked from the loss.
 - `model/generate.py` runs local inference from byte or BPE DREAM checkpoints.
 - `model/evaluate.py` reports held-out cross-entropy, per-token metrics, SHA-256 provenance and a qualitative sample; byte checkpoints retain legacy per-byte metric fields.
+- `model/run_task_benchmark.py` runs the native checkpoint against the 40-case task benchmark and saves responses, rubrics, checkpoint/data hashes and empty human-scoring fields; it never uses an external model or auto-grades answers.
 - `model/serve.py` exposes the native checkpoint over a local HTTP endpoint. Its chat-completions-shaped JSON is only a transport protocol; no external model is called.
 - `model/test_dream_transformer.py`, `model/test_train.py` and `model/test_serve.py` test model behavior, checkpoint/resume and local HTTP serving.
 - `data/README.md` defines dataset provenance, privacy, licensing and quality gates.
@@ -36,6 +37,7 @@ python model/evaluate.py --checkpoint checkpoints/dream-small.pt --data data/pre
 # After pretraining, prepare separate reviewed train/validation conversation JSONL files:
 python model/sft.py --checkpoint checkpoints/dream-small.pt --train-data data/sft-train.jsonl --validation-data data/sft-validation.jsonl --pretraining-manifest data/prepared/manifest.json --pretraining-test-data data/prepared/test.txt --steps 1000 --batch-size 2 --grad-accum-steps 4 --out checkpoints/dream-instruct.pt
 python model/evaluate.py --checkpoint checkpoints/dream-instruct.pt --data data/prepared/test.txt --manifest data/prepared/manifest.json --out eval-results/dream-instruct.json
+python model/run_task_benchmark.py --checkpoint checkpoints/dream-instruct.pt --benchmark evals/core-v1.jsonl --out eval-results/dream-human-review.json
 python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER: Explain photosynthesis.\nASSISTANT:"
 ```
 
