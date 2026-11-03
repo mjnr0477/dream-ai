@@ -80,7 +80,8 @@ def audit(input_path, max_record_bytes=1_000_000):
                 continue
 
             record_id = item.get("id")
-            safe_id = record_id if isinstance(record_id, str) and record_id.strip() else f"line-{line_number}"
+            # Never echo caller-controlled IDs: they may themselves contain PII.
+            safe_id = f"line-{line_number}"
             if not isinstance(record_id, str) or not record_id.strip():
                 findings.append({"line": line_number, "record_id": safe_id, "code": "missing_record_id", "severity": "error"})
             elif record_id in seen_ids:
