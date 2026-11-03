@@ -1,14 +1,14 @@
 {
   "name": "dream-ai",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
-  "description": "Dream AI — an independent, extensible AI assistant platform.",
+  "description": "DREAM AI — an independent AI application and model runtime.",
   "type": "module",
   "scripts": {
     "postinstall": "npm test",
     "start": "node --env-file-if-exists=.env server.js",
     "dev": "node --env-file-if-exists=.env --watch server.js",
-    "test": "node --check server.js && node --check public/app.js && node --test"
+    "test": "node --check server.js && node --check lib/dream-engine.js && node --check public/app.js && node --test"
   },
   "engines": {
     "node": ">=20.12"
