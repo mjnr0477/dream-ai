@@ -53,6 +53,7 @@ The training corpus path above is an example, not a file already present. Each J
 - `evals/core-v1.jsonl`: 31 original DREAM evaluation prompts and human scoring rubrics spanning reasoning, coding, science, multilingual performance, safety, privacy, security and reliability.
 - `npm run validate:evals`: validates the evaluation set.
 - `npm run eval`: records outputs and latency from a configured self-hosted model runtime for human review.
+- Human reviewers score each result from 0 to 4 using its rubric, filling `humanScore` and `reviewerNotes` in the JSONL file. `npm run summarize:evals -- eval-results/scored.jsonl eval-results/summary.json` reports honest overall, category and language averages, latency, and unscored counts; missing scores are never inferred.
 
 The current benchmark is an initial seed, not a certification of quality.
 
