@@ -237,6 +237,8 @@ def main():
             raise SystemExit("Resume checkpoint gradient accumulation does not match.")
         if training_meta.get("eval_batches") != args.eval_batches:
             raise SystemExit("Resume checkpoint evaluation batch count does not match.")
+        if training_meta.get("eval_every", args.eval_every) != args.eval_every:
+            raise SystemExit("Resume checkpoint evaluation interval does not match.")
         if training_meta.get("language_sampling", "proportional") != args.language_sampling:
             raise SystemExit("Resume checkpoint language sampling mode does not match.")
         model.load_state_dict(checkpoint["model_state"])
@@ -312,6 +314,7 @@ def main():
             "grad_accum_steps": args.grad_accum_steps,
             "effective_batch_size": args.batch_size * args.grad_accum_steps,
             "eval_batches": args.eval_batches,
+            "eval_every": args.eval_every,
             "language_sampling": args.language_sampling,
             "train_loss_sampling": args.language_sampling,
             "validation_loss_sampling": "proportional",
