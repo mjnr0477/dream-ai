@@ -18,7 +18,18 @@ class DreamBPETokenizer:
     base_vocab_size = 256
 
     def __init__(self, merges=None):
-        self.merges = [tuple(map(int, pair)) for pair in (merges or [])]
+        if merges is None:
+            merges = []
+        if not isinstance(merges, (list, tuple)):
+            raise ValueError("BPE merges must be a list of token-ID pairs")
+        normalized = []
+        for pair in merges:
+            if not isinstance(pair, (list, tuple)) or len(pair) != 2:
+                raise ValueError("Each BPE merge must contain exactly two token IDs")
+            if any(not isinstance(token, int) or isinstance(token, bool) for token in pair):
+                raise ValueError("BPE merge token IDs must be integers")
+            normalized.append(tuple(pair))
+        self.merges = normalized
         self._validate_merges()
         self._pieces = [bytes([i]) for i in range(self.base_vocab_size)]
         for left, right in self.merges:
@@ -128,7 +139,9 @@ class DreamBPETokenizer:
         if not isinstance(payload, dict) or payload.get("format") != cls.format_version:
             raise ValueError("Unsupported DREAM BPE tokenizer format")
         tokenizer = cls(payload.get("merges", []))
-        if payload.get("vocab_size") != tokenizer.vocab_size:
+        saved_vocab_size = payload.get("vocab_size")
+        if (not isinstance(saved_vocab_size, int) or isinstance(saved_vocab_size, bool)
+                or saved_vocab_size != tokenizer.vocab_size):
             raise ValueError("Tokenizer vocabulary size does not match its merges")
         return tokenizer
 
