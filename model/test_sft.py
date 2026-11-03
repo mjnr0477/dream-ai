@@ -491,7 +491,7 @@ class DreamSFTTests(unittest.TestCase):
         for split_name, overlapping_group in (
             ("train", "train-group-0"),
             ("validation", "validation-group-0"),
-            ("test", "test-group-0")
+            ("test", "train-group-0")
         ):
             with self.subTest(split=split_name):
                 self.write_manifest(["pretraining-test-group"])
