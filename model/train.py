@@ -62,8 +62,8 @@ def main():
 
     if args.steps < 1 or args.batch_size < 1 or args.eval_every < 1 or args.checkpoint_every < 1:
         raise SystemExit("steps, batch-size, eval-every and checkpoint-every must be positive.")
-    if args.learning_rate <= 0:
-        raise SystemExit("learning-rate must be positive.")
+    if not math.isfinite(args.learning_rate) or args.learning_rate <= 0:
+        raise SystemExit("learning-rate must be finite and positive.")
 
     def file_sha256(path):
         digest = hashlib.sha256()
@@ -90,6 +90,10 @@ def main():
             raise SystemExit("Resume checkpoint training corpus hash does not match.")
         if training_meta.get("validation_sha256") != file_sha256(validation_path):
             raise SystemExit("Resume checkpoint validation corpus hash does not match.")
+        if training_meta.get("learning_rate") != args.learning_rate:
+            raise SystemExit("Resume checkpoint learning rate does not match.")
+        if training_meta.get("batch_size") != args.batch_size:
+            raise SystemExit("Resume checkpoint batch size does not match.")
         model.load_state_dict(checkpoint["model_state"])
         if "optimizer_state" not in checkpoint:
             raise SystemExit("Resume checkpoint does not contain optimizer state.")
@@ -100,7 +104,7 @@ def main():
         print(f"Resuming DREAM training at step {start_step}.")
     print(json.dumps({
         "project": "DREAM",
-        "initialization": "random",
+        "initialization": "resumed" if args.resume else "random",
         "device": device,
         "parameters": sum(p.numel() for p in model.parameters()),
         "training_bytes": len(train_data),
@@ -157,7 +161,8 @@ def main():
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
 
-        if step == 1 or step % args.eval_every == 0 or step == args.steps:
+        final_step = start_step + args.steps
+        if step == start_step + 1 or step % args.eval_every == 0 or step == final_step:
             train_loss = estimate(train_data)
             val_loss = estimate(val_data)
             print(json.dumps({
@@ -166,7 +171,7 @@ def main():
                 "validation_loss": round(val_loss, 4),
                 "perplexity": round(math.exp(min(val_loss, 20)), 3)
             }))
-            if step % args.checkpoint_every == 0 or step == start_step + args.steps:
+            if step % args.checkpoint_every == 0 or step == final_step:
                 save_checkpoint(step, train_loss, val_loss)
 
     if start_step == start_step + args.steps:
