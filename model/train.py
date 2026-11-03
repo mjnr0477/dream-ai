@@ -4,6 +4,7 @@ import hashlib
 import json
 import math
 import random
+import re
 from pathlib import Path
 
 import torch
@@ -20,6 +21,46 @@ def batches(data, batch_size, block_size, device):
     x = torch.stack([data[i:i + block_size] for i in starts.tolist()])
     y = torch.stack([data[i + 1:i + block_size + 1] for i in starts.tolist()])
     return x.to(device), y.to(device)
+
+
+def split_language_streams(text, tokenizer, block_size):
+    """Encode each language-tagged document stream separately for balanced sampling."""
+    marker = re.compile(r"(?m)^<\\|language:([A-Za-z]{2,3}(?:[-+][A-Za-z0-9]{2,8})*)\\|>\\n")
+    matches = list(marker.finditer(text))
+    if not matches:
+        raise ValueError("Balanced sampling requires <|language:TAG|> document markers.")
+    streams = {}
+    for index, match in enumerate(matches):
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        language = match.group(1).lower()
+        content = text[match.end():end]
+        encoded = tokenizer.encode(content)
+        if encoded:
+            streams.setdefault(language, []).extend(encoded)
+    too_small = sorted(language for language, tokens in streams.items()
+                        if len(tokens) < block_size + 2)
+    if too_small:
+        raise ValueError(
+            "Balanced sampling needs at least block_size + 2 tokens per language; "
+            "insufficient: " + ", ".join(too_small)
+        )
+    return {language: torch.tensor(tokens, dtype=torch.long)
+            for language, tokens in sorted(streams.items())}
+
+
+def balanced_batches(streams, batch_size, block_size, device):
+    languages = tuple(streams)
+    if not languages:
+        raise ValueError("No language streams are available for balanced sampling.")
+    selected = [random.choice(languages) for _ in range(batch_size)]
+    xs, ys = [], []
+    for language in selected:
+        data = streams[language]
+        max_start = len(data) - block_size
+        start = random.randrange(max_start)
+        xs.append(data[start:start + block_size])
+        ys.append(data[start + 1:start + block_size + 1])
+    return torch.stack(xs).to(device), torch.stack(ys).to(device)
 
 
 def main():
@@ -47,6 +88,9 @@ def main():
     parser.add_argument("--tokenizer", choices=("auto", "byte", "bpe"), default="auto",
                         help="Tokenizer mode; auto preserves the tokenizer when resuming")
     parser.add_argument("--tokenizer-vocab-size", type=int, default=2048)
+    parser.add_argument("--language-sampling", choices=("proportional", "balanced"),
+                        default="proportional",
+                        help="Sample token windows proportionally or choose languages uniformly")
     args = parser.parse_args()
 
     random.seed(args.seed)
@@ -77,6 +121,12 @@ def main():
         tokenizer_name = "utf8-byte-v1"
     train_data = torch.tensor(tokenizer.encode(text), dtype=torch.long)
     val_data = torch.tensor(tokenizer.encode(validation_text), dtype=torch.long)
+    language_streams = None
+    if args.language_sampling == "balanced":
+        try:
+            language_streams = split_language_streams(text, tokenizer, args.block_size)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
     if Path(args.data).resolve() == validation_path.resolve():
         raise SystemExit("Training and validation files must be different.")
     if len(train_data) < args.block_size + 2 or len(val_data) < args.block_size + 2:
@@ -187,6 +237,8 @@ def main():
             raise SystemExit("Resume checkpoint gradient accumulation does not match.")
         if training_meta.get("eval_batches") != args.eval_batches:
             raise SystemExit("Resume checkpoint evaluation batch count does not match.")
+        if training_meta.get("language_sampling", "proportional") != args.language_sampling:
+            raise SystemExit("Resume checkpoint language sampling mode does not match.")
         model.load_state_dict(checkpoint["model_state"])
         if "optimizer_state" not in checkpoint:
             raise SystemExit("Resume checkpoint does not contain optimizer state.")
@@ -205,6 +257,9 @@ def main():
         "device": device,
         "parameters": sum(p.numel() for p in model.parameters()),
         "training_tokens": len(train_data),
+        "training_tokens_by_language": ({key: len(value) for key, value in language_streams.items()}
+                                         if language_streams is not None else None),
+        "language_sampling": args.language_sampling,
         "validation_tokens": len(val_data),
         "training_bytes": len(text.encode("utf-8")),
         "validation_bytes": len(validation_text.encode("utf-8")),
@@ -245,6 +300,9 @@ def main():
             "grad_accum_steps": args.grad_accum_steps,
             "effective_batch_size": args.batch_size * args.grad_accum_steps,
             "eval_batches": args.eval_batches,
+            "language_sampling": args.language_sampling,
+            "training_tokens_by_language": ({key: len(value) for key, value in language_streams.items()}
+                                             if language_streams is not None else None),
             "device": device,
             "last_train_loss": train_loss,
             "last_validation_loss": val_loss
@@ -270,7 +328,10 @@ def main():
         optimizer.zero_grad(set_to_none=True)
         micro_losses = []
         for _ in range(args.grad_accum_steps):
-            x, y = batches(train_data, args.batch_size, args.block_size, device)
+            if language_streams is None:
+                x, y = batches(train_data, args.batch_size, args.block_size, device)
+            else:
+                x, y = balanced_batches(language_streams, args.batch_size, args.block_size, device)
             _, loss = model(x, y)
             micro_losses.append(float(loss.detach().item()))
             (loss / args.grad_accum_steps).backward()
