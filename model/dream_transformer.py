@@ -189,15 +189,24 @@ class DreamTransformer(nn.Module):
     @torch.no_grad()
     def generate(self, token_ids, max_new_tokens=100, temperature=0.8,
                  top_k=40):
-        if not isinstance(max_new_tokens, int) or max_new_tokens < 0:
+        if (not isinstance(max_new_tokens, int) or
+                isinstance(max_new_tokens, bool) or max_new_tokens < 0):
             raise ValueError("max_new_tokens must be a non-negative integer")
-        if (not isinstance(temperature, (int, float)) or
+        if (isinstance(temperature, bool) or
+                not isinstance(temperature, (int, float)) or
                 not math.isfinite(temperature) or temperature < 0):
             raise ValueError("temperature must be finite and non-negative")
-        if not isinstance(top_k, int) or top_k < 0:
+        if (not isinstance(top_k, int) or isinstance(top_k, bool) or
+                top_k < 0):
             raise ValueError("top_k must be a non-negative integer")
+        if not isinstance(token_ids, torch.Tensor):
+            raise TypeError("generation prompt must be a torch.Tensor")
         if token_ids.ndim != 2 or token_ids.shape[1] < 1:
             raise ValueError("generation prompt must have shape [batch, sequence]")
+        if token_ids.dtype != torch.long:
+            raise TypeError("generation prompt must use torch.long")
+        if torch.any((token_ids < 0) | (token_ids >= self.config.vocab_size)):
+            raise ValueError("generation prompt contains IDs outside the configured vocabulary")
         self.eval()
         for _ in range(max_new_tokens):
             context = token_ids[:, -self.config.block_size:]
