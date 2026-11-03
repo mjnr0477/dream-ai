@@ -77,6 +77,8 @@ class NativeTaskBenchmarkTests(unittest.TestCase):
             self.assertEqual(report["task_count"], 2)
             self.assertFalse(report["data_provenance_verified"])
             self.assertIsNone(report["corpus_manifest_sha256"])
+            self.assertIsNone(report["pretraining_corpus_sha256"])
+            self.assertIsNone(report["sft_train_sha256"])
             self.assertEqual(len(report["checkpoint_sha256"]), 64)
             self.assertEqual(len(report["benchmark_sha256"]), 64)
             self.assertEqual(
