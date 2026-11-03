@@ -23,6 +23,18 @@ For native pretraining, pass the generated manifest with `--manifest data/prepar
 
 Each JSONL record must include `source_url` and `license_url` as absolute HTTPS URLs, a `rights_basis` value from the allowed set above, and `source_date` in strict `YYYY-MM-DD` form and set `rights_confirmed`, `privacy_reviewed` and `quality_reviewed` to `true`. The generated manifest reports record counts by language, license and rights basis, plus a source catalog containing source URLs and license URLs and the source-date range; inspect these before training. These flags record a human review; the script cannot independently verify legal rights or detect all personal information.
 
+## Pre-ingestion audit (does not approve data)
+
+Before changing any human-review flags or running the preparation pipeline, run the privacy-conscious audit against the candidate JSONL file:
+
+```sh
+python model/audit_corpus.py --input data/candidate-records.jsonl --out eval-results/corpus-audit.json
+```
+
+The report includes the input SHA-256, metadata problems, duplicate normalized content, missing review attestations, language/license counts, and heuristic flags for possible email addresses or Kenyan phone numbers. It reports only record IDs, line numbers and finding codes; it never copies raw training text or detected contact details into the report. Oversized records and malformed JSON/UTF-8 are rejected. A nonzero exit code means structural errors were found.
+
+**This is triage, not approval.** Pattern checks can miss personal data and can flag ordinary text. A qualified human must inspect source terms, consent, privacy, attribution, quality and each flagged record. The report always sets `approval_granted: false`; the existing `prepare_corpus.py` and SFT review gates remain mandatory.
+
 ## Kenyan parallel-corpus candidate import
 
 For a locally exported JSONL file whose rows contain a `translation` object, `model/import_parallel_pairs.py` can create separate SFT train/validation *candidate* files. Example for Dawida/Kidaw'ida to Kiswahili:
