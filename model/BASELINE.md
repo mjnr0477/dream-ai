@@ -36,7 +36,7 @@ python model/evaluate.py --checkpoint checkpoints/dream-small.pt --data data/pre
 # After pretraining, prepare separate reviewed train/validation conversation JSONL files:
 python model/sft.py --checkpoint checkpoints/dream-small.pt --train-data data/sft-train.jsonl --validation-data data/sft-validation.jsonl --pretraining-manifest data/prepared/manifest.json --pretraining-test-data data/prepared/test.txt --steps 1000 --batch-size 2 --grad-accum-steps 4 --out checkpoints/dream-instruct.pt
 python model/evaluate.py --checkpoint checkpoints/dream-instruct.pt --data data/prepared/test.txt --out eval-results/dream-instruct.json
-python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER: Explain photosynthesis.\nASSISTANT:"
+python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER: Explain photosynthesis.\\nASSISTANT:"
 ```
 
 To serve a trained checkpoint locally:
@@ -64,7 +64,7 @@ The free Render web service hosts the Node application; it is not the training o
 A successful training run must save:
 - model checkpoint and architecture config;
 - exact dataset version/hash and split;
-- random seed, optimizer, learning rate, micro-batch size, gradient accumulation, effective batch size, evaluation batch count and step count;
+- random seed, optimizer, learning rate, micro-batch size, gradient accumulation, effective batch size, evaluation batch count, step count;
 - train and validation loss/perplexity;
 - hardware and runtime details;
 - evaluation report and known limitations.
@@ -74,9 +74,9 @@ Do not call a random-weight model intelligent, do not claim a trained checkpoint
 ## Roadmap
 
 1. [x] Validate the architecture, preprocessing, random-initialization training, held-out evaluation, assistant-only SFT and checkpoint loading on synthetic CI smoke tests.
-2. Build and audit the first licensed DREAM corpus.
-3. Train repeatable checkpoints from random initialization.
-4. Expand benchmark coverage and human evaluation.
-5. Improve tokenizer, context length, data mixture and model scale based on evidence.
-6. Add retrieval and tools as separately permissioned capabilities, not as substitutes for model intelligence.
-7. Optimize inference and explore practical offline deployments.
+2. [ ] Build and audit the first licensed DREAM corpus.
+3. [ ] Train repeatable checkpoints from random initialization.
+4. [ ] Expand benchmark coverage and human evaluation.
+5. [ ] Improve tokenizer, context length, data mixture and model scale based on evidence.
+6. [ ] Add retrieval and tools as separately permissioned capabilities, not as substitutes for model intelligence.
+7. [ ] Optimize inference and explore practical offline deployments.
