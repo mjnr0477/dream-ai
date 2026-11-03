@@ -55,7 +55,7 @@ No dataset is silently assumed or bundled as training data. Every pretraining an
 
 Instruction data uses JSONL records with the same provenance/review fields plus alternating `messages` entries (`user`, `assistant`; optional initial `system`). SFT masks user/system/prompt tokens and optimizes assistant response tokens only. Keep training and validation conversation files separate by content hash. SFT rejects source groups present in the pretraining held-out test split, duplicate record IDs and normalized dialogue content across SFT train/validation files. It verifies the manifest against the exact held-out test file, and instruction-checkpoint evaluation must use that exact test-corpus SHA-256.
 
-The 31-case DREAM application evaluation set covers reasoning, mathematics, coding, teaching, Kenyan context, English/Kiswahili, factual calibration, uncertainty, context-following, safety, security, privacy, fairness, research methods and structured output. It is still a starter benchmark, not enough to certify model quality. The native checkpoint evaluator measures next-byte prediction on held-out text; it does not establish reasoning, instruction following, factuality or safety. We must expand it, add independent human-reviewed scoring and test for memorization, factuality, bias, safety and multilingual performance.
+The 45-case DREAM application evaluation set covers reasoning, mathematics, coding, teaching, Kenyan context, English/Kiswahili, factual calibration, uncertainty, context-following, safety, security, privacy, fairness, research methods and structured output. Fourteen tagged language prompts explicitly cover Arabic, Hindi, Chinese, Japanese, Korean, French, Spanish, Portuguese, Kiswahili, Yoruba, Hausa, Amharic, Bengali and Russian. Tokenizer round-trip tests also cover these writing systems and emoji. This remains a starter benchmark, not enough to certify model quality. The native checkpoint evaluator measures next-byte prediction on held-out text; it does not establish reasoning, instruction following, factuality or safety. The next requirement is a reviewed multilingual training corpus, independent native-speaker scoring and tests for memorization, factuality, bias and safety.
 
 ## Compute reality and honest release gates
 
@@ -76,7 +76,7 @@ Do not call a random-weight model intelligent, do not claim a trained checkpoint
 1. [x] Validate the architecture, preprocessing, random-initialization training, held-out evaluation, assistant-only SFT and checkpoint loading on synthetic CI smoke tests.
 2. Build and audit the first licensed DREAM corpus.
 3. Train repeatable checkpoints from random initialization.
-4. Expand benchmark coverage and human evaluation.
+4. [x] Expand the starter benchmark with 14 tagged multilingual cases and Unicode tokenizer tests; obtain independent human evaluation.
 5. Improve tokenizer, context length, data mixture and model scale based on evidence.
 6. Add retrieval and tools as separately permissioned capabilities, not as substitutes for model intelligence.
 7. Optimize inference and explore practical offline deployments.
