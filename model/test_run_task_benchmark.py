@@ -157,6 +157,76 @@ class NativeTaskBenchmarkTests(unittest.TestCase):
             self.assertEqual(report["tokenizer"], DreamBPETokenizer.format_version)
             self.assertEqual(report["task_count"], 1)
 
+    def test_preserves_multilingual_metadata_and_reports_coverage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            checkpoint = self.make_checkpoint(root)
+            tasks = [
+                {
+                    "id": "multi-swa",
+                    "category": "multilingual",
+                    "language_code": "swa",
+                    "language_name": "Kiswahili",
+                    "script": "Latn",
+                    "prompt": "Eleza kwa Kiswahili kwa nini maji safi ni muhimu.",
+                    "rubric": ["Responds in Kiswahili"]
+                },
+                {
+                    "id": "multi-ara",
+                    "category": "multilingual",
+                    "language_code": "ara",
+                    "language_name": "Arabic",
+                    "script": "Arab",
+                    "prompt": "اشرح أهمية الماء النظيف.",
+                    "rubric": ["Responds in Arabic"]
+                }
+            ]
+            benchmark = self.make_benchmark(root, tasks)
+            output = root / "multilingual-report.json"
+            result = subprocess.run(
+                [
+                    sys.executable, str(SCRIPT),
+                    "--checkpoint", str(checkpoint),
+                    "--benchmark", str(benchmark),
+                    "--out", str(output),
+                    "--max-new-tokens", "2",
+                    "--temperature", "0"
+                ],
+                capture_output=True, text=True, timeout=60
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            report = json.loads(output.read_text(encoding="utf-8"))
+            self.assertEqual(report["language_coverage"]["language_count"], 2)
+            self.assertEqual(report["language_coverage"]["language_codes"], ["ara", "swa"])
+            self.assertEqual(report["results"][0]["language_name"], "Kiswahili")
+            self.assertEqual(report["results"][1]["script"], "Arab")
+            self.assertIn("not model proficiency", report["language_coverage"]["note"])
+
+    def test_rejects_incomplete_language_metadata(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            checkpoint = self.make_checkpoint(root)
+            task = {
+                "id": "bad-language",
+                "category": "multilingual",
+                "language_code": "swa",
+                "prompt": "Habari?",
+                "rubric": ["Responds in Kiswahili"]
+            }
+            benchmark = self.make_benchmark(root, [task])
+            result = subprocess.run(
+                [
+                    sys.executable, str(SCRIPT),
+                    "--checkpoint", str(checkpoint),
+                    "--benchmark", str(benchmark),
+                    "--out", str(root / "report.json"),
+                    "--max-new-tokens", "1"
+                ],
+                capture_output=True, text=True, timeout=30
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("must provide both language_code and language_name", result.stderr)
+
     def test_rejects_duplicate_task_ids(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
