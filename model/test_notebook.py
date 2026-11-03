@@ -17,6 +17,21 @@ class DreamNotebookTests(unittest.TestCase):
             with self.subTest(cell=index):
                 ast.parse("".join(cell["source"]), filename=f"colab-cell-{index}")
 
+    def test_colab_checks_out_the_same_feature_branch_as_the_notebook(self):
+        notebook = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
+        all_code = "\n".join(
+            "".join(cell["source"]) for cell in notebook["cells"]
+            if cell["cell_type"] == "code"
+        )
+        self.assertIn(
+            "TRAINING_REF = os.environ.get('DREAM_AI_REF', 'feature/bpe-pipeline-integration')",
+            all_code
+        )
+        self.assertIn("'--branch', TRAINING_REF", all_code)
+        self.assertIn("'--single-branch'", all_code)
+        self.assertIn("git', 'fetch', 'origin', TRAINING_REF", all_code)
+        self.assertIn("git', 'checkout', TRAINING_REF", all_code)
+
     def test_sft_is_optional_and_downloads_only_if_completed(self):
         notebook = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
         code = ["".join(cell["source"]) for cell in notebook["cells"] if cell["cell_type"] == "code"]
