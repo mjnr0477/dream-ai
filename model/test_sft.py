@@ -145,8 +145,16 @@ class DreamSFTTests(unittest.TestCase):
     def test_rejects_overlapping_source_groups(self):
         train_path = self.root / "train.jsonl"
         val_path = self.root / "validation.jsonl"
-        self.write_records(train_path, "shared")
-        self.write_records(val_path, "shared")
+        self.write_records(train_path, "train")
+        self.write_records(val_path, "validation")
+        train_rows = [json.loads(line) for line in train_path.read_text().splitlines()]
+        val_rows = [json.loads(line) for line in val_path.read_text().splitlines()]
+        for train_row, val_row in zip(train_rows, val_rows):
+            val_row["source_group"] = train_row["source_group"]
+        val_path.write_text(
+            "".join(json.dumps(row) + "\\n" for row in val_rows),
+            encoding="utf-8"
+        )
         result = subprocess.run(
             [
                 sys.executable, str(SCRIPT),
