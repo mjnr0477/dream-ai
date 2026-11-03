@@ -262,6 +262,39 @@ def main():
             "Pretraining held-out test file hash does not match the supplied manifest."
         )
     pretraining_manifest_hash = sha256(args.pretraining_manifest)
+    base_training_meta = base.get("training", {})
+    base_manifest_hash = base_training_meta.get("corpus_manifest_sha256")
+    if base_manifest_hash and base_manifest_hash != pretraining_manifest_hash:
+        raise SystemExit(
+            "Pretraining manifest does not match the manifest bound to the base DREAM checkpoint."
+        )
+    if base_training_meta.get("data_provenance_verified") is True and not base_manifest_hash:
+        raise SystemExit(
+            "Base DREAM checkpoint claims verified corpus provenance but has no manifest hash."
+        )
+
+    # Validate every split's source-group declaration and ensure no source group
+    # crosses the pretraining train/validation/test boundaries.
+    manifest_groups = {}
+    for split_name in ("train", "validation", "test"):
+        split_metadata = pretraining_manifest.get("splits", {}).get(split_name)
+        groups = split_metadata.get("source_group_ids") if isinstance(split_metadata, dict) else None
+        if (
+            not isinstance(groups, list)
+            or not groups
+            or any(not isinstance(group, str) or not group.strip() for group in groups)
+            or len(groups) != len(set(groups))
+        ):
+            raise SystemExit(
+                f"Pretraining manifest has invalid {split_name} source-group metadata."
+            )
+        manifest_groups[split_name] = set(groups)
+    for index, left in enumerate(("train", "validation", "test")):
+        for right in ("train", "validation", "test")[index + 1:]:
+            if manifest_groups[left] & manifest_groups[right]:
+                raise SystemExit(
+                    f"Pretraining manifest has source-group leakage between {left} and {right}."
+                )
 
     train_groups = source_groups(train_path)
     validation_groups = source_groups(validation_path)
