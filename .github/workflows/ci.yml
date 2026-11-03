@@ -38,6 +38,13 @@ jobs:
         run: python -m unittest discover -s model -p 'test_*.py' -v
       - name: Audit synthetic corpus fixture without approving it
         run: python model/audit_corpus.py --input data/smoke-test.jsonl --out /tmp/dream-corpus-audit.json
+            /tmp/dream-language-balance.json
+      - name: Report synthetic corpus language and script balance
+        run: >-
+          python model/audit_language_balance.py
+          --input data/smoke-test.jsonl
+          --out /tmp/dream-language-balance.json
+          --min-records 1 --max-share 1
       - name: Prepare synthetic pretraining smoke corpus
         run: python model/prepare_corpus.py --input data/smoke-test.jsonl --output /tmp/dream-smoke-data
       - name: Train a tiny DREAM checkpoint from random initialization
