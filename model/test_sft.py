@@ -115,6 +115,25 @@ class DreamSFTTests(unittest.TestCase):
             supervised = bytes(target for target in targets if target != -100)
             self.assertIn(b"Answer from train number", supervised)
 
+    def test_language_marker_survives_prompt_truncation(self):
+        train_path = self.root / "truncated-language.jsonl"
+        self.write_records(train_path, "train")
+        rows = [json.loads(line) for line in train_path.read_text().splitlines()]
+        for row in rows:
+            row["messages"][0]["content"] = (
+                "A very long user prompt that forces truncation of earlier context. " * 8
+            )
+        train_path.write_text(
+            "".join(json.dumps(row) + "\\n" for row in rows),
+            encoding="utf-8"
+        )
+        examples = load_examples(
+            train_path, DreamByteTokenizer(), self.config.block_size
+        )
+        self.assertTrue(examples)
+        for input_ids, _ in examples:
+            self.assertIn(b"<|language:en|>", bytes(input_ids))
+
     def test_sft_rejects_invalid_language_tag(self):
         train_path = self.root / "invalid-language.jsonl"
         self.write_records(train_path, "train")
