@@ -7,6 +7,7 @@ import argparse
 import hmac
 import json
 import os
+import re
 import secrets
 import threading
 import time
@@ -26,6 +27,7 @@ MAX_MESSAGE_CHARS = 8000
 MAX_OUTPUT_TOKENS = 256
 MODEL_LOCK = threading.Lock()
 MAX_ACTIVE_CONNECTIONS = 16
+LANGUAGE_TAG = re.compile(r"^[A-Za-z]{2,3}(?:[-+][A-Za-z0-9]{2,8})*$")
 
 
 class BoundedThreadingHTTPServer(ThreadingHTTPServer):
@@ -86,8 +88,9 @@ def load_model(checkpoint_path, device):
     return model, tokenizer, config, metadata
 
 
-def format_prompt(messages):
-    return "".join(
+def format_prompt(messages, language=None):
+    language_prefix = f"<|language:{language.strip().lower()}|>\\n" if language else ""
+    return language_prefix + "".join(
         f"{item['role'].upper()}: {item['content'].strip()}\n"
         for item in messages
     ) + "ASSISTANT:"
@@ -163,6 +166,13 @@ def create_handler(model, tokenizer, config, model_name, token, device):
             if payload.get("model") not in (None, model_name):
                 return self.send_json(400, {"error": {"message": "Unknown DREAM model name"}})
 
+            language = payload.get("language")
+            if language is not None and (
+                not isinstance(language, str)
+                or not LANGUAGE_TAG.fullmatch(language.strip())
+            ):
+                return self.send_json(400, {"error": {"message": "Invalid language tag"}})
+
             messages = payload.get("messages")
             if not isinstance(messages, list) or not 1 <= len(messages) <= MAX_MESSAGES:
                 return self.send_json(400, {"error": {"message": "messages must contain 1 to 12 items"}})
@@ -205,7 +215,7 @@ def create_handler(model, tokenizer, config, model_name, token, device):
             except (TypeError, ValueError, OverflowError):
                 return self.send_json(400, {"error": {"message": "Invalid generation settings"}})
 
-            prompt_ids = tokenizer.encode(format_prompt(messages))
+            prompt_ids = tokenizer.encode(format_prompt(messages, language))
             if not prompt_ids:
                 return self.send_json(400, {"error": {"message": "Prompt is empty"}})
             prompt_ids = prompt_ids[-config.block_size:]
@@ -238,6 +248,7 @@ def create_handler(model, tokenizer, config, model_name, token, device):
                 "object": "chat.completion",
                 "created": int(time.time()),
                 "model": model_name,
+                "language": language.strip().lower() if language else None,
                 "choices": [{
                     "index": 0,
                     "message": {"role": "assistant", "content": answer},
