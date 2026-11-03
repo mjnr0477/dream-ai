@@ -49,6 +49,13 @@ class DreamBPETokenizerTests(unittest.TestCase):
             DreamBPETokenizer.from_dict({"format": "other", "vocab_size": 256,
                                          "merges": []})
 
+    def test_decode_rejects_negative_and_non_integer_ids(self):
+        tokenizer = DreamBPETokenizer()
+        for invalid in ([-1], [256], [1.5], [True]):
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(ValueError):
+                    tokenizer.decode(invalid)
+
     def test_vocab_size_is_bounded(self):
         with self.assertRaises(ValueError):
             DreamBPETokenizer.train("text", vocab_size=255)
