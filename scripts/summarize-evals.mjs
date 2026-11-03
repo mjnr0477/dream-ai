@@ -42,7 +42,7 @@ export function summarizeRows(rows) {
       throw new Error("latencyMs must be a non-negative finite number for " + row.id);
     }
     if (row.language !== null && row.language !== undefined &&
-        (typeof row.language !== "string" || !/^[a-z]{2,3}(?:-[A-Z]{2})?$/.test(row.language))) {
+        (typeof row.language !== "string" || !/^[A-Za-z]{2,3}(?:[-+][A-Za-z0-9]{2,8})*$/.test(row.language))) {
       throw new Error("Invalid language tag for " + row.id);
     }
   }
