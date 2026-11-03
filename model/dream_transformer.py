@@ -27,8 +27,8 @@ class DreamConfig:
         )
         if any(not isinstance(value, int) or value < 1 for value in dimensions):
             raise ValueError("Model dimensions must be positive integers")
-        if self.vocab_size != 256:
-            raise ValueError("The current DREAM byte tokenizer requires vocab_size=256")
+        if self.vocab_size < 256 or self.vocab_size > 65536:
+            raise ValueError("vocab_size must be between 256 and 65536")
         if self.d_model % self.n_heads:
             raise ValueError("d_model must be divisible by n_heads")
         if not isinstance(self.dropout, (int, float)) or not 0 <= self.dropout < 1:
