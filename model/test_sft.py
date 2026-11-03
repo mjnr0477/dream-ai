@@ -124,7 +124,7 @@ class DreamSFTTests(unittest.TestCase):
                 "A very long user prompt that forces truncation of earlier context. " * 8
             )
         train_path.write_text(
-            "".join(json.dumps(row) + "\\n" for row in rows),
+            "".join(json.dumps(row) + "\n" for row in rows),
             encoding="utf-8"
         )
         examples = load_examples(
