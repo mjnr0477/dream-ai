@@ -17,6 +17,7 @@ before(async () => {
     req.on("end", () => {
       modelRequests.push({
         headers: req.headers,
+        url: req.url,
         body: JSON.parse(Buffer.concat(chunks).toString("utf8"))
       });
       res.writeHead(200, { "content-type": "application/json" });
@@ -105,6 +106,7 @@ test("chat endpoint uses the DREAM runtime in all supported modes", async () => 
 
   assert.equal(modelRequests.length, 3);
   for (const request of modelRequests) {
+    assert.equal(request.url, "/v1/chat/completions");
     assert.equal(request.body.model, "dream-test-model");
     assert.equal(request.body.messages.at(-1).content, "Hello DREAM AI");
     assert.equal(request.headers.authorization, undefined);
