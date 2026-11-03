@@ -40,7 +40,7 @@ python model/train.py --data data/prepared/train.txt --validation-data data/prep
 python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER: Hello DREAM.\nASSISTANT:"
 ```
 
-The training corpus path above is an example, not a file already present. Do not train on data without appropriate rights and privacy review. Do not market a small research checkpoint as a frontier model.
+The training corpus path above is an example, not a file already present. Each JSONL record must contain `rights_confirmed: true`, `privacy_reviewed: true` and `quality_reviewed: true` after actual human review. The script verifies these declarations, not the underlying legal claims. Do not train on data without appropriate rights and privacy review. Do not market a small research checkpoint as a frontier model.
 
 ## Evaluation
 
