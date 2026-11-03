@@ -37,6 +37,7 @@ def main():
     parser.add_argument("--heads", type=int, default=8)
     parser.add_argument("--learning-rate", type=float, default=3e-4)
     parser.add_argument("--eval-every", type=int, default=200)
+    parser.add_argument("--eval-batches", type=int, default=10)
     parser.add_argument("--seed", type=int, default=2026)
     args = parser.parse_args()
 
@@ -60,8 +61,11 @@ def main():
             "with enough UTF-8 bytes for train and validation splits."
         )
 
-    if args.steps < 1 or args.batch_size < 1 or args.eval_every < 1 or args.checkpoint_every < 1:
-        raise SystemExit("steps, batch-size, eval-every and checkpoint-every must be positive.")
+    if (
+        args.steps < 1 or args.batch_size < 1 or args.eval_every < 1
+        or args.checkpoint_every < 1 or args.eval_batches < 1
+    ):
+        raise SystemExit("steps, batch-size, eval-every, eval-batches and checkpoint-every must be positive.")
     if not math.isfinite(args.learning_rate) or args.learning_rate <= 0:
         raise SystemExit("learning-rate must be finite and positive.")
 
@@ -94,6 +98,8 @@ def main():
             raise SystemExit("Resume checkpoint learning rate does not match.")
         if training_meta.get("batch_size") != args.batch_size:
             raise SystemExit("Resume checkpoint batch size does not match.")
+        if training_meta.get("eval_batches") != args.eval_batches:
+            raise SystemExit("Resume checkpoint evaluation batch count does not match.")
         model.load_state_dict(checkpoint["model_state"])
         if "optimizer_state" not in checkpoint:
             raise SystemExit("Resume checkpoint does not contain optimizer state.")
@@ -115,10 +121,13 @@ def main():
     @torch.no_grad()
     def estimate(data):
         model.eval()
-        x, y = batches(data, args.batch_size, args.block_size, device)
-        _, loss = model(x, y)
+        losses = []
+        for _ in range(args.eval_batches):
+            x, y = batches(data, args.batch_size, args.block_size, device)
+            _, loss = model(x, y)
+            losses.append(float(loss.item()))
         model.train()
-        return float(loss.item())
+        return sum(losses) / len(losses)
 
     def save_checkpoint(completed_steps, train_loss=None, val_loss=None):
         output = Path(args.out)
@@ -135,6 +144,7 @@ def main():
             "optimizer": "AdamW",
             "learning_rate": args.learning_rate,
             "batch_size": args.batch_size,
+            "eval_batches": args.eval_batches,
             "device": device,
             "last_train_loss": train_loss,
             "last_validation_loss": val_loss
