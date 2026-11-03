@@ -213,6 +213,60 @@ class DreamSFTTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("source groups must be disjoint", result.stderr)
 
+    def test_rejects_duplicate_record_ids_across_sft_splits(self):
+        train_path = self.root / "train.jsonl"
+        val_path = self.root / "validation.jsonl"
+        self.write_records(train_path, "train")
+        self.write_records(val_path, "validation")
+        train_rows = [json.loads(line) for line in train_path.read_text().splitlines()]
+        val_rows = [json.loads(line) for line in val_path.read_text().splitlines()]
+        val_rows[0]["id"] = train_rows[0]["id"]
+        val_path.write_text(
+            "".join(json.dumps(row) + "\n" for row in val_rows),
+            encoding="utf-8"
+        )
+        result = subprocess.run(
+            [
+                sys.executable, str(SCRIPT),
+                "--checkpoint", str(self.base),
+                "--train-data", str(train_path),
+                "--validation-data", str(val_path),
+                "--pretraining-manifest", str(self.manifest),
+                "--pretraining-test-data", str(self.test_data),
+                "--steps", "1"
+            ],
+            capture_output=True, text=True, timeout=30
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("record IDs must be disjoint", result.stderr)
+
+    def test_rejects_duplicate_dialogue_content_across_sft_splits(self):
+        train_path = self.root / "train.jsonl"
+        val_path = self.root / "validation.jsonl"
+        self.write_records(train_path, "train")
+        self.write_records(val_path, "validation")
+        train_rows = [json.loads(line) for line in train_path.read_text().splitlines()]
+        val_rows = [json.loads(line) for line in val_path.read_text().splitlines()]
+        val_rows[0]["messages"] = train_rows[0]["messages"]
+        val_path.write_text(
+            "".join(json.dumps(row) + "\n" for row in val_rows),
+            encoding="utf-8"
+        )
+        result = subprocess.run(
+            [
+                sys.executable, str(SCRIPT),
+                "--checkpoint", str(self.base),
+                "--train-data", str(train_path),
+                "--validation-data", str(val_path),
+                "--pretraining-manifest", str(self.manifest),
+                "--pretraining-test-data", str(self.test_data),
+                "--steps", "1"
+            ],
+            capture_output=True, text=True, timeout=30
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Duplicate SFT dialogue content", result.stderr)
+
     def test_rejects_test_corpus_that_does_not_match_manifest(self):
         train_path = self.root / "train.jsonl"
         val_path = self.root / "validation.jsonl"
