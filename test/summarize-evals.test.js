@@ -27,7 +27,11 @@ test("rejects duplicate case identifiers", () => {
   assert.throws(() => summarizeRows([sample[0], sample[0]]), /Duplicate evaluation id/);
 });
 
-test("rejects malformed language tags and latency", () => {
+test("accepts language script subtags and rejects malformed tags and latency", () => {
+  const tagged = summarizeRows([
+    { ...sample[0], id: "zh-hant-1", language: "zh-Hant" }
+  ]);
+  assert.equal(tagged.byLanguage["zh-Hant"].scored, 1);
   assert.throws(() => summarizeRows([{ ...sample[0], language: "English" }]), /language tag/);
   assert.throws(() => summarizeRows([{ ...sample[0], latencyMs: -1 }]), /latencyMs/);
 });
