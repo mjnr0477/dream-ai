@@ -3,6 +3,7 @@ import argparse
 import torch
 
 from dream_transformer import DreamByteTokenizer, DreamConfig, DreamTransformer
+from dream_bpe import DreamBPETokenizer
 
 
 def main():
@@ -15,11 +16,19 @@ def main():
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     checkpoint = torch.load(args.checkpoint, map_location=device, weights_only=True)
+    tokenizer_name = checkpoint.get("tokenizer", "utf8-byte-v1")
+    if tokenizer_name == "utf8-byte-v1":
+        tokenizer = DreamByteTokenizer()
+    elif tokenizer_name == DreamBPETokenizer.format_version:
+        tokenizer = DreamBPETokenizer.from_dict(checkpoint["tokenizer_data"])
+    else:
+        raise SystemExit("Unsupported DREAM checkpoint tokenizer.")
     config = DreamConfig(**checkpoint["config"])
+    if config.vocab_size != tokenizer.vocab_size:
+        raise SystemExit("Checkpoint model vocabulary does not match its tokenizer.")
     model = DreamTransformer(config).to(device)
     model.load_state_dict(checkpoint["model_state"])
     model.eval()
-    tokenizer = DreamByteTokenizer()
     prompt = tokenizer.encode(args.prompt)
     if not prompt:
         raise SystemExit("Prompt must not be empty.")
