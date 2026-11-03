@@ -65,7 +65,7 @@ class DreamSFTTests(unittest.TestCase):
                 "source": f"Reviewed DREAM source {source_prefix}-{index}",
                 "source_group": f"{source_prefix}-group-{index}",
                 "license": "CC0-1.0",
-                    "source_date": "2026-01-15",
+                "source_date": "2026-01-15",
                 "rights_confirmed": True,
                 "privacy_reviewed": True,
                 "quality_reviewed": True,
