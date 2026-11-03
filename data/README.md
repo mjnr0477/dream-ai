@@ -40,4 +40,4 @@ Use distinct source groups, independently checked answers, and separate training
 
 ## Important
 
-The repository intentionally does not ship a toy corpus and claim that it makes a useful assistant. A byte-level transformer needs a large, clean corpus and substantial compute. Begin with a small smoke-test corpus only when it is clearly labeled as such; never evaluate or market it as production intelligence.
+The files `smoke-test.jsonl`, `sft-smoke-train.jsonl` and `sft-smoke-validation.jsonl` are tiny, synthetic CI fixtures. They exist only to verify that preprocessing, random-initialization pretraining, held-out evaluation, assistant-only SFT and checkpoint loading work end to end. They are not a useful training corpus and must never be presented as model-quality evidence or production intelligence. A capable model requires a much larger, diverse, reviewed corpus and substantial compute.
