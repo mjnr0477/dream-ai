@@ -10,11 +10,31 @@ import torch
 
 from dream_transformer import DreamConfig, DreamTransformer, DreamByteTokenizer
 from dream_bpe import DreamBPETokenizer
+from run_task_benchmark import fit_prompt_to_context
 
 SCRIPT = Path(__file__).with_name("run_task_benchmark.py")
 
 
 class NativeTaskBenchmarkTests(unittest.TestCase):
+    def test_truncation_preserves_prompt_start_and_assistant_marker(self):
+        prompt_ids = list(range(100)) + [250, 251, 252]
+        marker_ids = [250, 251, 252]
+        fitted, truncated = fit_prompt_to_context(prompt_ids, marker_ids, 16)
+        self.assertTrue(truncated)
+        self.assertEqual(len(fitted), 16)
+        self.assertEqual(fitted[:13], list(range(13)))
+        self.assertEqual(fitted[-3:], marker_ids)
+
+    def test_short_prompt_is_not_changed(self):
+        prompt_ids = [1, 2, 3, 4]
+        fitted, truncated = fit_prompt_to_context(prompt_ids, [3, 4], 8)
+        self.assertFalse(truncated)
+        self.assertEqual(fitted, prompt_ids)
+
+    def test_rejects_context_too_small_for_assistant_marker(self):
+        with self.assertRaises(ValueError):
+            fit_prompt_to_context(list(range(20)), [1, 2, 3], 3)
+
     def make_checkpoint(self, root):
         config = DreamConfig(
             vocab_size=256, block_size=64, d_model=16,
