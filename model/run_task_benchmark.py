@@ -139,6 +139,7 @@ def main():
                 "prompt_tokens_used": len(prompt_ids),
                 "prompt_truncated": original_prompt_tokens > len(prompt_ids),
                 "response_tokens": len(generated) - len(prompt_ids),
+                "rubric_scores": [None for _ in task["rubric"]],
                 "human_score": None,
                 "review_notes": ""
             })
@@ -174,7 +175,10 @@ def main():
             "top_k": args.top_k
         },
         "task_count": len(results),
-        "scoring_policy": "Human rubric scoring only; no model-based automatic grading.",
+        "scoring_policy": (
+            "Human rubric scoring only; mark each rubric_scores entry 0 or 1, "
+            "then record the optional aggregate human_score; no model-based automatic grading."
+        ),
         "results": results,
         "limitations": [
             "This report records generated answers; it does not establish answer correctness.",
