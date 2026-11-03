@@ -14,6 +14,13 @@ class DreamTokenizerTests(unittest.TestCase):
     def test_byte_vocabulary_is_fixed(self):
         self.assertEqual(DreamByteTokenizer.vocab_size, 256)
 
+    def test_decode_rejects_out_of_range_and_non_integer_ids(self):
+        tokenizer = DreamByteTokenizer()
+        for invalid in ([-1], [256], [65.5], [True]):
+            with self.subTest(invalid=invalid):
+                with self.assertRaises(ValueError):
+                    tokenizer.decode(invalid)
+
     def test_round_trip_across_diverse_writing_systems(self):
         tokenizer = DreamByteTokenizer()
         samples = [
@@ -103,6 +110,16 @@ class DreamTransformerTests(unittest.TestCase):
         prompt = torch.tensor([[65, 66]], dtype=torch.long)
         with self.assertRaises(ValueError):
             self.model.generate(prompt, temperature=float("nan"))
+
+    def test_out_of_range_input_tokens_are_rejected(self):
+        with self.assertRaisesRegex(ValueError, "outside the configured vocabulary"):
+            self.model(torch.tensor([[0, 256]], dtype=torch.long))
+
+    def test_out_of_range_target_tokens_are_rejected(self):
+        inputs = torch.tensor([[0, 1]], dtype=torch.long)
+        targets = torch.tensor([[1, 256]], dtype=torch.long)
+        with self.assertRaisesRegex(ValueError, "targets contain IDs"):
+            self.model(inputs, targets)
 
     def test_invalid_target_shape_is_rejected(self):
         prompt = torch.tensor([[65, 66]], dtype=torch.long)
