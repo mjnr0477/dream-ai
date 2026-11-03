@@ -45,6 +45,17 @@ class DreamTransformerTests(unittest.TestCase):
         self.assertEqual(tuple(generated.shape), (1, 7))
         self.assertTrue(torch.equal(generated[:, :3], prompt))
 
+    def test_greedy_generation_is_deterministic(self):
+        prompt = torch.tensor([[65, 66, 67]])
+        first = self.model.generate(prompt.clone(), max_new_tokens=5, temperature=0)
+        second = self.model.generate(prompt.clone(), max_new_tokens=5, temperature=0)
+        self.assertTrue(torch.equal(first, second))
+
+    def test_negative_generation_temperature_is_rejected(self):
+        prompt = torch.tensor([[65, 66]], dtype=torch.long)
+        with self.assertRaises(ValueError):
+            self.model.generate(prompt, temperature=-0.1)
+
     def test_training_step_updates_parameters(self):
         data = torch.randint(0, 256, (128,), dtype=torch.long)
         x, y = batches(data, batch_size=2, block_size=8, device="cpu")
