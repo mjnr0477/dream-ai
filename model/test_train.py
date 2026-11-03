@@ -1,4 +1,6 @@
 """End-to-end smoke tests for DREAM's own training/checkpoint pipeline."""
+import hashlib
+import json
 import subprocess
 import sys
 import tempfile
@@ -178,6 +180,78 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             result = self.run_training(root, root / "duplicate.pt")
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("content hashes must differ", result.stderr)
+
+    def test_manifest_verifies_all_three_split_hashes_and_provenance(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            contents = {
+                "train": "DREAM licensed train split with enough distinct words. " * 8,
+                "validation": "Independent validation split with separate source material. " * 8,
+                "test": "Untouched held out test split for final model evaluation. " * 8
+            }
+            groups = {"train": ["source-train"], "validation": ["source-validation"],
+                      "test": ["source-test"]}
+            for split, content in contents.items():
+                (root / f"{split}.txt").write_text(content, encoding="utf-8")
+            manifest = {
+                "schema": "dream-corpus-v1",
+                "splits": {
+                    split: {
+                        "sha256": hashlib.sha256(content.encode("utf-8")).hexdigest(),
+                        "source_group_ids": groups[split]
+                    }
+                    for split, content in contents.items()
+                }
+            }
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            checkpoint = root / "manifest-verified.pt"
+            result = self.run_training(
+                root, checkpoint, extra=("--manifest", str(manifest_path))
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            import torch
+            saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
+            self.assertTrue(saved["training"]["data_provenance_verified"])
+            self.assertTrue(saved["training"]["corpus_manifest_sha256"])
+
+    def test_manifest_rejects_split_hash_mismatch_and_source_leakage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            contents = {
+                "train": "DREAM licensed train split with enough distinct words. " * 8,
+                "validation": "Independent validation split with separate source material. " * 8,
+                "test": "Untouched held out test split for final model evaluation. " * 8
+            }
+            for split, content in contents.items():
+                (root / f"{split}.txt").write_text(content, encoding="utf-8")
+            manifest = {
+                "schema": "dream-corpus-v1",
+                "splits": {
+                    split: {
+                        "sha256": hashlib.sha256(content.encode("utf-8")).hexdigest(),
+                        "source_group_ids": [f"source-{split}"]
+                    }
+                    for split, content in contents.items()
+                }
+            }
+            manifest_path = root / "manifest.json"
+            manifest["splits"]["validation"]["source_group_ids"] = ["source-train"]
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            result = self.run_training(
+                root, root / "leaked.pt", extra=("--manifest", str(manifest_path))
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("source-group leakage", result.stderr)
+
+            manifest["splits"]["validation"]["source_group_ids"] = ["source-validation"]
+            manifest["splits"]["validation"]["sha256"] = "0" * 64
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            result = self.run_training(
+                root, root / "tampered.pt", extra=("--manifest", str(manifest_path))
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("hash does not match the manifest", result.stderr)
 
     def test_evaluator_rejects_training_data_as_test_data(self):
         with tempfile.TemporaryDirectory() as directory:
