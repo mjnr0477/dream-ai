@@ -96,6 +96,20 @@ class ParallelPairImportTests(unittest.TestCase):
             self.assertEqual(summary["duplicate_pairs_removed"], 1)
             self.assertEqual(summary["unique_pairs"], 39)
 
+    def test_rejects_duplicate_record_ids_for_different_pairs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = self.make_input(root, count=40)
+            rows = [json.loads(line) for line in source.read_text().splitlines()]
+            rows[1]["id"] = rows[0]["id"]
+            source.write_text(
+                "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+                encoding="utf-8"
+            )
+            result = self.run_import(source, root / "duplicate-ids")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Duplicate parallel record id", result.stderr)
+
     def test_rejects_invalid_language_fields_and_dates(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
