@@ -1,7 +1,35 @@
-import test from "node:test";
+import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 
-const base = process.env.TEST_BASE_URL || "http://127.0.0.1:3000";
+const port = 3197;
+const base = `http://127.0.0.1:${port}`;
+let server;
+
+before(async () => {
+  server = spawn(process.execPath, ["server.js"], {
+    env: {
+      ...process.env,
+      PORT: String(port),
+      AI_BASE_URL: "",
+      AI_API_KEY: "",
+      AI_MODEL: ""
+    },
+    stdio: "ignore"
+  });
+  for (let attempt = 0; attempt < 40; attempt++) {
+    try {
+      const response = await fetch(`${base}/api/health`);
+      if (response.ok) return;
+    } catch {}
+    await new Promise(resolve => setTimeout(resolve, 150));
+  }
+  throw new Error("Dream AI server did not start for tests.");
+});
+
+after(() => {
+  if (server && !server.killed) server.kill("SIGTERM");
+});
 
 test("health endpoint reports Dream AI", async () => {
   const response = await fetch(`${base}/api/health`);
@@ -9,6 +37,7 @@ test("health endpoint reports Dream AI", async () => {
   const data = await response.json();
   assert.equal(data.ok, true);
   assert.equal(data.name, "Dream AI");
+  assert.equal(data.modelConnected, false);
 });
 
 test("chat endpoint validates missing messages", async () => {
@@ -20,7 +49,7 @@ test("chat endpoint validates missing messages", async () => {
   assert.equal(response.status, 400);
 });
 
-test("chat endpoint returns starter-mode response without provider keys", async () => {
+test("chat endpoint returns clearly labelled starter response", async () => {
   const response = await fetch(`${base}/api/chat`, {
     method: "POST",
     headers: { "content-type": "application/json" },
