@@ -39,9 +39,9 @@ class FineWeb2CandidateImporterTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             candidates = [json.loads(line) for line in output.read_text().splitlines()]
             self.assertEqual(len(candidates), 2)
-            self.assertEqual(candidates[0]["source_group"], "example.org")
-            self.assertEqual(candidates[0]["source_date"], "2024-02-03")
-            self.assertEqual(candidates[0]["language"], "swa")
+            swahili = next(item for item in candidates if item["language"] == "swa")
+            self.assertEqual(swahili["source_group"], "example.org")
+            self.assertEqual(swahili["source_date"], "2024-02-03")
             for item in candidates:
                 self.assertFalse(item["rights_confirmed"])
                 self.assertFalse(item["privacy_reviewed"])
