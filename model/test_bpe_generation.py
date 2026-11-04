@@ -36,11 +36,12 @@ class DreamBPEGenerationTests(unittest.TestCase):
         config = DreamConfig(vocab_size=256, block_size=8, d_model=16,
                              n_heads=4, n_layers=1, dropout=0.0)
         model = DreamTransformer(config)
-        valid = (b"\\xe0\\xa0\\x80", b"\\xed\\x9f\\xbf",
-                 b"\\xf0\\x90\\x80\\x80", b"\\xf4\\x8f\\xbf\\xbf")
-        invalid = (b"\\xc0\\x80", b"\\xe0\\x80\\x80",
-                   b"\\xed\\xa0\\x80", b"\\xf4\\x90\\x80\\x80",
-                   b"\\xf5\\x80\\x80\\x80")
+        valid = tuple(bytes.fromhex(value) for value in (
+            "e0a080", "ed9fbf", "f0908080", "f48fbfbf"
+        ))
+        invalid = tuple(bytes.fromhex(value) for value in (
+            "c080", "e08080", "eda080", "f4908080", "f5808080"
+        ))
         for piece in valid:
             with self.subTest(piece=piece):
                 self.assertEqual(
