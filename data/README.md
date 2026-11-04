@@ -19,6 +19,25 @@ Every dataset release must include:
 
 Each JSONL record must include `source_date` in strict `YYYY-MM-DD` form and set `rights_confirmed`, `privacy_reviewed` and `quality_reviewed` to `true`. The generated manifest reports record counts by language and license plus the source-date range; inspect these before training. These flags record a human review; the script cannot independently verify legal rights or detect all personal information.
 
+## FineWeb2 multilingual candidate import
+
+The official [HuggingFaceFW/FineWeb-2 dataset card](https://huggingface.co/datasets/HuggingFaceFW/fineweb-2) describes a multilingual Common Crawl-derived collection, its ODC-By 1.0 collection license, source metadata and known limitations. The dataset is very large; do not attempt to download the full corpus to a phone or a small free service. Start with a small, language-balanced local export.
+
+Convert a local JSONL export into review candidates:
+
+```sh
+python model/import_fineweb2_candidates.py \
+  --input data/fineweb2-small-export.jsonl \
+  --output data/fineweb2-candidates.jsonl \
+  --summary data/fineweb2-candidates-summary.json \
+  --languages eng,swa,amh,ibo,yo \
+  --max-per-language 1000
+```
+
+The importer preserves each row's URL, date, language and language-script metadata, uses the source hostname as a leakage-group key, removes duplicate IDs/text, and selects a deterministic maximum per language. It deliberately sets `rights_confirmed`, `privacy_reviewed`, `quality_reviewed` and `approval_granted` to false. These are review candidates only and are not accepted by `prepare_corpus.py`.
+
+**Important licensing boundary:** ODC-By describes the dataset collection; it does not automatically settle the copyright, privacy or reuse rights of every underlying webpage. FineWeb-2 also documents Common Crawl terms, possible personal/sensitive information, opt-out handling and language-classification limitations. Human reviewers must verify the actual terms and source-level rights, check opt-outs and personal data, and assess quality before approving any record. Do not bulk-change review flags to bypass this gate. The importer does not provide legal advice or train the model.
+
 ## Supervised instruction records
 
 For instruction fine-tuning, each JSONL record uses the same provenance and review fields as pretraining records, plus a `messages` array. Messages must alternate `user` and `assistant`, may begin with one `system` message, and must end with an assistant response. Example shape:
