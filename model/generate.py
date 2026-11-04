@@ -29,7 +29,8 @@ def main():
         raise SystemExit("Prompt must not be empty.")
     ids = torch.tensor([prompt], dtype=torch.long, device=device)
     generated = model.generate(
-        ids, max_new_tokens=args.tokens, temperature=args.temperature
+        ids, max_new_tokens=args.tokens, temperature=args.temperature,
+        constrain_utf8=tokenizer.vocab_size == 256
     )[0].tolist()
     print(tokenizer.decode(generated))
 

@@ -98,7 +98,8 @@ def main():
         )
         torch.manual_seed(args.seed)
         generated = model.generate(
-            prompt, max_new_tokens=args.sample_tokens, temperature=0.8, top_k=40
+            prompt, max_new_tokens=args.sample_tokens, temperature=0.8, top_k=40,
+            constrain_utf8=tokenizer.vocab_size == 256
         )[0].tolist()
         sample = tokenizer.decode(generated[len(prompt[0]):])
 

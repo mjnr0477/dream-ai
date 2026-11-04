@@ -199,6 +199,24 @@ class DreamTransformerTests(unittest.TestCase):
         self.assertEqual(tuple(logits.shape), (2, 8, 512))
         self.assertTrue(torch.isfinite(loss).item())
 
+    def test_extended_vocabulary_generation_can_emit_bpe_tokens(self):
+        config = DreamConfig(
+            vocab_size=300, block_size=8, d_model=16,
+            n_heads=4, n_layers=1, dropout=0.0
+        )
+        model = DreamTransformer(config).eval()
+        with torch.no_grad():
+            for parameter in model.parameters():
+                parameter.zero_()
+            model.final_norm.bias.fill_(1.0)
+            model.token_embedding.weight[270].fill_(1.0)
+        prompt = torch.tensor([[65, 66]], dtype=torch.long)
+        generated = model.generate(
+            prompt, max_new_tokens=1, temperature=0,
+            constrain_utf8=False
+        )
+        self.assertEqual(int(generated[0, -1]), 270)
+
     def test_vocabulary_below_byte_fallback_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "at least 256"):
             DreamConfig(vocab_size=255)

@@ -135,7 +135,7 @@ def create_handler(model, tokenizer, config, model_name, token, device):
                     raise ValueError
                 if not 0 <= temperature <= 2.0:
                     raise ValueError
-                if not 0 <= top_k <= 256:
+                if not 0 <= top_k <= config.vocab_size:
                     raise ValueError
             except (TypeError, ValueError, OverflowError):
                 return self.send_json(400, {"error": {"message": "Invalid generation settings"}})
@@ -149,7 +149,8 @@ def create_handler(model, tokenizer, config, model_name, token, device):
                 with MODEL_LOCK, torch.inference_mode():
                     if float(temperature) == 0:
                         generated = model.generate(
-                            input_ids, max_new_tokens=max_tokens, temperature=0
+                            input_ids, max_new_tokens=max_tokens, temperature=0,
+                            constrain_utf8=tokenizer.vocab_size == 256
                         )[0].tolist()
                     else:
                         torch.manual_seed(secrets.randbits(63))
@@ -157,7 +158,8 @@ def create_handler(model, tokenizer, config, model_name, token, device):
                             input_ids,
                             max_new_tokens=max_tokens,
                             temperature=float(temperature),
-                            top_k=top_k
+                            top_k=top_k,
+                            constrain_utf8=tokenizer.vocab_size == 256
                         )[0].tolist()
                 answer = tokenizer.decode(generated[len(prompt_ids):]).strip()
             except Exception:
