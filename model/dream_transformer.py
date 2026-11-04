@@ -55,6 +55,11 @@ class DreamByteTokenizer:
             raise TypeError("Tokenizer input must be text")
         return list(text.encode("utf-8"))
 
+    def token_byte_length(self, token_id: int) -> int:
+        if not isinstance(token_id, int) or isinstance(token_id, bool) or not 0 <= token_id < self.vocab_size:
+            raise ValueError("Token ID is outside the UTF-8 byte vocabulary")
+        return 1
+
     def decode(self, token_ids) -> str:
         """Decode byte IDs without silently dropping or coercing invalid values."""
         values = []

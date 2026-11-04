@@ -117,6 +117,13 @@ class DreamBPETokenizer:
             output.extend(tokens)
         return output
 
+    def token_byte_length(self, token_id):
+        if not isinstance(token_id, int) or isinstance(token_id, bool):
+            raise ValueError("Token ID must be an integer")
+        if token_id < 0 or token_id >= self.vocab_size:
+            raise ValueError("Token ID is outside this tokenizer vocabulary")
+        return len(self._pieces[token_id])
+
     def decode(self, token_ids):
         pieces = []
         for token in token_ids:
