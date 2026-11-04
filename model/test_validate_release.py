@@ -1,5 +1,6 @@
 """Tests for DREAM's technical checkpoint/evaluation release gate."""
 import json
+import math
 import tempfile
 import unittest
 from pathlib import Path
@@ -30,10 +31,14 @@ class TechnicalReleaseGateTests(unittest.TestCase):
             "checkpoint_sha256": self.checkpoint_hash,
             "evaluation_corpus_sha256": "a" * 64,
             "parameters": 5000,
+            "evaluation_bytes": 1200,
+            "evaluation_tokens": 900,
+            "batches": 10,
+            "batch_size": 8,
             "mean_cross_entropy_nats_per_token": 2.0,
             "mean_cross_entropy_nats_per_byte": 1.0,
-            "bits_per_byte": 1.44,
-            "perplexity_per_byte": 2.7
+            "bits_per_byte": 1.0 / math.log(2),
+            "perplexity_per_byte": math.exp(1.0)
         }), encoding="utf-8")
 
     def tearDown(self):
@@ -57,6 +62,26 @@ class TechnicalReleaseGateTests(unittest.TestCase):
         report["checkpoint_sha256"] = "c" * 64
         self.evaluation.write_text(json.dumps(report), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "Evaluation checkpoint hash"):
+            validate(self.checkpoint, self.audit, self.evaluation)
+
+    def test_rejects_non_hex_corpus_hash_and_invalid_parameter_count(self):
+        report = json.loads(self.evaluation.read_text(encoding="utf-8"))
+        report["evaluation_corpus_sha256"] = "z" * 64
+        self.evaluation.write_text(json.dumps(report), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "SHA-256"):
+            validate(self.checkpoint, self.audit, self.evaluation)
+
+        report["evaluation_corpus_sha256"] = "a" * 64
+        report["parameters"] = True
+        self.evaluation.write_text(json.dumps(report), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "positive integer"):
+            validate(self.checkpoint, self.audit, self.evaluation)
+
+    def test_rejects_inconsistent_derived_evaluation_metrics(self):
+        report = json.loads(self.evaluation.read_text(encoding="utf-8"))
+        report["bits_per_byte"] = 99.0
+        self.evaluation.write_text(json.dumps(report), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "inconsistent"):
             validate(self.checkpoint, self.audit, self.evaluation)
 
     def test_rejects_non_finite_metric(self):
