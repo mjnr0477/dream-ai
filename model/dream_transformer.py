@@ -299,6 +299,7 @@ class DreamTransformer(nn.Module):
 
         continuation = (
             (pending_bytes > 0)[:, None]
+            & ((pending_bytes - 1) <= remaining_after)[:, None]
             & (token_ids[None, :] >= next_min[:, None])
             & (token_ids[None, :] <= next_max[:, None])
         )
