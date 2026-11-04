@@ -57,12 +57,14 @@ def synchronize(device):
 
 def measure(function, runs, warmup, device):
     for _ in range(warmup):
-        function()
+        with torch.inference_mode():
+            function()
     samples = []
     for _ in range(runs):
         synchronize(device)
         started = time.perf_counter()
-        function()
+        with torch.inference_mode():
+            function()
         synchronize(device)
         samples.append(time.perf_counter() - started)
     return statistics.median(samples), samples
