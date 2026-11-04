@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -12,6 +13,36 @@ while (endpointBase.endsWith("/")) endpointBase = endpointBase.slice(0, -1);
 const endpoint = endpointBase.endsWith("/chat/completions")
   ? endpointBase
   : endpointBase + "/chat/completions";
+
+const healthUrl = new URL(baseUrl);
+healthUrl.pathname = healthUrl.pathname
+  .replace(/\/+$/, "")
+  .replace(/\/v1(?:\/chat\/completions)?$/, "")
+  .replace(/\/chat\/completions$/, "") + "/health";
+healthUrl.search = "";
+healthUrl.hash = "";
+const healthResponse = await fetch(healthUrl, {
+  headers: { accept: "application/json" },
+  signal: AbortSignal.timeout(5000)
+});
+if (!healthResponse.ok) {
+  throw new Error("DREAM native runtime health check failed: HTTP " + healthResponse.status);
+}
+const runtime = await healthResponse.json();
+if (
+  runtime?.ok !== true ||
+  runtime?.engine !== "dream-native-transformer" ||
+  runtime?.model !== modelName ||
+  !/^[a-f0-9]{64}$/.test(runtime?.checkpoint_sha256 || "") ||
+  !Number.isInteger(runtime?.completed_training_steps) ||
+  runtime.completed_training_steps < 1 ||
+  !Number.isInteger(runtime?.parameters) ||
+  runtime.parameters < 1
+) {
+  throw new Error("Runtime identity or checkpoint provenance is missing; refusing to benchmark an unverified model.");
+}
+const runId = randomUUID();
+const runStartedAt = new Date().toISOString();
 const cases = (await readFile(new URL("../evals/core-v1.jsonl", import.meta.url), "utf8"))
   .split(/\r?\n/)
   .filter(Boolean)
@@ -51,6 +82,14 @@ for (const item of selected) {
   }
 
   results.push({
+    runId,
+    runStartedAt,
+    evaluationSet: "core-v1",
+    model: modelName,
+    checkpointSha256: runtime.checkpoint_sha256,
+    completedTrainingSteps: runtime.completed_training_steps,
+    runtimeDevice: runtime.device,
+    runtimeParameters: runtime.parameters,
     id: item.id,
     category: item.category,
     language: item.language ?? null,
