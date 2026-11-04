@@ -8,6 +8,7 @@ from pathlib import Path
 
 import torch
 
+from dream_bpe import DreamBPETokenizer
 from dream_transformer import DreamByteTokenizer, DreamConfig, DreamTransformer
 
 
@@ -41,6 +42,10 @@ def main():
     parser.add_argument("--eval-every", type=int, default=200)
     parser.add_argument("--eval-batches", type=int, default=10)
     parser.add_argument("--seed", type=int, default=2026)
+    parser.add_argument("--tokenizer", choices=("byte", "bpe"), default="byte",
+                        help="Tokenizer family; byte preserves the legacy default")
+    parser.add_argument("--vocab-size", type=int, default=1024,
+                        help="BPE vocabulary size when --tokenizer=bpe")
     args = parser.parse_args()
 
     random.seed(args.seed)
@@ -49,7 +54,15 @@ def main():
         torch.cuda.manual_seed_all(args.seed)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     text = Path(args.data).read_text(encoding="utf-8")
-    tokenizer = DreamByteTokenizer()
+    if args.tokenizer == "bpe":
+        try:
+            tokenizer = DreamBPETokenizer.train(text, vocab_size=args.vocab_size)
+        except (TypeError, ValueError) as exc:
+            raise SystemExit(f"Invalid BPE tokenizer configuration: {exc}") from exc
+        tokenizer_metadata = tokenizer.to_dict()
+    else:
+        tokenizer = DreamByteTokenizer()
+        tokenizer_metadata = "utf8-byte-v1"
     tokens = torch.tensor(tokenizer.encode(text), dtype=torch.long)
     train_data = tokens
     validation_path = Path(args.validation_data)
@@ -84,6 +97,7 @@ def main():
         raise SystemExit("Training and validation content hashes must differ.")
 
     config = DreamConfig(
+        vocab_size=tokenizer.vocab_size,
         block_size=args.block_size, d_model=args.d_model,
         n_heads=args.heads, n_layers=args.layers
     )
@@ -96,6 +110,8 @@ def main():
         checkpoint = torch.load(args.resume, map_location=device, weights_only=True)
         if checkpoint.get("config") != config.__dict__:
             raise SystemExit("Resume checkpoint architecture does not match this run.")
+        if checkpoint.get("tokenizer") != tokenizer_metadata:
+            raise SystemExit("Resume checkpoint tokenizer does not match this run.")
         training_meta = checkpoint.get("training", {})
         if training_meta.get("corpus_sha256") != training_hash:
             raise SystemExit("Resume checkpoint training corpus hash does not match.")
@@ -126,8 +142,8 @@ def main():
         "initialization": "resumed" if args.resume else "random",
         "device": device,
         "parameters": sum(p.numel() for p in model.parameters()),
-        "training_bytes": len(train_data),
-        "validation_bytes": len(val_data),
+        "training_tokens": len(train_data),
+        "validation_tokens": len(val_data),
         "micro_batch_size": args.batch_size,
         "gradient_accumulation_steps": args.grad_accum_steps,
         "effective_batch_size": args.batch_size * args.grad_accum_steps,
@@ -163,6 +179,8 @@ def main():
             "grad_accum_steps": args.grad_accum_steps,
             "effective_batch_size": args.batch_size * args.grad_accum_steps,
             "eval_batches": args.eval_batches,
+            "tokenizer_format": "dream-bpe-v1" if args.tokenizer == "bpe" else "utf8-byte-v1",
+            "tokenizer_vocab_size": tokenizer.vocab_size,
             "device": device,
             "last_train_loss": train_loss,
             "last_validation_loss": val_loss
@@ -173,7 +191,7 @@ def main():
             "torch_rng_state": torch.get_rng_state().cpu(),
             "cuda_rng_state": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else [],
             "config": config.__dict__,
-            "tokenizer": "utf8-byte-v1",
+            "tokenizer": tokenizer_metadata,
             "training": training_meta
         }
         output = Path(args.out)
