@@ -92,7 +92,7 @@ def load_language_test_corpora(records_path, manifest_path, test_path):
     return {
         language: "\n\n".join(texts) + "\n"
         for language, texts in sorted(grouped.items())
-    }, actual_hash
+    }, actual_hash, actual_counts
 
 
 def evaluate_tokens(model, tokens, block_size, batches, batch_size, seed, device):
@@ -151,7 +151,7 @@ def main():
         raise SystemExit("SFT evaluation must use its exact recorded pretraining test corpus.")
 
     try:
-        corpora, corpus_hash = load_language_test_corpora(
+        corpora, corpus_hash, language_record_counts = load_language_test_corpora(
             args.records_jsonl, args.manifest, args.data
         )
     except (OSError, ValueError, KeyError, TypeError) as exc:
@@ -173,7 +173,7 @@ def main():
             }
             continue
         results[language] = {
-            "records": len(text.split("\n\n")),
+            "records": language_record_counts[language],
             "utf8_bytes": len(tokens),
             **evaluate_tokens(
                 model, tokens, config.block_size, args.batches,
