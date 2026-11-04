@@ -134,5 +134,84 @@ class DreamEvaluationTests(unittest.TestCase):
                 validate_language_subset(manifest_path, "en", subset, parent)
 
 
-if __name__ == "__main__":
+
+    def test_multilingual_runner_emits_separate_reports_for_each_language(self):
+        import hashlib
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            train_text = "Training tokenizer text with ordinary English words. " * 20
+            en_text = (
+                "English held out evaluation text contains several complete sentences. "
+                "Students learn concepts by reading examples and explaining their reasoning. "
+            ) * 3
+            sw_text = (
+                "Maandishi ya Kiswahili yana sentensi kadhaa kwa ajili ya tathmini. "
+                "Wanafunzi hujifunza kwa kusoma mifano na kueleza mawazo yao. "
+            ) * 3
+            tokenizer = DreamBPETokenizer.train(train_text, vocab_size=320)
+            config = DreamConfig(vocab_size=tokenizer.vocab_size, block_size=8,
+                                 d_model=16, n_heads=4, n_layers=1, dropout=0.0)
+            model = DreamTransformer(config)
+            checkpoint = root / "multilingual.pt"
+            torch.save({
+                "model_state": model.state_dict(),
+                "config": config.__dict__,
+                "tokenizer": tokenizer.to_dict(),
+                "training": {"completed_steps": 1}
+            }, checkpoint)
+
+            parent = root / "test.txt"
+            en_path = root / "test.en.txt"
+            sw_path = root / "test.sw.txt"
+            en_path.write_text(en_text, encoding="utf-8")
+            sw_path.write_text(sw_text, encoding="utf-8")
+            parent.write_text(en_text + "\\n\\n" + sw_text, encoding="utf-8")
+            digest = lambda path: hashlib.sha256(path.read_bytes()).hexdigest()
+            manifest = {
+                "schema": "dream-corpus-v1",
+                "splits": {"test": {
+                    "path": parent.name,
+                    "sha256": digest(parent),
+                    "source_group_ids": ["english-source", "swahili-source"],
+                    "language_files": {
+                        "en": {
+                            "path": en_path.name,
+                            "sha256": digest(en_path),
+                            "source_group_ids": ["english-source"]
+                        },
+                        "sw": {
+                            "path": sw_path.name,
+                            "sha256": digest(sw_path),
+                            "source_group_ids": ["swahili-source"]
+                        }
+                    }
+                }}
+            }
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            report_path = root / "multilingual-report.json"
+            result = subprocess.run([
+                sys.executable, str(Path(__file__).with_name("evaluate_multilingual.py")),
+                "--checkpoint", str(checkpoint),
+                "--manifest", str(manifest_path),
+                "--batch-size", "1", "--batches", "1", "--sample-tokens", "0",
+                "--out", str(report_path)
+            ], capture_output=True, text=True, timeout=120)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            report = json.loads(report_path.read_text(encoding="utf-8"))
+            self.assertEqual(report["languages_evaluated"], ["en", "sw"])
+            self.assertIsNone(report["aggregation"])
+            self.assertEqual(
+                set(report["per_language"]),
+                {"en", "sw"}
+            )
+            self.assertEqual(
+                report["per_language"]["en"]["evaluation_language"], "en"
+            )
+            self.assertEqual(
+                report["per_language"]["sw"]["evaluation_language"], "sw"
+            )
+
+\nif __name__ == "__main__":
     unittest.main()
