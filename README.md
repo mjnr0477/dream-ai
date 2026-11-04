@@ -59,6 +59,26 @@ The training corpus path above is an example, not a file already present. Each J
 
 The current benchmark is an initial seed, not a certification of quality. For held-out BPE efficiency experiments, prepare separate JSONL files containing `language` and `text` fields, then run `python model/benchmark_multilingual_tokenizer.py --train-data data/tokenizer-train.jsonl --test-data data/tokenizer-test.jsonl`. The test text must not overlap the tokenizer-training text. This experiment does not change the active byte-tokenizer model.
 
+## Local parallel-corpus candidate import
+
+For a local translation export with a JSON object per line and a nested `translation` object, the candidate importer can create deterministic SFT review files. It does not fetch datasets or approve them:
+
+```sh
+python model/import_parallel_pairs.py \
+  --input data/local-parallel-export.jsonl \
+  --source-lang dav --target-lang swa \
+  --source-name "Dataset name" \
+  --source-url https://example.org/dataset \
+  --license "claimed license label" \
+  --license-url https://example.org/license \
+  --source-date 2025-01-15 \
+  --output-dir data/parallel-candidates
+```
+
+Each input record must contain `translation.dav` and `translation.swa`, plus a genuine `source_group` or `story_id`. The importer refuses to invent independent groups from pair hashes. External group identifiers are hashed before writing candidate files; pair IDs are generated from content. The outputs are `sft-train-candidates.jsonl`, `sft-validation-candidates.jsonl` and `import-summary.json`.
+
+All review flags remain false and `approval_granted` remains false. Source names, URLs, dates and license labels are caller-supplied claims, not verified facts; `rights_basis` is explicitly `unverified`. A human must independently establish licensing, attribution, provenance, consent, privacy and translation quality before editing any review flags. Run the corpus audit after import. This workflow creates candidates only and does not train the model.
+
 ## Runtime architecture
 
 The Node app connects to a DREAM model server through the independent adapter:
