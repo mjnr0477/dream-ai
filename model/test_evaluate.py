@@ -50,6 +50,12 @@ class DreamEvaluationTests(unittest.TestCase):
                 report["mean_cross_entropy_nats_per_byte"]
             )).item())
             self.assertAlmostEqual(
+                report["mean_cross_entropy_nats_per_byte"],
+                report["mean_cross_entropy_nats_per_token"]
+                * report["sampled_target_tokens"] / report["sampled_target_bytes"],
+                places=6
+            )
+            self.assertAlmostEqual(
                 report["bits_per_byte"],
                 report["mean_cross_entropy_nats_per_byte"] / 0.6931471805599453,
                 places=6

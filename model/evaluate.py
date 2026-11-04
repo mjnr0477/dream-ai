@@ -75,7 +75,6 @@ def main():
     tokens = tokens.to(device)
     generator = torch.Generator(device="cpu").manual_seed(args.seed)
     total_nats = 0.0
-    total_token_nats = 0.0
     total_target_tokens = 0
     total_target_bytes = 0
     max_start = len(tokens) - config.block_size - 1
@@ -103,8 +102,7 @@ def main():
                 dtype=token_losses.dtype,
                 device=device
             ).view_as(y)
-            total_nats += float((token_losses * byte_lengths).sum().item())
-            total_token_nats += float(token_losses.sum().item())
+            total_nats += float(token_losses.sum().item())
             total_target_tokens += y.numel()
             total_target_bytes += int(byte_lengths.sum().item())
 
@@ -121,7 +119,7 @@ def main():
         )[0].tolist()
         sample = tokenizer.decode(generated[len(prompt[0]):])
 
-    mean_nats_per_token = total_token_nats / total_target_tokens
+    mean_nats_per_token = total_nats / total_target_tokens
     mean_nats_per_byte = total_nats / total_target_bytes
     result = {
         "schema": "dream-evaluation-v1",
@@ -132,6 +130,8 @@ def main():
         "evaluation_corpus_sha256": evaluation_hash,
         "evaluation_bytes": len(text.encode("utf-8")),
         "evaluation_tokens": len(tokens),
+        "sampled_target_tokens": total_target_tokens,
+        "sampled_target_bytes": total_target_bytes,
         "architecture": config.__dict__,
         "parameters": sum(parameter.numel() for parameter in model.parameters()),
         "device": device,
@@ -145,7 +145,7 @@ def main():
         "sample_prompt": args.sample_prompt,
         "sample_generation": sample,
         "limitations": [
-            "Cross-entropy is reported per token and normalized by decoded UTF-8 bytes; it is not a language-quality score.",
+            "Token cross-entropy is divided by the exact UTF-8 bytes represented by sampled target tokens; it is not a language-quality score.",
             "Metrics use randomly sampled context windows and can vary with seed and batch count.",
             "Metrics do not measure instruction following or factual accuracy.",
             "A low validation loss does not certify safety, reasoning, usefulness or generalization.",
