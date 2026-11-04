@@ -49,7 +49,8 @@ export function summarizeRows(rows) {
 
   const provenanceFields = [
     "runId", "runStartedAt", "evaluationSet", "model", "checkpointSha256",
-    "completedTrainingSteps", "runtimeDevice", "runtimeParameters"
+    "completedTrainingSteps", "runtimeDevice", "runtimeParameters",
+    "tokenizer", "runtimeArchitecture"
   ];
   const hasProvenance = rows.some(row =>
     provenanceFields.some(field => row[field] !== undefined)
@@ -69,7 +70,9 @@ export function summarizeRows(rows) {
         !/^[a-f0-9]{64}$/.test(row.checkpointSha256) ||
         !Number.isInteger(row.completedTrainingSteps) || row.completedTrainingSteps < 1 ||
         typeof row.runtimeDevice !== "string" || !row.runtimeDevice ||
-        !Number.isInteger(row.runtimeParameters) || row.runtimeParameters < 1
+        !Number.isInteger(row.runtimeParameters) || row.runtimeParameters < 1 ||
+        typeof row.tokenizer !== "string" || !row.tokenizer ||
+        typeof row.runtimeArchitecture !== "string" || !row.runtimeArchitecture
       ) {
         throw new Error("Invalid benchmark provenance at row " + (index + 1));
       }
