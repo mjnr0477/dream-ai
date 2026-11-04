@@ -173,6 +173,7 @@ class DreamSFTTests(unittest.TestCase):
             "--pretraining-manifest", str(self.manifest),
             "--pretraining-test-data", str(self.test_data), "--out", str(output),
             "--steps", "1", "--batch-size", "2", "--grad-accum-steps", "1",
+            "--max-grad-norm", "0.5",
             "--eval-every", "1", "--eval-batches", "1", "--checkpoint-every", "1",
             "--resume", str(output)
         ], capture_output=True, text=True, timeout=120)
