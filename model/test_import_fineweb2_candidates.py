@@ -110,6 +110,38 @@ class FineWeb2CandidateImporterTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("absolute HTTP(S) URL", result.stderr)
 
+    def test_refuses_input_output_and_summary_path_collisions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "fineweb2.jsonl"
+            source.write_text(json.dumps({
+                "id": "doc-1",
+                "text": "A sufficiently long document for testing safe output paths. " * 2,
+                "url": "https://example.org/page",
+                "date": "2024-01-01",
+                "language": "eng"
+            }) + "\\n", encoding="utf-8")
+            original = source.read_text(encoding="utf-8")
+            result = subprocess.run([
+                sys.executable, str(SCRIPT),
+                "--input", str(source),
+                "--output", str(source),
+                "--summary", str(root / "summary.json")
+            ], capture_output=True, text=True, timeout=30)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("must be three different paths", result.stderr)
+            self.assertEqual(source.read_text(encoding="utf-8"), original)
+
+            result = subprocess.run([
+                sys.executable, str(SCRIPT),
+                "--input", str(source),
+                "--output", str(root / "same.json"),
+                "--summary", str(root / "same.json")
+            ], capture_output=True, text=True, timeout=30)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("must be three different paths", result.stderr)
+            self.assertFalse((root / "same.json").exists())
+
     def test_rejects_invalid_jsonl(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
