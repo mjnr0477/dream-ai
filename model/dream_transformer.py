@@ -30,8 +30,10 @@ class DreamConfig:
             for value in dimensions
         ):
             raise ValueError("Model dimensions must be positive integers")
-        if self.vocab_size != 256:
-            raise ValueError("The current DREAM byte tokenizer requires vocab_size=256")
+        if self.vocab_size < 256:
+            raise ValueError(
+                "vocab_size must be at least 256 to preserve DREAM's UTF-8 byte fallback"
+            )
         if self.d_model % self.n_heads:
             raise ValueError("d_model must be divisible by n_heads")
         if (

@@ -188,9 +188,20 @@ class DreamTransformerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             DreamConfig(n_heads=0)
 
-    def test_non_byte_vocabulary_is_rejected(self):
-        with self.assertRaises(ValueError):
-            DreamConfig(vocab_size=512)
+    def test_extended_vocabulary_supports_bpe_token_ids(self):
+        config = DreamConfig(
+            vocab_size=512, block_size=8, d_model=16,
+            n_heads=4, n_layers=1, dropout=0.0
+        )
+        model = DreamTransformer(config)
+        tokens = torch.randint(0, config.vocab_size, (2, 8))
+        logits, loss = model(tokens, tokens)
+        self.assertEqual(tuple(logits.shape), (2, 8, 512))
+        self.assertTrue(torch.isfinite(loss).item())
+
+    def test_vocabulary_below_byte_fallback_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "at least 256"):
+            DreamConfig(vocab_size=255)
 
     def test_invalid_dropout_is_rejected(self):
         with self.assertRaises(ValueError):
