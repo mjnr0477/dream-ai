@@ -18,6 +18,9 @@ class CorpusPreparationTests(unittest.TestCase):
                 "source": f"DREAM authored source {index}",
                 "source_group": f"independent-group-{index}",
                 "license": "CC0-1.0",
+                "source_url": f"https://example.org/source/{index}",
+                "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+                "rights_basis": "original-authorship",
                 "source_date": "2026-01-15",
                 "rights_confirmed": rights,
                 "privacy_reviewed": True,
@@ -122,6 +125,32 @@ class CorpusPreparationTests(unittest.TestCase):
                     "Missing required metadata" in result.stderr
                     or "Invalid source_date" in result.stderr
                 )
+
+    def test_manifest_reports_rights_basis_coverage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            result = self.run_prepare(root, self.make_records())
+            self.assertEqual(result.returncode, 0, result.stderr)
+            manifest = json.loads((root / "prepared" / "manifest.json").read_text())
+            self.assertEqual(manifest["rights_basis_counts"], {"original-authorship": 6})
+
+    def test_rejects_missing_or_invalid_source_and_license_provenance(self):
+        cases = (
+            ("source_url", None, "Missing required metadata"),
+            ("source_url", "http://example.org/source", "absolute HTTPS URL"),
+            ("license_url", "http://example.org/license", "absolute HTTPS URL"),
+            ("rights_basis", "unverified", "Invalid rights_basis"),
+        )
+        for field, value, expected in cases:
+            rows = self.make_records()
+            if value is None:
+                del rows[0][field]
+            else:
+                rows[0][field] = value
+            with self.subTest(field=field, value=value), tempfile.TemporaryDirectory() as directory:
+                result = self.run_prepare(Path(directory), rows)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(expected, result.stderr)
 
     def test_rejects_unconfirmed_rights(self):
         with tempfile.TemporaryDirectory() as directory:

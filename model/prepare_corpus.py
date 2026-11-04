@@ -8,6 +8,12 @@ import hashlib
 import json
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlparse
+
+
+ALLOWED_RIGHTS_BASIS = {
+    "original-authorship", "public-domain", "open-license", "explicit-permission"
+}
 
 
 def sha256(path: Path) -> str:
@@ -48,9 +54,23 @@ def main():
         except json.JSONDecodeError as exc:
             raise SystemExit(f"Invalid JSON at line {line_number}: {exc}") from exc
 
-        required = ("id", "source", "source_group", "license", "source_date", "language", "text")
+        required = (
+            "id", "source", "source_group", "license", "license_url",
+            "source_url", "rights_basis", "source_date", "language", "text"
+        )
         if any(not isinstance(item.get(key), str) or not item[key].strip() for key in required):
             raise SystemExit(f"Missing required metadata or text at line {line_number}")
+        for field in ("source_url", "license_url"):
+            parsed_url = urlparse(item[field])
+            if parsed_url.scheme != "https" or not parsed_url.hostname:
+                raise SystemExit(
+                    f"Invalid {field} at line {line_number}; expected an absolute HTTPS URL"
+                )
+        if item["rights_basis"] not in ALLOWED_RIGHTS_BASIS:
+            raise SystemExit(
+                f"Invalid rights_basis at line {line_number}; expected one of "
+                + ", ".join(sorted(ALLOWED_RIGHTS_BASIS))
+            )
         try:
             parsed_source_date = date.fromisoformat(item["source_date"])
             if parsed_source_date.isoformat() != item["source_date"]:
@@ -84,6 +104,7 @@ def main():
             "source": item["source"],
             "source_group": item["source_group"],
             "license": item["license"],
+            "rights_basis": item["rights_basis"],
             "source_date": item["source_date"],
             "language": item["language"],
             "text": item["text"].strip()
@@ -128,6 +149,7 @@ def main():
         "source_groups": group_count,
         "language_counts": language_counts,
         "license_counts": license_counts,
+        "rights_basis_counts": counts(records, "rights_basis"),
         "source_date_range": source_date_range,
         "split_strategy": "deterministic source-group hash ranking; no group crosses splits",
         "splits": {}
