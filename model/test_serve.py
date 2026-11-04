@@ -13,7 +13,9 @@ from pathlib import Path
 
 import torch
 
+from dream_bpe import DreamBPETokenizer
 from dream_transformer import DreamConfig, DreamTransformer
+from serve import load_model
 
 SERVER = Path(__file__).with_name("serve.py")
 
@@ -99,6 +101,32 @@ class DreamServingTests(unittest.TestCase):
                 return response.status, json.loads(response.read())
         except urllib.error.HTTPError as error:
             return error.code, json.loads(error.read())
+
+    def test_load_model_reconstructs_embedded_bpe_tokenizer(self):
+        sample = "habari dunia — akili huru kutoka Kenya 🇰🇪 " * 8
+        tokenizer = DreamBPETokenizer.train(sample, vocab_size=300)
+        config = DreamConfig(
+            vocab_size=tokenizer.vocab_size, block_size=64,
+            d_model=16, n_heads=4, n_layers=1, dropout=0.0
+        )
+        model = DreamTransformer(config)
+        checkpoint = self.root / "dream-bpe-test.pt"
+        torch.save({
+            "model_state": model.state_dict(),
+            "config": config.__dict__,
+            "tokenizer": tokenizer.to_dict(),
+            "training": {"completed_steps": 1, "initialization": "test-fixture"}
+        }, checkpoint)
+        loaded_model, loaded_tokenizer, loaded_config, metadata = load_model(
+            checkpoint, "cpu"
+        )
+        self.assertIsInstance(loaded_model, DreamTransformer)
+        self.assertEqual(loaded_config.vocab_size, tokenizer.vocab_size)
+        self.assertEqual(loaded_tokenizer.to_dict(), tokenizer.to_dict())
+        self.assertEqual(
+            loaded_tokenizer.decode(loaded_tokenizer.encode(sample)), sample
+        )
+        self.assertEqual(metadata["completed_steps"], 1)
 
     def test_health_identifies_native_runtime(self):
         status, body = self.request("GET", "/health")
