@@ -140,29 +140,55 @@ class DreamBPETokenizer:
         output = []
         for piece in re.findall(r"\s+|[^\s]+", text):
             tokens = list(piece.encode("utf-8"))
-            # Most learned merges are irrelevant to any given piece. Avoid
-            # rescanning its token sequence unless both merge inputs are present.
-            present = set(tokens)
-            for merge_index, (left, right) in enumerate(self.merges):
-                if left not in present or right not in present:
+            length = len(tokens)
+            if length < 2 or not self.merges:
+                output.extend(tokens)
+                continue
+
+            # A linked list over original byte positions supports O(1) merges.
+            # The heap processes the lowest-ranked available pair first, and
+            # original position breaks ties to preserve left-to-right behavior.
+            previous = [index - 1 for index in range(length)]
+            following = [index + 1 for index in range(length)]
+            following[-1] = -1
+            alive = [True] * length
+            candidates = []
+            for index in range(length - 1):
+                rank = self._merge_ranks.get((tokens[index], tokens[index + 1]))
+                if rank is not None:
+                    heapq.heappush(candidates, (rank, index))
+
+            while candidates:
+                rank, left = heapq.heappop(candidates)
+                if not alive[left]:
                     continue
-                new_id = self.base_vocab_size + merge_index
-                merged = []
-                index = 0
-                changed = False
-                while index < len(tokens):
-                    if (index + 1 < len(tokens)
-                            and tokens[index] == left and tokens[index + 1] == right):
-                        merged.append(new_id)
-                        index += 2
-                        changed = True
-                    else:
-                        merged.append(tokens[index])
-                        index += 1
-                if changed:
-                    tokens = merged
-                    present = set(tokens)
-            output.extend(tokens)
+                right = following[left]
+                if right < 0 or not alive[right]:
+                    continue
+                if self._merge_ranks.get((tokens[left], tokens[right])) != rank:
+                    continue
+
+                tokens[left] = self.base_vocab_size + rank
+                alive[right] = False
+                after = following[right]
+                following[left] = after
+                if after >= 0:
+                    previous[after] = left
+
+                before = previous[left]
+                if before >= 0:
+                    new_rank = self._merge_ranks.get((tokens[before], tokens[left]))
+                    if new_rank is not None:
+                        heapq.heappush(candidates, (new_rank, before))
+                if after >= 0:
+                    new_rank = self._merge_ranks.get((tokens[left], tokens[after]))
+                    if new_rank is not None:
+                        heapq.heappush(candidates, (new_rank, left))
+
+            index = 0
+            while index >= 0:
+                output.append(tokens[index])
+                index = following[index]
         return output
 
     def token_byte_length(self, token_id):
