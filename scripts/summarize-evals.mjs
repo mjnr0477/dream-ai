@@ -47,6 +47,38 @@ export function summarizeRows(rows) {
     }
   }
 
+  const provenanceFields = [
+    "runId", "evaluationSet", "model", "checkpointSha256",
+    "completedTrainingSteps", "runtimeDevice", "runtimeParameters"
+  ];
+  const hasProvenance = rows.some(row =>
+    provenanceFields.some(field => row[field] !== undefined)
+  );
+  let run = null;
+  if (hasProvenance) {
+    const first = rows[0];
+    for (const [index, row] of rows.entries()) {
+      if (provenanceFields.some(field => row[field] === undefined || row[field] === null)) {
+        throw new Error("Incomplete benchmark provenance at row " + (index + 1));
+      }
+      if (
+        typeof row.runId !== "string" || !row.runId ||
+        typeof row.evaluationSet !== "string" || !row.evaluationSet ||
+        typeof row.model !== "string" || !row.model ||
+        !/^[a-f0-9]{64}$/.test(row.checkpointSha256) ||
+        !Number.isInteger(row.completedTrainingSteps) || row.completedTrainingSteps < 1 ||
+        typeof row.runtimeDevice !== "string" || !row.runtimeDevice ||
+        !Number.isInteger(row.runtimeParameters) || row.runtimeParameters < 1
+      ) {
+        throw new Error("Invalid benchmark provenance at row " + (index + 1));
+      }
+      if (provenanceFields.some(field => row[field] !== first[field])) {
+        throw new Error("Cannot combine different benchmark runs or checkpoints in one summary.");
+      }
+    }
+    run = Object.fromEntries(provenanceFields.map(field => [field, first[field]]));
+  }
+
   const groupBy = key => {
     const groups = new Map();
     for (const row of rows) {
@@ -72,6 +104,7 @@ export function summarizeRows(rows) {
       },
       judge: "human reviewer; no automatic score is inferred"
     },
+    run,
     overall: aggregate(rows),
     byCategory: groupBy("category"),
     byLanguage: groupBy("language")
