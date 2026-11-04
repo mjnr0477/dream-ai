@@ -2,7 +2,6 @@
 import argparse
 import hashlib
 import json
-import math
 from pathlib import Path
 
 import torch
@@ -42,7 +41,13 @@ def audit_checkpoint(path):
     except (TypeError, ValueError) as exc:
         raise ValueError(f"Invalid DREAM model config: {exc}") from exc
 
-    metadata = checkpoint.get("sft_training") or checkpoint.get("training")
+    metadata_kind = (
+        "sft_training"
+        if isinstance(checkpoint.get("sft_training"), dict)
+        and checkpoint["sft_training"]
+        else "training"
+    )
+    metadata = checkpoint.get(metadata_kind)
     if not isinstance(metadata, dict):
         raise ValueError("Checkpoint has no training metadata")
     completed_steps = metadata.get("completed_steps")
@@ -97,7 +102,7 @@ def audit_checkpoint(path):
         "parameter_count": parameter_count,
         "all_floating_tensors_finite": True,
         "strict_state_dict_load": True,
-        "training_metadata_kind": "sft_training" if "sft_training" in checkpoint else "training",
+        "training_metadata_kind": metadata_kind,
     }
 
 
