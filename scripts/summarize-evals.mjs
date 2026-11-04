@@ -48,7 +48,7 @@ export function summarizeRows(rows) {
   }
 
   const provenanceFields = [
-    "runId", "evaluationSet", "model", "checkpointSha256",
+    "runId", "runStartedAt", "evaluationSet", "model", "checkpointSha256",
     "completedTrainingSteps", "runtimeDevice", "runtimeParameters"
   ];
   const hasProvenance = rows.some(row =>
@@ -63,6 +63,7 @@ export function summarizeRows(rows) {
       }
       if (
         typeof row.runId !== "string" || !row.runId ||
+        !Number.isFinite(Date.parse(row.runStartedAt)) ||
         typeof row.evaluationSet !== "string" || !row.evaluationSet ||
         typeof row.model !== "string" || !row.model ||
         !/^[a-f0-9]{64}$/.test(row.checkpointSha256) ||
