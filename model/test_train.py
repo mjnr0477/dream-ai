@@ -118,6 +118,8 @@ class DreamTrainingSmokeTests(unittest.TestCase):
                 root, checkpoint, extra=("--tokenizer", "bpe", "--vocab-size", "300")
             )
             self.assertEqual(trained.returncode, 0, trained.stdout + trained.stderr)
+            self.assertIn('"training_tokens"', trained.stdout)
+            self.assertIn('"validation_tokens"', trained.stdout)
             saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
             self.assertEqual(saved["tokenizer"]["format"], "dream-bpe-v1")
             self.assertEqual(saved["config"]["vocab_size"], saved["tokenizer"]["vocab_size"])
