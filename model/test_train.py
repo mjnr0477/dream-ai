@@ -95,6 +95,62 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             self.assertTrue(report["evaluation_corpus_sha256"])
             self.assertIn("does not certify safety", " ".join(report["limitations"]))
 
+
+    def test_bpe_training_checkpoint_evaluates_and_audits(self):
+        import json
+        import torch
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "train.txt").write_text(
+                "DREAM multilingual training text — habari dunia. " * 16,
+                encoding="utf-8"
+            )
+            (root / "validation.txt").write_text(
+                "Separate held out validation material — lugha mbalimbali. " * 12,
+                encoding="utf-8"
+            )
+            (root / "test.txt").write_text(
+                "Independent evaluation sample — Kiswahili and English. " * 12,
+                encoding="utf-8"
+            )
+            checkpoint = root / "dream-bpe.pt"
+            trained = self.run_training(
+                root, checkpoint, extra=("--tokenizer", "bpe", "--vocab-size", "300")
+            )
+            self.assertEqual(trained.returncode, 0, trained.stdout + trained.stderr)
+            saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
+            self.assertEqual(saved["tokenizer"]["format"], "dream-bpe-v1")
+            self.assertEqual(saved["config"]["vocab_size"], saved["tokenizer"]["vocab_size"])
+            self.assertGreater(saved["config"]["vocab_size"], 256)
+
+            audit = subprocess.run(
+                [sys.executable, str(Path(__file__).with_name("audit_checkpoint.py")),
+                 "--checkpoint", str(checkpoint)],
+                capture_output=True, text=True, timeout=30
+            )
+            self.assertEqual(audit.returncode, 0, audit.stdout + audit.stderr)
+            self.assertEqual(json.loads(audit.stdout)["tokenizer"], "dream-bpe-v1")
+
+            evaluation = subprocess.run(
+                [sys.executable, str(EVALUATOR),
+                 "--checkpoint", str(checkpoint),
+                 "--data", str(root / "test.txt"),
+                 "--batch-size", "2", "--batches", "2",
+                 "--sample-tokens", "4", "--out", str(root / "bpe-eval.json")],
+                capture_output=True, text=True, timeout=60
+            )
+            self.assertEqual(evaluation.returncode, 0,
+                             evaluation.stdout + evaluation.stderr)
+
+            resumed = self.run_training(
+                root, checkpoint,
+                extra=("--tokenizer", "bpe", "--vocab-size", "300",
+                       "--resume", str(checkpoint))
+            )
+            self.assertEqual(resumed.returncode, 0, resumed.stdout + resumed.stderr)
+            resumed_checkpoint = torch.load(checkpoint, map_location="cpu", weights_only=True)
+            self.assertEqual(resumed_checkpoint["training"]["completed_steps"], 4)
+
     def test_rejects_same_train_and_validation_file(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
