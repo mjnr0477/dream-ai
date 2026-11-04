@@ -43,7 +43,7 @@ def has_international_phone(text):
         country_code = prefix[1:] if prefix.startswith("+") else prefix[2:]
         digits = re.sub(r"\D", "", match.group())
         # Kenyan international numbers are already covered by KENYAN_PHONE_RE.
-        if country_code == "254":
+        if country_code == "254" and KENYAN_PHONE_RE.search(match.group()):
             continue
         if 8 <= len(digits) <= 15:
             return True
