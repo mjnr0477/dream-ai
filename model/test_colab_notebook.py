@@ -41,6 +41,26 @@ class ColabNotebookTests(unittest.TestCase):
         self.assertIn("language-balance.json", bundle)
         self.assertIn("not an approval", corpus)
 
+    def test_colab_runs_privacy_and_provenance_audit_before_preparation(self):
+        corpus = "".join(self.notebook["cells"][4]["source"])
+        bundle = "".join(self.notebook["cells"][14]["source"])
+        self.assertLess(
+            corpus.index("model/audit_corpus.py"),
+            corpus.index("model/prepare_corpus.py")
+        )
+        self.assertIn("possible_pii_findings", corpus)
+        self.assertIn("human rights, privacy and quality review", corpus)
+
+    def test_colab_audits_both_sft_splits_before_instruction_tuning(self):
+        sft = "".join(self.notebook["cells"][11]["source"])
+        bundle = "".join(self.notebook["cells"][14]["source"])
+        self.assertIn("model/audit_corpus.py", sft)
+        self.assertIn("sft-{split_name}-corpus-audit.json", sft)
+        self.assertLess(sft.index("model/audit_corpus.py"), sft.index("model/sft.py"))
+        self.assertIn("sft-train-corpus-audit.json", bundle)
+        self.assertIn("sft-validation-corpus-audit.json", bundle)
+        self.assertIn("corpus-audit.json", bundle)
+
     def test_colab_estimates_model_budget_for_selected_tokenizer(self):
         training = "".join(self.notebook["cells"][6]["source"])
         bundle = "".join(self.notebook["cells"][14]["source"])

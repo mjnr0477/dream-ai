@@ -1,7 +1,7 @@
 """Supervised instruction fine-tuning for DREAM's own pretrained checkpoint.
 
 Only assistant response tokens contribute to loss. No external model or API is used.
-Input records are human-reviewed JSONL conversation examples.
+Input records are human-reviewed JSONL conversation examples with HTTPS source/license URLs and an explicit, verified rights basis.
 """
 import argparse
 import hashlib
@@ -10,6 +10,12 @@ import math
 import random
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlparse
+
+
+ALLOWED_RIGHTS_BASIS = {
+    "original-authorship", "public-domain", "open-license", "explicit-permission"
+}
 
 import torch
 
@@ -77,9 +83,25 @@ def load_examples(path, tokenizer, block_size):
             item = json.loads(line)
         except json.JSONDecodeError as exc:
             raise SystemExit(f"Invalid JSON at line {line_number}: {exc}") from exc
-        for field in ("id", "source", "source_group", "license", "source_date", "language"):
+        if not isinstance(item, dict):
+            raise SystemExit(f"Record must be a JSON object at line {line_number}")
+        for field in (
+            "id", "source", "source_group", "license", "license_url",
+            "source_url", "rights_basis", "source_date", "language"
+        ):
             if not isinstance(item.get(field), str) or not item[field].strip():
                 raise SystemExit(f"Missing {field} at line {line_number}")
+        for field in ("source_url", "license_url"):
+            parsed_url = urlparse(item[field])
+            if parsed_url.scheme != "https" or not parsed_url.hostname:
+                raise SystemExit(
+                    f"Invalid {field} at line {line_number}; expected an absolute HTTPS URL"
+                )
+        if item["rights_basis"] not in ALLOWED_RIGHTS_BASIS:
+            raise SystemExit(
+                f"Invalid rights_basis at line {line_number}; expected one of "
+                + ", ".join(sorted(ALLOWED_RIGHTS_BASIS))
+            )
         try:
             parsed_source_date = date.fromisoformat(item["source_date"])
             if parsed_source_date.isoformat() != item["source_date"]:
@@ -96,7 +118,7 @@ def load_examples(path, tokenizer, block_size):
             if item.get(field) is not True:
                 raise SystemExit(f"{label.title()} review not confirmed at line {line_number}")
         if item["id"] in seen_ids:
-            raise SystemExit(f"Duplicate SFT record id: {item['id']}")
+            raise SystemExit(f"Duplicate SFT record id at line {line_number}")
         seen_ids.add(item["id"])
         messages = item.get("messages")
         if not isinstance(messages, list) or len(messages) < 2:

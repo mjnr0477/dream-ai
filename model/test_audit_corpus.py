@@ -38,6 +38,28 @@ class CorpusAuditTests(unittest.TestCase):
         )
         return result, json.loads(output.read_text(encoding="utf-8"))
 
+    def test_repository_smoke_corpora_pass_metadata_triage_without_auto_approval(self):
+        repository_root = SCRIPT.parent.parent
+        paths = (
+            repository_root / "data" / "smoke-test.jsonl",
+            repository_root / "data" / "sft-smoke-train.jsonl",
+            repository_root / "data" / "sft-smoke-validation.jsonl",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            for index, source in enumerate(paths):
+                output = Path(directory) / f"audit-{index}.json"
+                result = subprocess.run(
+                    [sys.executable, str(SCRIPT), "--input", str(source),
+                     "--out", str(output)],
+                    capture_output=True, text=True, timeout=30
+                )
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                report = json.loads(output.read_text(encoding="utf-8"))
+                self.assertEqual(report["error_count"], 0)
+                self.assertEqual(report["possible_pii_findings"], 0)
+                self.assertEqual(report["unreviewed_records"], 0)
+                self.assertFalse(report["approval_granted"])
+
     def test_clean_corpus_is_still_not_auto_approved(self):
         with tempfile.TemporaryDirectory() as directory:
             result, report = self.run_audit(Path(directory), [self.record()])

@@ -1,13 +1,19 @@
 """Validate licensed DREAM JSONL records and create source-isolated splits.
 
 Input record:
-{"id":"lesson-001","source":"DREAM-authored lesson","source_group":"dream-math-v1","license":"CC0-1.0","source_date":"2026-01-15","rights_confirmed":true,"privacy_reviewed":true,"quality_reviewed":true,"language":"en","text":"..."}
+{"id":"lesson-001","source":"DREAM-authored lesson","source_group":"dream-math-v1","source_url":"https://example.org/dream-math","license":"CC0-1.0","license_url":"https://creativecommons.org/publicdomain/zero/1.0/","rights_basis":"original-authorship","source_date":"2026-01-15","rights_confirmed":true,"privacy_reviewed":true,"quality_reviewed":true,"language":"en","text":"..."}
 """
 import argparse
 import hashlib
 import json
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlparse
+
+
+ALLOWED_RIGHTS_BASIS = {
+    "original-authorship", "public-domain", "open-license", "explicit-permission"
+}
 
 
 def sha256(path: Path) -> str:
@@ -47,10 +53,26 @@ def main():
             item = json.loads(line)
         except json.JSONDecodeError as exc:
             raise SystemExit(f"Invalid JSON at line {line_number}: {exc}") from exc
+        if not isinstance(item, dict):
+            raise SystemExit(f"Record must be a JSON object at line {line_number}")
 
-        required = ("id", "source", "source_group", "license", "source_date", "language", "text")
+        required = (
+            "id", "source", "source_group", "license", "license_url",
+            "source_url", "rights_basis", "source_date", "language", "text"
+        )
         if any(not isinstance(item.get(key), str) or not item[key].strip() for key in required):
             raise SystemExit(f"Missing required metadata or text at line {line_number}")
+        for field in ("source_url", "license_url"):
+            parsed_url = urlparse(item[field])
+            if parsed_url.scheme != "https" or not parsed_url.hostname:
+                raise SystemExit(
+                    f"Invalid {field} at line {line_number}; expected an absolute HTTPS URL"
+                )
+        if item["rights_basis"] not in ALLOWED_RIGHTS_BASIS:
+            raise SystemExit(
+                f"Invalid rights_basis at line {line_number}; expected one of "
+                + ", ".join(sorted(ALLOWED_RIGHTS_BASIS))
+            )
         try:
             parsed_source_date = date.fromisoformat(item["source_date"])
             if parsed_source_date.isoformat() != item["source_date"]:
@@ -68,7 +90,7 @@ def main():
         if len(item["text"].strip()) < 40:
             raise SystemExit(f"Text too short at line {line_number}")
         if item["id"] in seen_ids:
-            raise SystemExit(f"Duplicate record id: {item['id']}")
+            raise SystemExit(f"Duplicate record id at line {line_number}")
 
         seen_ids.add(item["id"])
         normalized = " ".join(item["text"].split()).casefold()
@@ -84,6 +106,7 @@ def main():
             "source": item["source"],
             "source_group": item["source_group"],
             "license": item["license"],
+            "rights_basis": item["rights_basis"],
             "source_date": item["source_date"],
             "language": item["language"],
             "text": item["text"].strip()
@@ -128,6 +151,7 @@ def main():
         "source_groups": group_count,
         "language_counts": language_counts,
         "license_counts": license_counts,
+        "rights_basis_counts": counts(records, "rights_basis"),
         "source_date_range": source_date_range,
         "split_strategy": "deterministic source-group hash ranking; no group crosses splits",
         "splits": {}
