@@ -6,6 +6,7 @@ retains provenance and has all human-review flags set to false.
 import argparse
 import hashlib
 import json
+import os
 from collections import Counter
 from datetime import date
 from pathlib import Path
@@ -21,6 +22,16 @@ RIGHTS_BASIS = (
 
 def stable_id(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()[:24]
+
+
+def write_text_atomic(path: Path, content: str) -> None:
+    """Write beside the destination, then atomically replace it."""
+    temporary = path.with_name(path.name + f".{os.getpid()}.tmp")
+    try:
+        temporary.write_text(content, encoding="utf-8")
+        temporary.replace(path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def candidate_from_row(row: dict, line_number: int) -> dict:
@@ -82,6 +93,13 @@ def main():
     input_path = Path(args.input)
     output_path = Path(args.output)
     summary_path = Path(args.summary)
+    resolved_paths = {
+        "input": input_path.resolve(),
+        "output": output_path.resolve(),
+        "summary": summary_path.resolve(),
+    }
+    if len(set(resolved_paths.values())) != len(resolved_paths):
+        parser.error("--input, --output and --summary must be three different paths")
     rows = []
     seen_ids = set()
     seen_text = set()
@@ -131,9 +149,9 @@ def main():
 
     rows.sort(key=lambda item: (item["language"], item["id"]))
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
-        encoding="utf-8"
+    write_text_atomic(
+        output_path,
+        "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows)
     )
     summary = {
         "schema": "dream-fineweb2-candidates-v1",
@@ -161,8 +179,9 @@ def main():
         )
     }
     summary_path.parent.mkdir(parents=True, exist_ok=True)
-    summary_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n",
-                            encoding="utf-8")
+    write_text_atomic(
+        summary_path, json.dumps(summary, ensure_ascii=False, indent=2) + "\n"
+    )
     print(json.dumps(summary, ensure_ascii=False, indent=2))
 
 
