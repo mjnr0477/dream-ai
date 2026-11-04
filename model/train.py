@@ -126,6 +126,8 @@ def main():
             raise SystemExit("Resume checkpoint gradient accumulation does not match.")
         if training_meta.get("eval_batches") != args.eval_batches:
             raise SystemExit("Resume checkpoint evaluation batch count does not match.")
+        if training_meta.get("eval_every") != args.eval_every:
+            raise SystemExit("Resume checkpoint evaluation interval does not match.")
         model.load_state_dict(checkpoint["model_state"])
         if "optimizer_state" not in checkpoint:
             raise SystemExit("Resume checkpoint does not contain optimizer state.")
@@ -180,6 +182,7 @@ def main():
             "grad_accum_steps": args.grad_accum_steps,
             "effective_batch_size": args.batch_size * args.grad_accum_steps,
             "eval_batches": args.eval_batches,
+            "eval_every": args.eval_every,
             "tokenizer_format": "dream-bpe-v1" if args.tokenizer == "bpe" else "utf8-byte-v1",
             "tokenizer_vocab_size": tokenizer.vocab_size,
             "device": device,
