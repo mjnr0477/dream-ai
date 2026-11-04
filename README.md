@@ -50,26 +50,6 @@ python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER:
 
 The training corpus path above is an example, not a file already present. Each JSONL record must include `source_date` in `YYYY-MM-DD` form and contain `rights_confirmed: true`, `privacy_reviewed: true` and `quality_reviewed: true` after actual human review. The corpus manifest reports license/language distributions and source-date coverage. The script verifies these declarations, not the underlying legal claims. Do not train on data without appropriate rights and privacy review. Do not market a small research checkpoint as a frontier model.
 
-### Parallel-corpus candidate importer
-
-`model/import_parallel_pairs.py` can convert a local UTF-8 JSONL export with a `translation` object into separate SFT review candidates. Each record must also carry a `source_group` or `story_id`; records without grouping metadata are rejected rather than pretending each sentence is an independent source. Group identifiers and input record IDs are hashed/replaced so arbitrary external identifiers are not copied into candidate metadata.
-
-Example (replace every claim with details verified for your actual dataset):
-
-```sh
-python model/import_parallel_pairs.py \
-  --input data/local-parallel-export.jsonl \
-  --source-lang dav --target-lang swa \
-  --source-name "Dataset name" \
-  --source-url https://example.org/dataset \
-  --license "claimed license" \
-  --license-url https://example.org/license \
-  --source-date 2025-01-15 \
-  --output-dir data/parallel-candidates
-```
-
-The importer labels the rights basis `unverified`, leaves rights/privacy/quality review flags false, and writes a review summary. Source names, URLs, license labels and dates are caller-supplied claims, not independently verified facts. A URL or license label is not proof that model training is permitted. Review legal terms, attribution, provenance, consent, personal data and translation quality before a qualified human changes any review flag. Never pass candidate files to SFT as approved data.
-
 ## Evaluation
 
 - `evals/core-v1.jsonl`: 45 original DREAM evaluation prompts and human scoring rubrics. The expanded suite includes 14 explicit language cases: Arabic, Hindi, Chinese, Japanese, Korean, French, Spanish, Portuguese, Kiswahili, Yoruba, Hausa, Amharic, Bengali and Russian, alongside reasoning, coding, science, safety, privacy, security and reliability.
