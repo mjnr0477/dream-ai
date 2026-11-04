@@ -33,6 +33,20 @@ def normalized_content(record):
     return ""
 
 
+def has_international_phone(text):
+    """Detect explicit international numbers without exposing their values."""
+    for match in INTERNATIONAL_PHONE_RE.finditer(text):
+        prefix = match.group("prefix")
+        country_code = prefix[1:] if prefix.startswith("+") else prefix[2:]
+        digits = re.sub(r"\\D", "", match.group())
+        # Kenyan international numbers are already covered by KENYAN_PHONE_RE.
+        if country_code == "254":
+            continue
+        if 8 <= len(digits) <= 15:
+            return True
+    return False
+
+
 def valid_https(value):
     if not isinstance(value, str):
         return False
@@ -135,6 +149,9 @@ def audit(input_path, max_record_bytes=1_000_000):
                 pii_records += 1
             if KENYAN_PHONE_RE.search(content):
                 findings.append({"line": line_number, "record_id": safe_id, "code": "possible_kenyan_phone", "severity": "review"})
+                pii_records += 1
+            elif has_international_phone(content):
+                findings.append({"line": line_number, "record_id": safe_id, "code": "possible_international_phone", "severity": "review"})
                 pii_records += 1
             if any(ord(char) < 32 and char not in "\n\r\t" for char in content):
                 findings.append({"line": line_number, "record_id": safe_id, "code": "control_characters", "severity": "warning"})
