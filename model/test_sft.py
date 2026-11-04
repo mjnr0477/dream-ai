@@ -99,7 +99,7 @@ class DreamSFTTests(unittest.TestCase):
             else:
                 rows[0][field] = value
             train_path.write_text(
-                "".join(json.dumps(row) + "\\n" for row in rows),
+                "".join(json.dumps(row) + "\n" for row in rows),
                 encoding="utf-8"
             )
             with self.subTest(field=field, value=value):
