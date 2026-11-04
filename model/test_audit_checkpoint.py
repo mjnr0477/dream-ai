@@ -82,6 +82,23 @@ class CheckpointAuditTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "keys do not match"):
             audit_checkpoint(self.path)
 
+    def test_rejects_wrong_tensor_dtype_and_non_string_state_keys(self):
+        checkpoint = dict(self.valid_checkpoint)
+        state = dict(checkpoint["model_state"])
+        key = next(iter(state))
+        state[key] = state[key].to(torch.float64)
+        checkpoint["model_state"] = state
+        torch.save(checkpoint, self.path)
+        with self.assertRaisesRegex(ValueError, "incorrect dtype"):
+            audit_checkpoint(self.path)
+
+        state = dict(self.valid_checkpoint["model_state"])
+        state[123] = torch.tensor(1)
+        checkpoint["model_state"] = state
+        torch.save(checkpoint, self.path)
+        with self.assertRaisesRegex(ValueError, "keys must all be strings"):
+            audit_checkpoint(self.path)
+
     def test_rejects_unsupported_tokenizer_and_extra_config_fields(self):
         checkpoint = dict(self.valid_checkpoint)
         checkpoint["tokenizer"] = "unknown"
