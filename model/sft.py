@@ -204,6 +204,8 @@ def main():
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--grad-accum-steps", type=int, default=1)
     parser.add_argument("--learning-rate", type=float, default=1e-4)
+    parser.add_argument("--max-grad-norm", type=float, default=1.0,
+                        help="Positive finite gradient clipping threshold")
     parser.add_argument("--eval-every", type=int, default=100)
     parser.add_argument("--eval-batches", type=int, default=10)
     parser.add_argument("--checkpoint-every", type=int, default=250)
@@ -217,6 +219,8 @@ def main():
         raise SystemExit("All step, batch and evaluation counts must be positive.")
     if not math.isfinite(args.learning_rate) or args.learning_rate <= 0:
         raise SystemExit("learning-rate must be finite and positive.")
+    if not math.isfinite(args.max_grad_norm) or args.max_grad_norm <= 0:
+        raise SystemExit("max-grad-norm must be finite and positive.")
 
     random.seed(args.seed)
     torch.manual_seed(args.seed)
@@ -304,6 +308,8 @@ def main():
             raise SystemExit("SFT resume hyperparameters do not match.")
         if meta.get("grad_accum_steps") != args.grad_accum_steps or meta.get("eval_batches") != args.eval_batches:
             raise SystemExit("SFT resume accumulation/evaluation settings do not match.")
+        if meta.get("max_grad_norm", 1.0) != args.max_grad_norm:
+            raise SystemExit("SFT resume max gradient norm does not match.")
         if (
             meta.get("pretraining_test_sha256") != pretraining_test_hash
             or meta.get("pretraining_manifest_sha256") != pretraining_manifest_hash
@@ -358,6 +364,7 @@ def main():
                 "pretraining_test_source_groups": sorted(pretraining_test_groups),
                 "pretraining_manifest_sha256": pretraining_manifest_hash,
                 "learning_rate": args.learning_rate,
+                "max_grad_norm": args.max_grad_norm,
                 "batch_size": args.batch_size,
                 "grad_accum_steps": args.grad_accum_steps,
                 "effective_batch_size": args.batch_size * args.grad_accum_steps,
@@ -382,7 +389,9 @@ def main():
             if loss is None or not torch.isfinite(loss):
                 raise RuntimeError("Invalid SFT training loss.")
             (loss / args.grad_accum_steps).backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        torch.nn.utils.clip_grad_norm_(
+            model.parameters(), args.max_grad_norm, error_if_nonfinite=True
+        )
         optimizer.step()
 
         if step == start_step + 1 or step % args.eval_every == 0 or step % args.checkpoint_every == 0 or step == final_step:

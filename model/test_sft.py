@@ -145,11 +145,13 @@ class DreamSFTTests(unittest.TestCase):
             "--pretraining-manifest", str(self.manifest),
             "--pretraining-test-data", str(self.test_data), "--out", str(output),
             "--steps", "1", "--batch-size", "2", "--grad-accum-steps", "1",
+            "--max-grad-norm", "0.5",
             "--eval-every", "1", "--eval-batches", "1", "--checkpoint-every", "1"
         ], capture_output=True, text=True, timeout=120)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         saved = torch.load(output, map_location="cpu", weights_only=True)
         self.assertEqual(saved["tokenizer"], tokenizer.to_dict())
+        self.assertEqual(saved["sft_training"]["max_grad_norm"], 0.5)
         self.assertEqual(saved["config"]["vocab_size"], tokenizer.vocab_size)
         audited = subprocess.run([
             sys.executable, str(Path(__file__).with_name("audit_checkpoint.py")),
@@ -171,6 +173,7 @@ class DreamSFTTests(unittest.TestCase):
             "--pretraining-manifest", str(self.manifest),
             "--pretraining-test-data", str(self.test_data), "--out", str(output),
             "--steps", "1", "--batch-size", "2", "--grad-accum-steps", "1",
+            "--max-grad-norm", "0.5",
             "--eval-every", "1", "--eval-batches", "1", "--checkpoint-every", "1",
             "--resume", str(output)
         ], capture_output=True, text=True, timeout=120)
@@ -458,6 +461,33 @@ class DreamSFTTests(unittest.TestCase):
         )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("completed pretraining steps", result.stderr)
+
+
+    def test_sft_rejects_invalid_gradient_clipping_thresholds(self):
+        train_path = self.root / "gradient-train.jsonl"
+        val_path = self.root / "gradient-validation.jsonl"
+        self.write_records(train_path, "gradient-train")
+        self.write_records(val_path, "gradient-validation")
+        for invalid in ("0", "-1", "nan", "inf"):
+            with self.subTest(invalid=invalid):
+                result = subprocess.run(
+                    [
+                        sys.executable, str(SCRIPT),
+                        "--checkpoint", str(self.base),
+                        "--train-data", str(train_path),
+                        "--validation-data", str(val_path),
+                        "--pretraining-manifest", str(self.manifest),
+                        "--pretraining-test-data", str(self.test_data),
+                        "--max-grad-norm", invalid,
+                        "--steps", "1"
+                    ],
+                    capture_output=True, text=True, timeout=30
+                )
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(
+                    "max-grad-norm must be finite and positive",
+                    result.stderr
+                )
 
 
 if __name__ == "__main__":
