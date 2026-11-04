@@ -32,6 +32,22 @@ class MultilingualTokenizerBenchmarkTests(unittest.TestCase):
                           if item["language"] == language)
             self.assertEqual(tokenizer.decode(tokenizer.encode(sample)), sample)
 
+    def test_supports_bcp47_script_region_and_variant_subtags(self):
+        train = self.train + [
+            {"language": "zh-hant", "text": "繁體中文訓練資料與人工智慧。 " * 8}
+        ]
+        test = [
+            {"language": "zh-hant-tw", "text": "繁體中文測試資料與智慧系統。"},
+            {"language": "sr-latn-rs", "text": "Ovo je nezavisan srpski tekst."},
+            {"language": "en-001", "text": "A global English test sentence."},
+            {"language": "ca-es-valencia", "text": "Aquest és un text de prova valencià."}
+        ]
+        report, _ = benchmark_multilingual(train, test, vocab_size=320)
+        self.assertEqual(
+            report["test_languages"],
+            ["ca-ES-valencia", "en-001", "sr-Latn-RS", "zh-Hant-TW"]
+        )
+
     def test_rejects_train_test_text_overlap(self):
         with self.assertRaisesRegex(ValueError, "overlap"):
             benchmark_multilingual(
