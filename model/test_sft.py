@@ -66,6 +66,9 @@ class DreamSFTTests(unittest.TestCase):
                 "source": f"Reviewed DREAM source {source_prefix}-{index}",
                 "source_group": f"{source_prefix}-group-{index}",
                 "license": "CC0-1.0",
+                "source_url": f"https://example.org/sft/{source_prefix}/{index}",
+                "license_url": "https://creativecommons.org/publicdomain/zero/1.0/",
+                "rights_basis": "original-authorship",
                 "source_date": "2026-01-15",
                 "rights_confirmed": True,
                 "privacy_reviewed": True,
@@ -80,6 +83,29 @@ class DreamSFTTests(unittest.TestCase):
             "".join(json.dumps(row) + "\n" for row in rows),
             encoding="utf-8"
         )
+
+    def test_sft_rejects_missing_or_unverified_provenance(self):
+        for field, value, expected in (
+            ("source_url", None, "Missing source_url"),
+            ("source_url", "http://example.org/source", "absolute HTTPS URL"),
+            ("license_url", "http://example.org/license", "absolute HTTPS URL"),
+            ("rights_basis", "unverified", "Invalid rights_basis"),
+        ):
+            train_path = self.root / "bad-provenance.jsonl"
+            self.write_records(train_path, "provenance")
+            rows = [json.loads(line) for line in train_path.read_text().splitlines()]
+            if value is None:
+                del rows[0][field]
+            else:
+                rows[0][field] = value
+            train_path.write_text(
+                "".join(json.dumps(row) + "\\n" for row in rows),
+                encoding="utf-8"
+            )
+            with self.subTest(field=field, value=value):
+                with self.assertRaises(SystemExit) as error:
+                    load_examples(train_path, DreamByteTokenizer(), self.config.block_size)
+                self.assertIn(expected, str(error.exception))
 
     def test_masks_user_prompt_and_trains_assistant_answers(self):
         train_path = self.root / "train.jsonl"

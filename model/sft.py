@@ -10,6 +10,12 @@ import math
 import random
 from datetime import date
 from pathlib import Path
+from urllib.parse import urlparse
+
+
+ALLOWED_RIGHTS_BASIS = {
+    "original-authorship", "public-domain", "open-license", "explicit-permission"
+}
 
 import torch
 
@@ -77,9 +83,23 @@ def load_examples(path, tokenizer, block_size):
             item = json.loads(line)
         except json.JSONDecodeError as exc:
             raise SystemExit(f"Invalid JSON at line {line_number}: {exc}") from exc
-        for field in ("id", "source", "source_group", "license", "source_date", "language"):
+        for field in (
+            "id", "source", "source_group", "license", "license_url",
+            "source_url", "rights_basis", "source_date", "language"
+        ):
             if not isinstance(item.get(field), str) or not item[field].strip():
                 raise SystemExit(f"Missing {field} at line {line_number}")
+        for field in ("source_url", "license_url"):
+            parsed_url = urlparse(item[field])
+            if parsed_url.scheme != "https" or not parsed_url.hostname:
+                raise SystemExit(
+                    f"Invalid {field} at line {line_number}; expected an absolute HTTPS URL"
+                )
+        if item["rights_basis"] not in ALLOWED_RIGHTS_BASIS:
+            raise SystemExit(
+                f"Invalid rights_basis at line {line_number}; expected one of "
+                + ", ".join(sorted(ALLOWED_RIGHTS_BASIS))
+            )
         try:
             parsed_source_date = date.fromisoformat(item["source_date"])
             if parsed_source_date.isoformat() != item["source_date"]:
