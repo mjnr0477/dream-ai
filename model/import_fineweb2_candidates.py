@@ -124,6 +124,11 @@ def main():
             language_rows.sort(key=lambda item: stable_id(item["id"]))
             rows.extend(language_rows[:args.max_per_language])
 
+    if not rows:
+        raise SystemExit(
+            "No eligible FineWeb2 records remain after filtering; no candidate files were written."
+        )
+
     rows.sort(key=lambda item: (item["language"], item["id"]))
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
