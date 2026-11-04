@@ -5,7 +5,7 @@ Status: independently designed and randomly initialized architecture implemented
 ## Architecture decision
 
 DREAM will begin with its own decoder-only transformer implemented in PyTorch:
-- fixed UTF-8 byte tokenizer (256 token IDs, no borrowed vocabulary);
+- UTF-8 byte tokenizer (256 token IDs) remains the backwards-compatible default; an optional deterministic byte-fallback BPE tokenizer can be trained from the training split and saved inside checkpoints;
 - learned token and position embeddings;
 - causal multi-head self-attention;
 - pre-normalized transformer blocks with GELU feed-forward layers;
@@ -21,7 +21,7 @@ The first configurable experiment defaults to 6 layers, width 256, 8 attention h
 - `model/generate.py` runs local inference from a DREAM checkpoint. Generation uses per-layer key/value caching when the prompt plus requested output fits the learned absolute-position context; if it would overflow, it retains the existing sliding-window recomputation path so positional behavior is unchanged. Sampling also constrains emitted bytes to valid UTF-8 sequences (including continuation-byte ranges that exclude overlong encodings, surrogates and values above U+10FFFF); this guarantees valid Unicode encoding, not language fluency or factual quality.
 - `model/benchmark_generation.py` compares cached greedy decoding against a full-prefix recomputation reference, first requiring exact token-ID parity, then reporting median latency, generated tokens/second and speedup ratio for the selected checkpoint and device. Run it only when the requested output fits inside the configured context window; results are local performance measurements, not model-quality evidence.
 - `model/audit_checkpoint.py` performs a read-only checkpoint preflight: validates the byte tokenizer, model config, positive training-step metadata, exact state-dict keys/shapes/dtypes, finite floating-point weights and strict model loading. It emits a SHA-256 identity report and does not prove that training data, rights attestations or model quality are valid.
-- `model/evaluate.py` reports held-out cross-entropy, bits-per-byte, perplexity-per-byte, SHA-256 provenance and a qualitative sample.
+- `model/evaluate.py` reconstructs the tokenizer from the checkpoint and reports held-out cross-entropy per token and per represented UTF-8 byte, bits-per-byte, perplexity-per-byte, SHA-256 provenance and a qualitative sample. BPE byte-normalized loss divides summed token NLL by the actual UTF-8 bytes represented by sampled target tokens.
 - `model/serve.py` exposes the native checkpoint over a local HTTP endpoint. Its chat-completions-shaped JSON is only a transport protocol; no external model is called.
 - `model/test_dream_transformer.py`, `model/test_train.py` and `model/test_serve.py` test model behavior (including cached/full-logit equivalence, greedy output parity, context-window fallback and valid UTF-8 output constraints), checkpoint/resume and local HTTP serving.
 - `data/README.md` defines dataset provenance, privacy, licensing and quality gates.
@@ -52,15 +52,21 @@ DREAM_CHECKPOINT=checkpoints/dream-instruct.pt python model/serve.py
 
 The server binds to localhost by default, serializes model generation to bound inference concurrency, enforces request-size, history, authentication and sampling limits, and refuses checkpoints without completed training steps. Set `DREAM_RUNTIME_HOST`, `DREAM_RUNTIME_PORT` and a `DREAM_RUNTIME_TOKEN` of at least 24 characters before binding to a non-local interface. The Node adapter's `DREAM_MODEL_TOKEN` must match that token. The built-in server is a development/runtime baseline, not a hardened public internet deployment.
 
-## Experimental multilingual BPE tokenizer
+## Multilingual BPE tokenizer and checkpoint compatibility
 
-`model/dream_bpe.py` implements a deterministic byte-fallback BPE tokenizer as a separate experiment. It is intentionally not wired into `DreamTransformer`, existing checkpoints or the serving API. To measure token efficiency without training on the test set, prepare separate UTF-8 JSONL files whose records contain `language` (a BCP-47-style short tag such as `en`, `sw`, `ar`, `ja`) and `text`. Run:
+`model/dream_bpe.py` implements a deterministic byte-fallback BPE tokenizer. It can now be used end-to-end in native DREAM pretraining, supervised fine-tuning, checkpoint auditing, evaluation, local generation and serving. Existing `utf8-byte-v1` checkpoints and the default byte-tokenizer training path remain compatible.
+
+Train a BPE checkpoint by selecting the tokenizer explicitly:
 
 ```sh
-python model/benchmark_multilingual_tokenizer.py --train-data data/tokenizer-train.jsonl --test-data data/tokenizer-test.jsonl --vocab-size 1024 --out reports/multilingual-tokenizer.json --tokenizer-out checkpoints/dream-bpe.json
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --tokenizer bpe --vocab-size 1024 --steps 2000 --out checkpoints/dream-bpe.pt
+python model/audit_checkpoint.py --checkpoint checkpoints/dream-bpe.pt
+python model/evaluate.py --checkpoint checkpoints/dream-bpe.pt --data data/prepared/test.txt --out eval-results/dream-bpe.json
+python model/generate.py --checkpoint checkpoints/dream-bpe.pt --prompt "USER: Habari dunia.\\nASSISTANT:"
+python model/serve.py --checkpoint checkpoints/dream-bpe.pt
 ```
 
-The report compares BPE token counts with UTF-8 byte counts by language and verifies exact decoding, including unseen scripts through byte fallback. It rejects normalized text overlap between training and test records. Token reduction is a compression/efficiency measurement only; it does not demonstrate language fluency or model quality. Do not replace the active byte tokenizer until a separate end-to-end checkpoint migration and held-out model evaluation pass.
+The tokenizer is trained only from the training text, embedded in the checkpoint, and checked on resume. SFT restores the base checkpoint tokenizer and carries its exact metadata forward. Evaluation and serving reconstruct the same tokenizer from the checkpoint; evaluation reports both token-normalized and UTF-8-byte-normalized cross-entropy. The tokenizer uses byte fallback for unseen scripts, but compression/token reduction is not proof of language fluency or model quality. Use a separate reviewed held-out test corpus and native-speaker evaluation before making multilingual capability claims.
 
 ## Data and evaluation
 
@@ -68,7 +74,7 @@ No dataset is silently assumed or bundled as training data. Every pretraining an
 
 Instruction data uses JSONL records with the same provenance/review fields plus alternating `messages` entries (`user`, `assistant`; optional initial `system`). SFT masks user/system/prompt tokens and optimizes assistant response tokens only. Keep training and validation conversation files separate by content hash. SFT rejects source groups present in the pretraining held-out test split, duplicate record IDs and normalized dialogue content across SFT train/validation files. It verifies the manifest against the exact held-out test file, and instruction-checkpoint evaluation must use that exact test-corpus SHA-256.
 
-The 45-case DREAM application evaluation set covers reasoning, mathematics, coding, teaching, Kenyan context, English/Kiswahili, factual calibration, uncertainty, context-following, safety, security, privacy, fairness, research methods and structured output. Fourteen tagged language prompts explicitly cover Arabic, Hindi, Chinese, Japanese, Korean, French, Spanish, Portuguese, Kiswahili, Yoruba, Hausa, Amharic, Bengali and Russian. Tokenizer round-trip tests also cover these writing systems and emoji. This remains a starter benchmark, not enough to certify model quality. The native checkpoint evaluator measures next-byte prediction on held-out text; it does not establish reasoning, instruction following, factuality or safety. The next requirement is a reviewed multilingual training corpus, independent native-speaker scoring and tests for memorization, factuality, bias and safety.
+The 45-case DREAM application evaluation set covers reasoning, mathematics, coding, teaching, Kenyan context, English/Kiswahili, factual calibration, uncertainty, context-following, safety, security, privacy, fairness, research methods and structured output. Fourteen tagged language prompts explicitly cover Arabic, Hindi, Chinese, Japanese, Korean, French, Spanish, Portuguese, Kiswahili, Yoruba, Hausa, Amharic, Bengali and Russian. Tokenizer round-trip tests also cover these writing systems and emoji. This remains a starter benchmark, not enough to certify model quality. The native checkpoint evaluator measures next-token prediction and reports token/UTF-8-byte-normalized cross-entropy on held-out text; it does not establish reasoning, instruction following, factuality or safety. The next requirement is a reviewed multilingual training corpus, independent native-speaker scoring and tests for memorization, factuality, bias and safety.
 
 ## Compute reality and honest release gates
 
