@@ -74,7 +74,6 @@ def audit_checkpoint(path):
         )
 
     tensor_count = 0
-    parameter_count = 0
     for name, expected_tensor in expected.items():
         tensor = state[name]
         if not isinstance(tensor, torch.Tensor):
@@ -88,7 +87,6 @@ def audit_checkpoint(path):
         if tensor.is_floating_point() and not torch.isfinite(tensor).all().item():
             raise ValueError(f"Model state tensor {name} contains NaN or infinity")
         tensor_count += 1
-        parameter_count += tensor.numel()
 
     # Strict load catches any remaining state-dict incompatibility.
     try:
@@ -103,7 +101,7 @@ def audit_checkpoint(path):
         "config": config.__dict__,
         "completed_steps": completed_steps,
         "tensor_count": tensor_count,
-        "parameter_count": parameter_count,
+        "parameter_count": sum(parameter.numel() for parameter in model.parameters()),
         "all_floating_tensors_finite": True,
         "strict_state_dict_load": True,
         "training_metadata_kind": metadata_kind,
