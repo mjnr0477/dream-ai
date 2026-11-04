@@ -35,7 +35,7 @@ def counts(rows, field):
 def write_text_file(path: Path, rows) -> dict:
     """Write ordered record text and return verifiable corpus metadata."""
     path.write_text(
-        "\\n\\n".join(row["text"] for row in rows) + "\\n",
+        "\n\n".join(row["text"] for row in rows) + "\n",
         encoding="utf-8"
     )
     return {
@@ -206,7 +206,7 @@ def main():
         raise RuntimeError("Internal error: source group leaked across corpus splits")
 
     (output / "manifest.json").write_text(
-        json.dumps(manifest, ensure_ascii=False, indent=2) + "\\n",
+        json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8"
     )
     print(json.dumps(manifest, ensure_ascii=False, indent=2))
