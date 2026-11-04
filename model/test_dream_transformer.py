@@ -111,6 +111,43 @@ class DreamTransformerTests(unittest.TestCase):
             actual = self.model.generate(prompt.clone(), max_new_tokens=5, temperature=0)
         self.assertTrue(torch.equal(actual, expected))
 
+    def test_generated_bytes_are_valid_utf8_for_batched_cached_and_sliding_paths(self):
+        tokenizer = DreamByteTokenizer()
+        prompt = torch.tensor([[65, 66, 67], [72, 73, 74]], dtype=torch.long)
+        cached = self.model.generate(
+            prompt.clone(), max_new_tokens=6, temperature=0.9, top_k=256
+        )
+        sliding = self.model.generate(
+            prompt.clone(), max_new_tokens=40, temperature=0.9, top_k=256
+        )
+        for generated in (cached, sliding):
+            for row in generated[:, prompt.shape[1]:].tolist():
+                bytes(row).decode("utf-8", errors="strict")
+
+    def test_utf8_masks_respect_lead_byte_budget_and_unicode_scalar_ranges(self):
+        pending = torch.zeros(1, dtype=torch.long)
+        minimum = torch.full((1,), 0x80, dtype=torch.long)
+        maximum = torch.full((1,), 0xBF, dtype=torch.long)
+
+        last_step = self.model._utf8_next_token_mask(pending, minimum, maximum, 0)
+        self.assertTrue(last_step[0, :0x80].all().item())
+        self.assertFalse(last_step[0, 0xC2:].any().item())
+
+        two_steps_left = self.model._utf8_next_token_mask(pending, minimum, maximum, 1)
+        self.assertTrue(two_steps_left[0, 0xC2:0xE0].all().item())
+        self.assertFalse(two_steps_left[0, 0xE0:].any().item())
+
+        for lead, expected_min, expected_max in (
+            (0xE0, 0xA0, 0xBF), (0xED, 0x80, 0x9F),
+            (0xF0, 0x90, 0xBF), (0xF4, 0x80, 0x8F),
+        ):
+            state = self.model._advance_utf8_state(
+                pending, minimum, maximum, torch.tensor([lead])
+            )
+            allowed = self.model._utf8_next_token_mask(*state, 1)
+            self.assertTrue(allowed[0, expected_min:expected_max + 1].all().item())
+            self.assertEqual(int(allowed[0].sum().item()), expected_max - expected_min + 1)
+
     def test_cached_forward_requires_eval_mode_and_valid_cache(self):
         prompt = torch.tensor([[65, 66]])
         self.model.train()
