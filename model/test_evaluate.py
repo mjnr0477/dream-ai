@@ -213,5 +213,6 @@ class DreamEvaluationTests(unittest.TestCase):
                 report["per_language"]["sw"]["evaluation_language"], "sw"
             )
 
-\nif __name__ == "__main__":
+
+if __name__ == "__main__":
     unittest.main()
