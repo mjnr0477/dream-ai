@@ -14,7 +14,30 @@ from pathlib import Path
 from dream_bpe import DreamBPETokenizer
 
 
-LANGUAGE_TAG = re.compile(r"^[a-z]{2,3}(?:-[A-Z]{2})?$")
+LANGUAGE_TAG = re.compile(
+    r"^[A-Za-z]{2,3}(?:-[A-Za-z]{4})?(?:-(?:[A-Za-z]{2}|[0-9]{3}))?"
+    r"(?:-(?:[A-Za-z0-9]{5,8}|[0-9][A-Za-z0-9]{3}))*$"
+)
+
+
+def canonical_language_tag(value):
+    """Normalize the supported BCP 47 language-script-region subset."""
+    if not isinstance(value, str) or not LANGUAGE_TAG.fullmatch(value):
+        raise ValueError("Invalid language tag")
+    parts = value.split("-")
+    normalized = [parts[0].lower()]
+    index = 1
+    if index < len(parts) and len(parts[index]) == 4 and parts[index].isalpha():
+        normalized.append(parts[index].title())
+        index += 1
+    if index < len(parts) and (
+        (len(parts[index]) == 2 and parts[index].isalpha())
+        or (len(parts[index]) == 3 and parts[index].isdigit())
+    ):
+        normalized.append(parts[index].upper())
+        index += 1
+    normalized.extend(part.lower() for part in parts[index:])
+    return "-".join(normalized)
 
 
 def load_records(path):
@@ -28,8 +51,10 @@ def load_records(path):
             raise ValueError(f"Invalid JSON at {path}:{line_number}") from exc
         language = row.get("language")
         text = row.get("text")
-        if not isinstance(language, str) or not LANGUAGE_TAG.fullmatch(language):
-            raise ValueError(f"Invalid language tag at {path}:{line_number}")
+        try:
+            language = canonical_language_tag(language)
+        except ValueError as exc:
+            raise ValueError(f"Invalid language tag at {path}:{line_number}") from exc
         if not isinstance(text, str) or not text.strip():
             raise ValueError(f"Missing non-empty text at {path}:{line_number}")
         records.append({"language": language, "text": text})
@@ -56,8 +81,10 @@ def benchmark_multilingual(train_records, test_records, vocab_size=1024,
             if not isinstance(row, dict):
                 raise ValueError(f"{label} row {index} must be an object")
             language, text = row.get("language"), row.get("text")
-            if not isinstance(language, str) or not LANGUAGE_TAG.fullmatch(language):
-                raise ValueError(f"{label} row {index} has an invalid language tag")
+            try:
+                language = canonical_language_tag(language)
+            except ValueError as exc:
+                raise ValueError(f"{label} row {index} has an invalid language tag") from exc
             if not isinstance(text, str) or not text.strip():
                 raise ValueError(f"{label} row {index} has empty text")
             clean.append({"language": language, "text": text})
