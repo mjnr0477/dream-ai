@@ -20,7 +20,7 @@ def load_tokenizer(checkpoint, config):
     elif isinstance(metadata, dict):
         tokenizer = DreamBPETokenizer.from_dict(metadata)
     else:
-        raise ValueError("Missing or unsupported tokenizer metadata")
+        raise ValueError("Unsupported or missing tokenizer metadata")
     if tokenizer.vocab_size != config.vocab_size:
         raise ValueError("Tokenizer vocabulary size does not match the model configuration")
     return tokenizer
