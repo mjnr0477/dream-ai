@@ -40,6 +40,8 @@ def main():
     parser.add_argument("--layers", type=int, default=6)
     parser.add_argument("--heads", type=int, default=8)
     parser.add_argument("--learning-rate", type=float, default=3e-4)
+    parser.add_argument("--max-grad-norm", type=float, default=1.0,
+                        help="Positive finite gradient clipping threshold")
     parser.add_argument("--eval-every", type=int, default=200)
     parser.add_argument("--eval-batches", type=int, default=10)
     parser.add_argument("--seed", type=int, default=2026)
@@ -86,6 +88,8 @@ def main():
         raise SystemExit("steps, batch-size, grad-accum-steps, eval-every, eval-batches and checkpoint-every must be positive.")
     if not math.isfinite(args.learning_rate) or args.learning_rate <= 0:
         raise SystemExit("learning-rate must be finite and positive.")
+    if not math.isfinite(args.max_grad_norm) or args.max_grad_norm <= 0:
+        raise SystemExit("max-grad-norm must be finite and positive.")
 
     def file_sha256(path):
         digest = hashlib.sha256()
@@ -123,6 +127,8 @@ def main():
             raise SystemExit("Resume checkpoint validation corpus hash does not match.")
         if training_meta.get("learning_rate") != args.learning_rate:
             raise SystemExit("Resume checkpoint learning rate does not match.")
+        if training_meta.get("max_grad_norm", 1.0) != args.max_grad_norm:
+            raise SystemExit("Resume checkpoint max gradient norm does not match.")
         if training_meta.get("batch_size") != args.batch_size:
             raise SystemExit("Resume checkpoint batch size does not match.")
         if training_meta.get("grad_accum_steps") != args.grad_accum_steps:
@@ -183,6 +189,7 @@ def main():
             "initialization": "random" if not args.resume else "resumed-from-dream-checkpoint",
             "optimizer": "AdamW",
             "learning_rate": args.learning_rate,
+            "max_grad_norm": args.max_grad_norm,
             "batch_size": args.batch_size,
             "grad_accum_steps": args.grad_accum_steps,
             "effective_batch_size": args.batch_size * args.grad_accum_steps,
@@ -219,7 +226,9 @@ def main():
             _, loss = model(x, y)
             micro_losses.append(float(loss.detach().item()))
             (loss / args.grad_accum_steps).backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+        torch.nn.utils.clip_grad_norm_(
+            model.parameters(), args.max_grad_norm, error_if_nonfinite=True
+        )
         optimizer.step()
         final_step = start_step + args.steps
         if (
