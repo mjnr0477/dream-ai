@@ -25,7 +25,7 @@ class CheckpointTokenizerTests(unittest.TestCase):
             load_tokenizer({"tokenizer": learned.to_dict()}, DreamConfig(vocab_size=512))
 
     def test_rejects_unknown_tokenizer_metadata(self):
-        with self.assertRaisesRegex(ValueError, "unsupported"):
+        with self.assertRaisesRegex(ValueError, "(?i)unsupported"):
             load_tokenizer({"tokenizer": "borrowed-vocabulary"}, DreamConfig())
 
     def test_rejects_malformed_bpe_metadata(self):
