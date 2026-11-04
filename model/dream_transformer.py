@@ -90,6 +90,31 @@ class CausalSelfAttention(nn.Module):
         )
         return self.proj(attended)
 
+    def forward_cached(self, x, past_key_value=None):
+        """Decode one token against cached keys/values without recomputing history."""
+        batch, length, channels = x.shape
+        if past_key_value is not None and length != 1:
+            raise ValueError("Cached decoding accepts exactly one new token")
+        q, k, v = self.qkv(x).split(channels, dim=-1)
+        shape = (batch, length, self.n_heads, self.head_dim)
+        q = q.view(shape).transpose(1, 2)
+        k = k.view(shape).transpose(1, 2)
+        v = v.view(shape).transpose(1, 2)
+        if past_key_value is not None:
+            past_k, past_v = past_key_value
+            k = torch.cat((past_k, k), dim=-2)
+            v = torch.cat((past_v, v), dim=-2)
+        # With one appended token every key is in its causal past, so no
+        # triangular mask is needed (SDPA's is_causal mask is upper-left aligned).
+        attended = F.scaled_dot_product_attention(
+            q, k, v, dropout_p=0.0,
+            is_causal=past_key_value is None
+        )
+        attended = attended.transpose(1, 2).contiguous().view(
+            batch, length, channels
+        )
+        return self.proj(attended), (k, v)
+
 
 class FeedForward(nn.Module):
     def __init__(self, config: DreamConfig):
@@ -118,6 +143,14 @@ class DreamBlock(nn.Module):
         x = x + self.attention(self.norm1(x))
         x = x + self.feed_forward(self.norm2(x))
         return x
+
+    def forward_cached(self, x, past_key_value=None):
+        attended, present = self.attention.forward_cached(
+            self.norm1(x), past_key_value
+        )
+        x = x + attended
+        x = x + self.feed_forward(self.norm2(x))
+        return x, present
 
 
 class DreamTransformer(nn.Module):
@@ -186,6 +219,66 @@ class DreamTransformer(nn.Module):
             )
         return logits, loss
 
+    def forward_cached(self, token_ids, past_key_values=None):
+        """Forward a prompt or one next token while returning per-layer KV caches.
+
+        This inference-only path preserves the model's learned absolute positions.
+        A cached call after prefill must contain exactly one new token.
+        """
+        if self.training:
+            raise RuntimeError("Cached inference requires model.eval()")
+        if not isinstance(token_ids, torch.Tensor):
+            raise TypeError("token_ids must be a torch.Tensor")
+        if token_ids.ndim != 2 or token_ids.shape[1] < 1:
+            raise ValueError("token_ids must have shape [batch, sequence]")
+        if token_ids.dtype != torch.long:
+            raise TypeError("token_ids must use torch.long")
+        if torch.any((token_ids < 0) | (token_ids >= self.config.vocab_size)):
+            raise ValueError("token_ids contain IDs outside the configured vocabulary")
+
+        batch, length = token_ids.shape
+        if past_key_values is None:
+            past_length = 0
+            past_key_values = (None,) * self.config.n_layers
+        else:
+            if not isinstance(past_key_values, (tuple, list)) or len(past_key_values) != self.config.n_layers:
+                raise ValueError("past_key_values must contain one key/value pair per layer")
+            if length != 1:
+                raise ValueError("Cached decoding accepts exactly one new token")
+            lengths = set()
+            for pair in past_key_values:
+                if not isinstance(pair, (tuple, list)) or len(pair) != 2:
+                    raise ValueError("Each cache entry must contain key and value tensors")
+                key, value = pair
+                if not isinstance(key, torch.Tensor) or not isinstance(value, torch.Tensor):
+                    raise ValueError("Cache keys and values must be tensors")
+                if key.shape != value.shape or key.ndim != 4:
+                    raise ValueError("Cache key/value tensor shapes are invalid")
+                if key.shape[:2] != (batch, self.config.n_heads) or key.shape[3] != self.config.d_model // self.config.n_heads:
+                    raise ValueError("Cache dimensions do not match this model")
+                if key.device != token_ids.device or value.device != token_ids.device:
+                    raise ValueError("Cache and token tensors must use the same device")
+                lengths.add(key.shape[2])
+            if len(lengths) != 1:
+                raise ValueError("All layer caches must have the same sequence length")
+            past_length = lengths.pop()
+
+        if past_length + length > self.config.block_size:
+            raise ValueError("Cached context exceeds configured block_size")
+        positions = torch.arange(
+            past_length, past_length + length, device=token_ids.device
+        )
+        x = self.dropout(
+            self.token_embedding(token_ids) +
+            self.position_embedding(positions)[None, :, :]
+        )
+        presents = []
+        for block, past in zip(self.blocks, past_key_values):
+            x, present = block.forward_cached(x, past)
+            presents.append(present)
+        logits = self.language_head(self.final_norm(x))
+        return logits, tuple(presents)
+
     @torch.no_grad()
     def generate(self, token_ids, max_new_tokens=100, temperature=0.8,
                  top_k=40):
@@ -208,6 +301,34 @@ class DreamTransformer(nn.Module):
         if torch.any((token_ids < 0) | (token_ids >= self.config.vocab_size)):
             raise ValueError("generation prompt contains IDs outside the configured vocabulary")
         self.eval()
+        if max_new_tokens == 0:
+            return token_ids
+        # Cache is exact while the complete prompt + generation fits the learned
+        # absolute-position window. Once it would overflow, use the original
+        # sliding-window path so positions are re-based exactly as before.
+        if token_ids.shape[1] + max_new_tokens <= self.config.block_size:
+            logits, past_key_values = self.forward_cached(token_ids)
+            for step in range(max_new_tokens):
+                logits = logits[:, -1, :]
+                if temperature == 0:
+                    next_token = torch.argmax(logits, dim=-1, keepdim=True)
+                else:
+                    sampled_logits = logits / temperature
+                    if top_k:
+                        k = min(top_k, sampled_logits.size(-1))
+                        threshold = torch.topk(sampled_logits, k).values[:, [-1]]
+                        sampled_logits = sampled_logits.masked_fill(
+                            sampled_logits < threshold, float("-inf")
+                        )
+                    probabilities = F.softmax(sampled_logits, dim=-1)
+                    next_token = torch.multinomial(probabilities, num_samples=1)
+                token_ids = torch.cat((token_ids, next_token), dim=1)
+                if step + 1 < max_new_tokens:
+                    logits, past_key_values = self.forward_cached(
+                        next_token, past_key_values
+                    )
+            return token_ids
+
         for _ in range(max_new_tokens):
             context = token_ids[:, -self.config.block_size:]
             logits, _ = self(context)
