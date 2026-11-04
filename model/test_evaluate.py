@@ -133,5 +133,6 @@ class DreamEvaluationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "source groups"):
                 validate_language_subset(manifest_path, "en", subset, parent)
 
-\nif __name__ == "__main__":
+
+if __name__ == "__main__":
     unittest.main()
