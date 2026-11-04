@@ -71,6 +71,59 @@ class DreamTransformerTests(unittest.TestCase):
         second = self.model.generate(prompt.clone(), max_new_tokens=5, temperature=0)
         self.assertTrue(torch.equal(first, second))
 
+    def test_cached_prefill_and_incremental_logits_match_full_forward(self):
+        prompt = torch.tensor([[65, 66, 67, 68]])
+        with torch.inference_mode():
+            cached_logits, cache = self.model.forward_cached(prompt)
+            full_logits, _ = self.model(prompt)
+            self.assertTrue(torch.allclose(cached_logits, full_logits, atol=1e-6, rtol=1e-5))
+            history = prompt
+            for token in (torch.tensor([[69]]), torch.tensor([[70]]), torch.tensor([[71]])):
+                cached_logits, cache = self.model.forward_cached(token, cache)
+                history = torch.cat((history, token), dim=1)
+                full_logits, _ = self.model(history)
+                self.assertTrue(torch.allclose(
+                    cached_logits[:, -1, :], full_logits[:, -1, :],
+                    atol=1e-6, rtol=1e-5
+                ))
+
+    def test_cached_greedy_generation_matches_full_recomputation(self):
+        prompt = torch.tensor([[65, 66, 67]])
+        expected = prompt.clone()
+        with torch.inference_mode():
+            for _ in range(6):
+                logits, _ = self.model(expected[:, -self.config.block_size:])
+                expected = torch.cat((
+                    expected, torch.argmax(logits[:, -1, :], dim=-1, keepdim=True)
+                ), dim=1)
+            actual = self.model.generate(prompt.clone(), max_new_tokens=6, temperature=0)
+        self.assertTrue(torch.equal(actual, expected))
+
+    def test_generation_falls_back_to_sliding_window_when_cache_would_overflow(self):
+        prompt = torch.tensor([[65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78]])
+        expected = prompt.clone()
+        with torch.inference_mode():
+            for _ in range(5):
+                logits, _ = self.model(expected[:, -self.config.block_size:])
+                expected = torch.cat((
+                    expected, torch.argmax(logits[:, -1, :], dim=-1, keepdim=True)
+                ), dim=1)
+            actual = self.model.generate(prompt.clone(), max_new_tokens=5, temperature=0)
+        self.assertTrue(torch.equal(actual, expected))
+
+    def test_cached_forward_requires_eval_mode_and_valid_cache(self):
+        prompt = torch.tensor([[65, 66]])
+        self.model.train()
+        with self.assertRaisesRegex(RuntimeError, "model.eval"):
+            self.model.forward_cached(prompt)
+        self.model.eval()
+        with torch.inference_mode():
+            _, cache = self.model.forward_cached(prompt)
+            with self.assertRaisesRegex(ValueError, "exactly one new token"):
+                self.model.forward_cached(torch.tensor([[67, 68]]), cache)
+            with self.assertRaisesRegex(ValueError, "one key/value pair per layer"):
+                self.model.forward_cached(torch.tensor([[67]]), cache[:1])
+
     def test_negative_generation_temperature_is_rejected(self):
         prompt = torch.tensor([[65, 66]], dtype=torch.long)
         with self.assertRaises(ValueError):
