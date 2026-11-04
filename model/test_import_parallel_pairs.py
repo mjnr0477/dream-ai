@@ -124,6 +124,58 @@ class ParallelPairImporterTests(unittest.TestCase):
             self.assertNotEqual(bad.returncode, 0)
             self.assertIn("absolute HTTPS URLs", bad.stderr)
 
+    def test_story_id_groups_and_sft_loader_after_human_review(self):
+        from dream_transformer import DreamByteTokenizer
+        from sft import load_examples
+
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = self.make_input(root, count=8)
+            rows = [json.loads(line) for line in source.read_text().splitlines()]
+            for row in rows:
+                row.pop("source_group", None)
+                row["story_id"] = "private-story-" + row["translation"]["dav"].split()[-4]
+                row["id"] = "private-id@example.test"
+            # Distinct story IDs and record IDs must not be copied into generated files.
+            for index, row in enumerate(rows):
+                row["story_id"] = f"private-story-{index // 2}"
+                row["id"] = f"private-{index}@example.test"
+            source.write_text("".join(json.dumps(row) + "\\n" for row in rows), encoding="utf-8")
+            output = root / "out"
+            result = self.run_import(source, output)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            combined = "".join(path.read_text() for path in output.iterdir())
+            self.assertNotIn("private-story-", combined)
+            self.assertNotIn("private-", combined)
+            train_path = output / "sft-train-candidates.jsonl"
+            train = [json.loads(line) for line in train_path.read_text().splitlines()]
+            for row in train:
+                row["rights_confirmed"] = True
+                row["privacy_reviewed"] = True
+                row["quality_reviewed"] = True
+            reviewed = root / "reviewed.jsonl"
+            reviewed.write_text("".join(json.dumps(row) + "\\n" for row in train), encoding="utf-8")
+            examples = load_examples(reviewed, DreamByteTokenizer(), block_size=256)
+            self.assertEqual(len(examples), len(train))
+
+    def test_rejects_same_language_pair(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            source = self.make_input(root)
+            command = [
+                sys.executable, str(SCRIPT), "--input", str(source),
+                "--source-lang", "dav", "--target-lang", "dav",
+                "--source-name", "Local parallel export",
+                "--source-url", "https://example.org/dataset",
+                "--license", "CC-BY-4.0",
+                "--license-url", "https://example.org/license",
+                "--source-date", "2025-01-15",
+                "--output-dir", str(root / "out"),
+            ]
+            result = subprocess.run(command, capture_output=True, text=True, timeout=30)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("must be different", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
