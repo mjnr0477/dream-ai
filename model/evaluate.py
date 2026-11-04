@@ -21,10 +21,53 @@ def sha256(path):
     return digest.hexdigest()
 
 
+
+def validate_language_subset(manifest_path, language, data_path, parent_test_path):
+    """Verify a language file is an intact, source-isolated subset of the held-out test split."""
+    manifest_path = Path(manifest_path)
+    data_path = Path(data_path)
+    parent_test_path = Path(parent_test_path)
+    try:
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        test_split = manifest["splits"]["test"]
+        language_meta = test_split["language_files"][language]
+    except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+        raise ValueError(f"Invalid corpus manifest or missing test language {language!r}") from exc
+
+    parent_name = test_split.get("path")
+    language_name = language_meta.get("path")
+    if not isinstance(parent_name, str) or Path(parent_name).name != parent_name:
+        raise ValueError("Manifest contains an unsafe parent test path")
+    if not isinstance(language_name, str) or Path(language_name).name != language_name:
+        raise ValueError("Manifest contains an unsafe language test path")
+    if parent_test_path.name != parent_name or data_path.name != language_name:
+        raise ValueError("Evaluation files do not match the paths recorded in the manifest")
+
+    parent_hash = sha256(parent_test_path)
+    language_hash = sha256(data_path)
+    if parent_hash != test_split.get("sha256"):
+        raise ValueError("Parent test corpus hash does not match the corpus manifest")
+    if language_hash != language_meta.get("sha256"):
+        raise ValueError("Language test corpus hash does not match the corpus manifest")
+
+    parent_groups = test_split.get("source_group_ids")
+    language_groups = language_meta.get("source_group_ids")
+    if (not isinstance(parent_groups, list) or not parent_groups
+            or not isinstance(language_groups, list) or not language_groups
+            or len(set(parent_groups)) != len(parent_groups)
+            or len(set(language_groups)) != len(language_groups)
+            or not set(language_groups).issubset(set(parent_groups))):
+        raise ValueError("Language test source groups are not a valid subset of parent test groups")
+    return parent_hash
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--data", required=True, help="Held-out validation/test text")
+    parser.add_argument("--corpus-manifest", help="Manifest authorizing a per-language test subset")
+    parser.add_argument("--language", help="Exact language tag for a manifest-verified test subset")
+    parser.add_argument("--parent-test-data", help="Combined held-out test file containing the language subset")
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--batches", type=int, default=50)
     parser.add_argument("--seed", type=int, default=2026)
@@ -48,6 +91,17 @@ def main():
         raise SystemExit(f"Unsupported checkpoint tokenizer: {exc}") from exc
     text = data_path.read_text(encoding="utf-8")
     evaluation_hash = sha256(data_path)
+    subset_args = (args.corpus_manifest, args.language, args.parent_test_data)
+    if any(subset_args) and not all(subset_args):
+        raise SystemExit("corpus-manifest, language and parent-test-data must be supplied together.")
+    parent_test_hash = None
+    if args.language:
+        try:
+            parent_test_hash = validate_language_subset(
+                args.corpus_manifest, args.language, data_path, args.parent_test_data
+            )
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
     training_meta = checkpoint.get("training") or checkpoint.get("sft_training", {})
     training_hash = training_meta.get("corpus_sha256", training_meta.get("train_sha256"))
     validation_hash = training_meta.get("validation_sha256")
@@ -59,10 +113,11 @@ def main():
     sft_metadata = checkpoint.get("sft_training")
     if sft_metadata:
         expected_test_hash = sft_metadata.get("pretraining_test_sha256")
-        if not expected_test_hash or evaluation_hash != expected_test_hash:
+        authorized_test_hash = parent_test_hash if args.language else evaluation_hash
+        if not expected_test_hash or authorized_test_hash != expected_test_hash:
             raise SystemExit(
                 "SFT checkpoint evaluation must use the exact held-out test corpus "
-                "recorded in its pretraining manifest."
+                "or a manifest-verified language subset of that corpus."
             )
     tokens = torch.tensor(tokenizer.encode(text), dtype=torch.long)
     if len(tokens) < config.block_size + 2:
@@ -129,6 +184,8 @@ def main():
         "checkpoint_sha256": sha256(checkpoint_path),
         "evaluation_corpus": str(data_path),
         "evaluation_corpus_sha256": evaluation_hash,
+        "evaluation_language": args.language,
+        "evaluation_parent_test_sha256": parent_test_hash,
         "evaluation_bytes": len(text.encode("utf-8")),
         "evaluation_tokens": len(tokens),
         "sampled_target_tokens": total_target_tokens,
