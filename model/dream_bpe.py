@@ -5,7 +5,8 @@ are reconstructed from the checkpoint metadata for training and inference.
 """
 from __future__ import annotations
 
-from collections import Counter
+from collections import Counter, defaultdict
+import heapq
 import json
 from pathlib import Path
 import re
@@ -45,49 +46,92 @@ class DreamBPETokenizer:
     def train(cls, text, vocab_size=1024, min_frequency=2):
         if not isinstance(text, str):
             raise TypeError("BPE training input must be text")
-        if not isinstance(vocab_size, int) or not cls.base_vocab_size <= vocab_size <= 65536:
+        if (not isinstance(vocab_size, int) or isinstance(vocab_size, bool)
+                or not cls.base_vocab_size <= vocab_size <= 65536):
             raise ValueError("vocab_size must be between 256 and 65536")
-        if not isinstance(min_frequency, int) or min_frequency < 1:
+        if (not isinstance(min_frequency, int) or isinstance(min_frequency, bool)
+                or min_frequency < 1):
             raise ValueError("min_frequency must be a positive integer")
 
         # Keep whitespace runs and non-whitespace runs separate so merges do
-        # not accidentally combine across lexical boundaries.
+        # not accidentally combine across lexical boundaries. Each distinct
+        # piece is represented once and weighted by its corpus frequency.
         frequencies = Counter(re.findall(r"\s+|[^\s]+", text))
-        sequences = {}
-        for piece, count in frequencies.items():
-            sequences[tuple(piece.encode("utf-8"))] = count
+        sequences = [
+            (list(piece.encode("utf-8")), frequency)
+            for piece, frequency in frequencies.items()
+        ]
+
+        # Maintain pair counts and an inverted index. A merge only changes
+        # sequences containing that pair, rather than rescanning the entire
+        # vocabulary of unique words for every merge.
+        pair_counts = Counter()
+        pair_sequences = defaultdict(set)
+        for sequence_id, (sequence, frequency) in enumerate(sequences):
+            for pair, occurrences in Counter(zip(sequence, sequence[1:])).items():
+                pair_counts[pair] += occurrences * frequency
+                pair_sequences[pair].add(sequence_id)
+
+        versions = defaultdict(int)
+        heap = []
+        for pair, count in pair_counts.items():
+            heapq.heappush(heap, (-count, pair, versions[pair]))
 
         merges = []
         while cls.base_vocab_size + len(merges) < vocab_size:
-            pair_counts = Counter()
-            for sequence, frequency in sequences.items():
-                for pair in zip(sequence, sequence[1:]):
-                    pair_counts[pair] += frequency
-            if not pair_counts:
+            best_pair = None
+            best_count = 0
+            while heap:
+                negative_count, pair, version = heapq.heappop(heap)
+                count = -negative_count
+                if version == versions[pair] and count == pair_counts[pair]:
+                    best_pair, best_count = pair, count
+                    break
+            if best_pair is None or best_count < min_frequency:
                 break
-            best_count = max(pair_counts.values())
-            if best_count < min_frequency:
-                break
-            # Lexicographic tie-breaking makes training reproducible.
-            best_pair = min(pair for pair, count in pair_counts.items()
-                            if count == best_count)
+
             new_id = cls.base_vocab_size + len(merges)
             merges.append(best_pair)
-            updated = {}
-            for sequence, frequency in sequences.items():
-                result = []
+            affected_ids = sorted(pair_sequences.get(best_pair, ()))
+            deltas = Counter()
+
+            for sequence_id in affected_ids:
+                sequence, frequency = sequences[sequence_id]
+                old_counts = Counter(zip(sequence, sequence[1:]))
+                merged = []
                 index = 0
                 while index < len(sequence):
                     if (index + 1 < len(sequence)
                             and (sequence[index], sequence[index + 1]) == best_pair):
-                        result.append(new_id)
+                        merged.append(new_id)
                         index += 2
                     else:
-                        result.append(sequence[index])
+                        merged.append(sequence[index])
                         index += 1
-                key = tuple(result)
-                updated[key] = updated.get(key, 0) + frequency
-            sequences = updated
+                new_counts = Counter(zip(merged, merged[1:]))
+
+                for pair in old_counts.keys() | new_counts.keys():
+                    old_occurrences = old_counts.get(pair, 0)
+                    new_occurrences = new_counts.get(pair, 0)
+                    if old_occurrences and not new_occurrences:
+                        pair_sequences[pair].discard(sequence_id)
+                        if not pair_sequences[pair]:
+                            del pair_sequences[pair]
+                    elif new_occurrences and not old_occurrences:
+                        pair_sequences[pair].add(sequence_id)
+                    difference = new_occurrences - old_occurrences
+                    if difference:
+                        deltas[pair] += difference * frequency
+                sequences[sequence_id] = (merged, frequency)
+
+            for pair, delta in deltas.items():
+                pair_counts[pair] += delta
+                versions[pair] += 1
+                if pair_counts[pair] > 0:
+                    heapq.heappush(
+                        heap, (-pair_counts[pair], pair, versions[pair])
+                    )
+
         return cls(merges)
 
     def encode(self, text):
