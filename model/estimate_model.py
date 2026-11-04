@@ -66,6 +66,7 @@ def estimate_model(config: DreamConfig) -> dict:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--vocab-size", type=int, default=256)
     parser.add_argument("--block-size", type=int, default=256)
     parser.add_argument("--d-model", type=int, default=256)
     parser.add_argument("--heads", type=int, default=8)
@@ -76,6 +77,7 @@ def main() -> None:
 
     try:
         config = DreamConfig(
+            vocab_size=args.vocab_size,
             block_size=args.block_size,
             d_model=args.d_model,
             n_heads=args.heads,
