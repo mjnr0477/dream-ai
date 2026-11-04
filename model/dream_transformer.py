@@ -1,7 +1,8 @@
 """DREAM decoder-only transformer, initialized from random weights.
 
 This is DREAM's own experimental architecture. It does not load weights from
-another model. The byte tokenizer is deterministic and has no external vocab.
+another model. The legacy byte tokenizer and optional byte-fallback BPE tokenizer
+are deterministic and use no borrowed vocabulary.
 """
 from dataclasses import dataclass
 import math

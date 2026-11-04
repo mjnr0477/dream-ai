@@ -32,6 +32,25 @@ class DreamBPEGenerationTests(unittest.TestCase):
         self.assertEqual(token.item(), 257)
         self.assertEqual(state, [(0, 0x80, 0xBF)])
 
+    def test_utf8_transition_rejects_overlong_surrogate_and_out_of_range(self):
+        config = DreamConfig(vocab_size=256, block_size=8, d_model=16,
+                             n_heads=4, n_layers=1, dropout=0.0)
+        model = DreamTransformer(config)
+        valid = (b"\\xe0\\xa0\\x80", b"\\xed\\x9f\\xbf",
+                 b"\\xf0\\x90\\x80\\x80", b"\\xf4\\x8f\\xbf\\xbf")
+        invalid = (b"\\xc0\\x80", b"\\xe0\\x80\\x80",
+                   b"\\xed\\xa0\\x80", b"\\xf4\\x90\\x80\\x80",
+                   b"\\xf5\\x80\\x80\\x80")
+        for piece in valid:
+            with self.subTest(piece=piece):
+                self.assertEqual(
+                    model._advance_utf8_piece((0, 0x80, 0xBF), piece),
+                    (0, 0x80, 0xBF)
+                )
+        for piece in invalid:
+            with self.subTest(piece=piece):
+                self.assertIsNone(model._advance_utf8_piece((0, 0x80, 0xBF), piece))
+
     def test_generation_emits_valid_utf8_with_cached_and_sliding_paths(self):
         sample = "Habari dunia — akili huru kutoka Kenya 🇰🇪 こんにちは مرحبا"
         tokenizer = DreamBPETokenizer.train(sample * 10, vocab_size=320)
