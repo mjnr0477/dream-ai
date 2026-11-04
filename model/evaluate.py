@@ -8,7 +8,8 @@ from pathlib import Path
 
 import torch
 
-from dream_transformer import DreamByteTokenizer, DreamConfig, DreamTransformer
+from checkpoint_tokenizer import load_tokenizer
+from dream_transformer import DreamConfig, DreamTransformer
 
 
 def sha256(path):
@@ -39,10 +40,11 @@ def main():
     checkpoint_path = Path(args.checkpoint)
     data_path = Path(args.data)
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
-    if checkpoint.get("tokenizer") != "utf8-byte-v1":
-        raise SystemExit("Unsupported checkpoint tokenizer.")
     config = DreamConfig(**checkpoint["config"])
-    tokenizer = DreamByteTokenizer()
+    try:
+        tokenizer = load_tokenizer(checkpoint, config)
+    except ValueError as exc:
+        raise SystemExit(f"Unsupported checkpoint tokenizer: {exc}") from exc
     text = data_path.read_text(encoding="utf-8")
     evaluation_hash = sha256(data_path)
     training_meta = checkpoint.get("training") or checkpoint.get("sft_training", {})

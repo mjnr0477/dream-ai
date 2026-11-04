@@ -2,7 +2,8 @@
 import argparse
 import torch
 
-from dream_transformer import DreamByteTokenizer, DreamConfig, DreamTransformer
+from checkpoint_tokenizer import load_tokenizer
+from dream_transformer import DreamConfig, DreamTransformer
 
 
 def main():
@@ -16,10 +17,13 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     checkpoint = torch.load(args.checkpoint, map_location=device, weights_only=True)
     config = DreamConfig(**checkpoint["config"])
+    try:
+        tokenizer = load_tokenizer(checkpoint, config)
+    except ValueError as exc:
+        raise SystemExit(f"Unsupported checkpoint tokenizer: {exc}") from exc
     model = DreamTransformer(config).to(device)
     model.load_state_dict(checkpoint["model_state"])
     model.eval()
-    tokenizer = DreamByteTokenizer()
     prompt = tokenizer.encode(args.prompt)
     if not prompt:
         raise SystemExit("Prompt must not be empty.")
