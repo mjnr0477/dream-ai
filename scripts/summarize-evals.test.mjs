@@ -12,6 +12,8 @@ function result(id, language, overrides = {}) {
     completedTrainingSteps: 1200,
     runtimeDevice: "cpu",
     runtimeParameters: 250000,
+    tokenizer: "UTF8ByteTokenizer",
+    runtimeArchitecture: "{\"d_model\":16}",
     id,
     category: "multilingual",
     language,
