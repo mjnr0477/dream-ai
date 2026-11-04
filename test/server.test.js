@@ -9,9 +9,15 @@ const base = `http://127.0.0.1:${port}`;
 let server;
 let model;
 const modelRequests = [];
+let modelEngine = "dream-native-transformer";
 
 before(async () => {
   model = http.createServer((req, res) => {
+    if (req.method === "GET" && req.url === "/health") {
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ ok: true, engine: modelEngine }));
+      return;
+    }
     const chunks = [];
     req.on("data", chunk => chunks.push(chunk));
     req.on("end", () => {
@@ -114,6 +120,22 @@ test("chat endpoint uses the DREAM runtime in all supported modes", async () => 
   assert.match(modelRequests[0].body.messages[0].content, /Answer clearly/);
   assert.match(modelRequests[1].body.messages[0].content, /senior software engineer/);
   assert.match(modelRequests[2].body.messages[0].content, /patient expert tutor/);
+});
+
+test("chat endpoint refuses a non-native OpenAI-compatible model service", async () => {
+  modelEngine = "third-party-compatible-api";
+  try {
+    const before = modelRequests.length;
+    const response = await postChat({
+      messages: [{ role: "user", content: "Hello DREAM AI" }]
+    });
+    assert.equal(response.status, 502);
+    const data = await response.json();
+    assert.match(data.error, /not the native DREAM transformer/i);
+    assert.equal(modelRequests.length, before);
+  } finally {
+    modelEngine = "dream-native-transformer";
+  }
 });
 
 test("chat endpoint rejects unsupported modes", async () => {
