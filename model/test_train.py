@@ -60,6 +60,7 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             self.assertIsNotNone(saved["training"]["last_validation_loss"])
             self.assertEqual(saved["training"]["eval_batches"], 10)
             self.assertEqual(saved["training"]["eval_every"], 1)
+            self.assertEqual(saved["training"]["max_grad_norm"], 1.0)
             self.assertEqual(saved["training"]["grad_accum_steps"], 2)
             self.assertEqual(saved["training"]["effective_batch_size"], 4)
             self.assertIn("torch_rng_state", saved)
@@ -340,6 +341,47 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             self.assertTrue(torch.equal(
                 expected["torch_rng_state"], actual["torch_rng_state"]
             ))
+
+
+    def test_gradient_clipping_threshold_is_validated_and_locked_on_resume(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "train.txt").write_text(
+                "DREAM gradient safety training material with enough tokens. " * 8,
+                encoding="utf-8"
+            )
+            (root / "validation.txt").write_text(
+                "Independent validation material for gradient safety tests. " * 8,
+                encoding="utf-8"
+            )
+            checkpoint = root / "gradient-safe.pt"
+            trained = self.run_training(
+                root, checkpoint, extra=("--max-grad-norm", "0.5")
+            )
+            self.assertEqual(trained.returncode, 0, trained.stdout + trained.stderr)
+
+            import torch
+            saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
+            self.assertEqual(saved["training"]["max_grad_norm"], 0.5)
+
+            mismatched = self.run_training(
+                root, checkpoint,
+                extra=("--resume", str(checkpoint), "--max-grad-norm", "1.0")
+            )
+            self.assertNotEqual(mismatched.returncode, 0)
+            self.assertIn("max gradient norm does not match", mismatched.stderr)
+
+            for invalid in ("0", "-1", "nan", "inf"):
+                with self.subTest(invalid=invalid):
+                    rejected = self.run_training(
+                        root, root / "invalid.pt",
+                        extra=("--max-grad-norm", invalid)
+                    )
+                    self.assertNotEqual(rejected.returncode, 0)
+                    self.assertIn(
+                        "max-grad-norm must be finite and positive",
+                        rejected.stderr
+                    )
 
 
 if __name__ == "__main__":
