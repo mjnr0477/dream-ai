@@ -81,6 +81,29 @@ class CorpusAuditTests(unittest.TestCase):
             self.assertNotIn("learner@example.org", serialized)
             self.assertNotIn("0712345678", serialized)
 
+    def test_flags_international_phone_numbers_without_copying_values(self):
+        rows = [
+            self.record(
+                "us-number",
+                "For assistance call +1 (202) 555-0199 during normal business hours."
+            ),
+            self.record(
+                "uk-number",
+                "For support call +44 20 7946 0958 during normal business hours."
+            ),
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            result, report = self.run_audit(Path(directory), rows)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            matches = [
+                item for item in report["findings"]
+                if item["code"] == "possible_international_phone"
+            ]
+            self.assertEqual(len(matches), 2)
+            serialized = json.dumps(report)
+            self.assertNotIn("+1 (202) 555-0199", serialized)
+            self.assertNotIn("+44 20 7946 0958", serialized)
+
     def test_private_record_identifier_is_not_exposed_in_report(self):
         private_id = "learner@example.org"
         with tempfile.TemporaryDirectory() as directory:
