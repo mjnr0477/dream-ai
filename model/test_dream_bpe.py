@@ -1,3 +1,5 @@
+import random
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -93,6 +95,47 @@ class DreamBPETokenizerTests(unittest.TestCase):
             with self.subTest(sample=sample[:24]):
                 self.assertEqual(tokenizer.encode(sample), reference_encode(sample))
                 self.assertEqual(tokenizer.decode(tokenizer.encode(sample)), sample)
+
+    def test_heap_encoder_matches_reference_on_long_and_varied_text(self):
+        corpus = (
+            "DREAM AI learns languages safely. akili bandia Kenya 🇰🇪\n"
+            "abcabc ababab xyzxyz " * 40
+        )
+        tokenizer = DreamBPETokenizer.train(corpus, vocab_size=420)
+        alphabet = list("abcxyz  —") + ["🇰🇪", "こんにちは", "مرحبا", "\t", "\n"]
+        randomizer = random.Random(20261105)
+        samples = [
+            corpus,
+            "a" * 2048,
+            "abababababababababab" * 40,
+            "".join(randomizer.choice(alphabet) for _ in range(600)),
+        ]
+
+        def reference_encode(text):
+            result = []
+            for piece in re.findall(r"\s+|[^\s]+", text):
+                tokens = list(piece.encode("utf-8"))
+                for rank, (left, right) in enumerate(tokenizer.merges):
+                    merged = []
+                    index = 0
+                    while index < len(tokens):
+                        if (index + 1 < len(tokens)
+                                and tokens[index] == left
+                                and tokens[index + 1] == right):
+                            merged.append(256 + rank)
+                            index += 2
+                        else:
+                            merged.append(tokens[index])
+                            index += 1
+                    tokens = merged
+                result.extend(tokens)
+            return result
+
+        for sample in samples:
+            with self.subTest(length=len(sample)):
+                encoded = tokenizer.encode(sample)
+                self.assertEqual(encoded, reference_encode(sample))
+                self.assertEqual(tokenizer.decode(encoded), sample)
 
     def test_token_byte_length_matches_merged_utf8_piece_lengths(self):
         sample = "akili bandia Kenya 🇰🇪 " * 8
