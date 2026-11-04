@@ -172,7 +172,7 @@ async function checkHealth() {
     const response = await fetch("/api/health");
     const health = await response.json();
     if (!response.ok) throw new Error("Health check failed");
-    statusText.textContent = health.modelConfigured ? "Model configured · ready to test" : "Service online · model setup needed";
+    statusText.textContent = health.modelConfigured ? "Service online · model connection checked when you chat" : "Service online · model setup needed";
     statusDot.classList.add("online");
   } catch {
     statusText.textContent = "Service connection unavailable";
@@ -200,6 +200,9 @@ async function sendMessage(text) {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "The request failed.");
     renderAssistantContent(replyNode, data.reply);
+    statusText.textContent = data.source === "dream-model"
+      ? "DREAM native model connected"
+      : "Application online · native model not connected";
     const tools = document.createElement("div");
     tools.className = "message-tools";
     const copy = document.createElement("button");
@@ -218,6 +221,7 @@ async function sendMessage(text) {
     }
   } catch (error) {
     replyNode.textContent = error.message || "Something went wrong. Please try again.";
+    statusText.textContent = "Model runtime unavailable · check connection";
     messages.pop();
   } finally {
     send.disabled = false;
