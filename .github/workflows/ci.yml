@@ -58,6 +58,13 @@ jobs:
           --data /tmp/dream-smoke-data/test.txt
           --batch-size 1 --batches 1 --sample-tokens 8
           --out /tmp/dream-smoke-eval.json
+      - name: Evaluate each language independently on held-out pretraining data
+        run: >-
+          python model/evaluate_multilingual.py
+          --checkpoint /tmp/dream-smoke-small.pt
+          --manifest /tmp/dream-smoke-data/manifest.json
+          --batch-size 1 --batches 1 --sample-tokens 0
+          --out /tmp/dream-smoke-multilingual-eval.json
       - name: Cross-check checkpoint audit and held-out evaluation
         run: >-
           python model/validate_release.py
@@ -86,3 +93,10 @@ jobs:
           --data /tmp/dream-smoke-data/test.txt
           --batch-size 1 --batches 1 --sample-tokens 8
           --out /tmp/dream-smoke-instruct-eval.json
+      - name: Evaluate each language independently on held-out instruction checkpoint
+        run: >-
+          python model/evaluate_multilingual.py
+          --checkpoint /tmp/dream-smoke-instruct.pt
+          --manifest /tmp/dream-smoke-data/manifest.json
+          --batch-size 1 --batches 1 --sample-tokens 0
+          --out /tmp/dream-smoke-instruct-multilingual-eval.json

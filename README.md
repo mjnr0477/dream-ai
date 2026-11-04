@@ -28,6 +28,7 @@ See [model/BASELINE.md](model/BASELINE.md) for the architecture, commands and re
 - `model/benchmark_multilingual_tokenizer.py`: measures BPE token efficiency per language on held-out UTF-8 text, checks train/test text overlap and verifies exact Unicode round trips. This measures compression only, not language understanding.
 - `model/train.py`: trains from random initialization and optionally uses activation checkpointing to reduce GPU memory at the cost of extra recomputation; the setting is recorded and enforced on resume.
 - `model/evaluate.py`: reconstructs the checkpoint tokenizer and reports held-out cross-entropy per token and per represented UTF-8 byte, bits-per-byte, perplexity-per-byte, corpus/checkpoint hashes and a sample generation.
+- `model/evaluate_multilingual.py`: verifies manifest hashes and source-group isolation, then evaluates each language-specific held-out test file independently for pretrained or SFT checkpoints; reports per-language results without a pooled score.
 - `model/generate.py`: local checkpoint inference.
 - `model/benchmark_generation.py`: compares cached greedy generation with exact full-prefix recomputation, verifies identical token output, and reports local median latency and throughput. The result is hardware/checkpoint-specific, not a model-quality score.
 - `model/audit_checkpoint.py`: read-only preflight audit for checkpoint tokenizer/configuration, trained-step metadata, exact tensor keys/shapes/dtypes, finite weights, strict state loading and SHA-256 identity.
@@ -46,6 +47,8 @@ python model/train.py --data data/prepared/train.txt --validation-data data/prep
 python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --resume checkpoints/dream-small.pt
 python model/audit_checkpoint.py --checkpoint checkpoints/dream-small.pt --out eval-results/checkpoint-audit.json
 python model/evaluate.py --checkpoint checkpoints/dream-small.pt --data data/prepared/test.txt --out eval-results/dream-small.json
+# Report held-out metrics separately for every language in the corpus manifest:
+python model/evaluate_multilingual.py --checkpoint checkpoints/dream-small.pt --manifest data/prepared/manifest.json --out eval-results/dream-multilingual.json
 # Then instruction-tune on separate, reviewed conversation JSONL files:
 python model/sft.py --checkpoint checkpoints/dream-small.pt --train-data data/sft-train.jsonl --validation-data data/sft-validation.jsonl --pretraining-manifest data/prepared/manifest.json --pretraining-test-data data/prepared/test.txt --steps 1000 --batch-size 2 --grad-accum-steps 4 --out checkpoints/dream-instruct.pt
 python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER: Hello DREAM.\nASSISTANT:"
