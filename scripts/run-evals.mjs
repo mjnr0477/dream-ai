@@ -37,7 +37,12 @@ if (
   !Number.isInteger(runtime?.completed_training_steps) ||
   runtime.completed_training_steps < 1 ||
   !Number.isInteger(runtime?.parameters) ||
-  runtime.parameters < 1
+  runtime.parameters < 1 ||
+  typeof runtime?.tokenizer !== "string" ||
+  !runtime.tokenizer ||
+  !runtime?.architecture ||
+  typeof runtime.architecture !== "object" ||
+  Array.isArray(runtime.architecture)
 ) {
   throw new Error("Runtime identity or checkpoint provenance is missing; refusing to benchmark an unverified model.");
 }
@@ -90,6 +95,8 @@ for (const item of selected) {
     completedTrainingSteps: runtime.completed_training_steps,
     runtimeDevice: runtime.device,
     runtimeParameters: runtime.parameters,
+    tokenizer: runtime.tokenizer,
+    runtimeArchitecture: JSON.stringify(runtime.architecture),
     id: item.id,
     category: item.category,
     language: item.language ?? null,
