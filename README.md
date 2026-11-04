@@ -29,6 +29,7 @@ See [model/BASELINE.md](model/BASELINE.md) for the architecture, commands and re
 - `model/train.py`: trains from random initialization.
 - `model/evaluate.py`: produces a held-out corpus report with cross-entropy, bits-per-byte, perplexity-per-byte, corpus/checkpoint hashes and a sample generation.
 - `model/generate.py`: local checkpoint inference.
+- `model/benchmark_generation.py`: compares cached greedy generation with exact full-prefix recomputation, verifies identical token output, and reports local median latency and throughput. The result is hardware/checkpoint-specific, not a model-quality score.
 - `model/serve.py`: serves DREAM checkpoints through a local HTTP API; the JSON protocol does not call an external AI.
 - `model/test_*.py`: tests cover transformer behavior (including cached-vs-full generation equivalence, context-window fallback and strict UTF-8 output validation), corpus preparation, training/checkpoint resume, SFT masking and provenance, notebook code cells, and the local authenticated HTTP API. CI also runs a full tiny pretraining → held-out evaluation → SFT → held-out evaluation sequence.
 - `data/README.md`: strict data provenance, privacy and licensing rules. SFT rejects source groups that appear in the pretraining held-out test split, duplicate record IDs or normalized dialogue content across its train/validation splits; it verifies the manifest against the exact held-out test file, and its evaluator requires that exact test-corpus hash.
