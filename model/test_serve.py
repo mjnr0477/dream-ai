@@ -5,7 +5,9 @@ import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
+from http.server import ThreadingHTTPServer
 import unittest
 import urllib.error
 import urllib.request
@@ -15,7 +17,7 @@ import torch
 
 from dream_bpe import DreamBPETokenizer
 from dream_transformer import DreamConfig, DreamTransformer
-from serve import load_model
+from serve import create_handler, load_model
 
 SERVER = Path(__file__).with_name("serve.py")
 
@@ -127,6 +129,65 @@ class DreamServingTests(unittest.TestCase):
             loaded_tokenizer.decode(loaded_tokenizer.encode(sample)), sample
         )
         self.assertEqual(metadata["completed_steps"], 1)
+
+    def test_bpe_checkpoint_serves_native_unicode_completion_over_http(self):
+        sample = "habari dunia — akili huru kutoka Kenya 🇰🇪 " * 8
+        tokenizer = DreamBPETokenizer.train(sample, vocab_size=300)
+        config = DreamConfig(
+            vocab_size=tokenizer.vocab_size, block_size=64,
+            d_model=16, n_heads=4, n_layers=1, dropout=0.0
+        )
+        model = DreamTransformer(config)
+        with torch.no_grad():
+            for parameter in model.parameters():
+                parameter.zero_()
+            model.final_norm.bias.fill_(1.0)
+            model.token_embedding.weight[65].fill_(1.0)
+        checkpoint = self.root / "dream-bpe-http.pt"
+        torch.save({
+            "model_state": model.state_dict(),
+            "config": config.__dict__,
+            "tokenizer": tokenizer.to_dict(),
+            "training": {"completed_steps": 1, "initialization": "test-fixture"}
+        }, checkpoint)
+        loaded_model, loaded_tokenizer, loaded_config, _ = load_model(
+            checkpoint, "cpu"
+        )
+        handler = create_handler(
+            loaded_model, loaded_tokenizer, loaded_config,
+            "dream-bpe-http", "bpe-test-token", "cpu"
+        )
+        server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            request = urllib.request.Request(
+                f"http://127.0.0.1:{server.server_port}/v1/chat/completions",
+                data=json.dumps({
+                    "model": "dream-bpe-http",
+                    "messages": [{"role": "user", "content": "Habari DREAM"}],
+                    "max_tokens": 1,
+                    "temperature": 0
+                }).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer bpe-test-token"
+                },
+                method="POST"
+            )
+            with urllib.request.urlopen(request, timeout=10) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+            self.assertEqual(payload["model"], "dream-bpe-http")
+            self.assertEqual(
+                payload["choices"][0]["message"]["content"], "A"
+            )
+            self.assertEqual(
+                loaded_tokenizer.decode(loaded_tokenizer.encode(sample)), sample
+            )
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
 
     def test_health_identifies_native_runtime(self):
         status, body = self.request("GET", "/health")
