@@ -2,6 +2,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from collections import Counter
+
 from dream_bpe import DreamBPETokenizer
 
 
@@ -10,6 +12,71 @@ class DreamBPETokenizerTests(unittest.TestCase):
         sample = "DREAM AI — akili huru kutoka Kenya 🇰🇪"
         tokenizer = DreamBPETokenizer.train(sample * 5, vocab_size=320)
         self.assertEqual(tokenizer.decode(tokenizer.encode(sample)), sample)
+
+    def test_incremental_training_matches_full_rescan_reference(self):
+        import re
+
+        def reference_train(text, vocab_size, min_frequency):
+            frequencies = Counter(re.findall(r"\\s+|[^\\s]+", text))
+            sequences = {
+                tuple(piece.encode("utf-8")): count
+                for piece, count in frequencies.items()
+            }
+            merges = []
+            while 256 + len(merges) < vocab_size:
+                pair_counts = Counter()
+                for sequence, frequency in sequences.items():
+                    for pair in zip(sequence, sequence[1:]):
+                        pair_counts[pair] += frequency
+                if not pair_counts:
+                    break
+                best_count = max(pair_counts.values())
+                if best_count < min_frequency:
+                    break
+                best_pair = min(
+                    pair for pair, count in pair_counts.items()
+                    if count == best_count
+                )
+                new_id = 256 + len(merges)
+                merges.append(best_pair)
+                updated = {}
+                for sequence, frequency in sequences.items():
+                    merged = []
+                    index = 0
+                    while index < len(sequence):
+                        if (index + 1 < len(sequence)
+                                and (sequence[index], sequence[index + 1]) == best_pair):
+                            merged.append(new_id)
+                            index += 2
+                        else:
+                            merged.append(sequence[index])
+                            index += 1
+                    key = tuple(merged)
+                    updated[key] = updated.get(key, 0) + frequency
+                sequences = updated
+            return merges
+
+        corpora = [
+            "aaaa aaaa aaa ababab ababa\\n" * 5,
+            "akili bandia Kenya 🇰🇪 こんにちは مرحبا\\n" * 7,
+            "abcabc abcabc abccba xyzxyz\\n" * 4,
+            "one two three four five\\n" * 3 + "one one two two\\n" * 5,
+        ]
+        for corpus in corpora:
+            for minimum in (1, 2, 4, 9):
+                expected = reference_train(corpus, 310, minimum)
+                actual = DreamBPETokenizer.train(
+                    corpus, vocab_size=310, min_frequency=minimum
+                ).merges
+                with self.subTest(min_frequency=minimum, corpus=corpus[:12]):
+                    self.assertEqual(actual, expected)
+
+    def test_incremental_training_handles_overlapping_pairs_left_to_right(self):
+        corpus = "aaaaa " * 12
+        tokenizer = DreamBPETokenizer.train(corpus, vocab_size=270, min_frequency=2)
+        self.assertEqual(
+            tokenizer.decode(tokenizer.encode(corpus)), corpus
+        )
 
     def test_training_is_deterministic(self):
         corpus = ("dream ai builds independent intelligence\n" * 20

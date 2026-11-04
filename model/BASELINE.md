@@ -55,7 +55,7 @@ The server binds to localhost by default, serializes model generation to bound i
 
 ## Multilingual BPE tokenizer and checkpoint compatibility
 
-`model/dream_bpe.py` implements a deterministic byte-fallback BPE tokenizer. It can now be used end-to-end in native DREAM pretraining, supervised fine-tuning, checkpoint auditing, evaluation, local generation and serving. Existing `utf8-byte-v1` checkpoints and the default byte-tokenizer training path remain compatible.
+`model/dream_bpe.py` implements a deterministic byte-fallback BPE tokenizer. Its trainer maintains weighted adjacent-pair counts and an inverted sequence index so each merge updates only affected unique text pieces instead of rescanning every piece. It can now be used end-to-end in native DREAM pretraining, supervised fine-tuning, checkpoint auditing, evaluation, local generation and serving. Existing `utf8-byte-v1` checkpoints and the default byte-tokenizer training path remain compatible.
 
 Train a BPE checkpoint by selecting the tokenizer explicitly:
 
