@@ -226,6 +226,43 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             self.assertIn("matches training or validation", result.stderr)
 
 
+    def test_activation_checkpointing_is_recorded_and_required_on_resume(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "train.txt").write_text(
+                "DREAM checkpointed training corpus with varied tokens. " * 12,
+                encoding="utf-8"
+            )
+            (root / "validation.txt").write_text(
+                "Independent DREAM validation corpus for checkpointing. " * 12,
+                encoding="utf-8"
+            )
+            checkpoint = root / "checkpointed.pt"
+            trained = self.run_training(
+                root, checkpoint, extra=("--gradient-checkpointing",)
+            )
+            self.assertEqual(trained.returncode, 0, trained.stdout + trained.stderr)
+
+            import torch
+            saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
+            self.assertTrue(saved["training"]["gradient_checkpointing"])
+
+            mismatched = self.run_training(
+                root, checkpoint,
+                extra=("--resume", str(checkpoint))
+            )
+            self.assertNotEqual(mismatched.returncode, 0)
+            self.assertIn(
+                "gradient checkpointing setting does not match",
+                mismatched.stderr
+            )
+
+            resumed = self.run_training(
+                root, checkpoint,
+                extra=("--resume", str(checkpoint), "--gradient-checkpointing")
+            )
+            self.assertEqual(resumed.returncode, 0, resumed.stdout + resumed.stderr)
+
     def test_interrupted_resume_matches_uninterrupted_training_exactly(self):
         import torch
 
@@ -243,19 +280,30 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             resumed_checkpoint = root / "resumed.pt"
 
             continuous = self.run_training(
-                root, continuous_checkpoint, extra=("--steps", "4")
+                root, continuous_checkpoint,
+                extra=("--steps", "4", "--gradient-checkpointing")
             )
             self.assertEqual(
                 continuous.returncode, 0, continuous.stdout + continuous.stderr
             )
 
-            interrupted = self.run_training(root, resumed_checkpoint)
+            interrupted = self.run_training(
+                root, resumed_checkpoint, extra=("--gradient-checkpointing",)
+            )
             self.assertEqual(
                 interrupted.returncode, 0, interrupted.stdout + interrupted.stderr
             )
-            resumed = self.run_training(
+            mismatch = self.run_training(
                 root, resumed_checkpoint,
                 extra=("--resume", str(resumed_checkpoint), "--steps", "2")
+            )
+            self.assertNotEqual(mismatch.returncode, 0)
+            self.assertIn("gradient checkpointing setting does not match", mismatch.stderr)
+
+            resumed = self.run_training(
+                root, resumed_checkpoint,
+                extra=("--resume", str(resumed_checkpoint), "--steps", "2",
+                       "--gradient-checkpointing")
             )
             self.assertEqual(resumed.returncode, 0, resumed.stdout + resumed.stderr)
 
@@ -267,6 +315,7 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             )
             self.assertEqual(expected["training"]["completed_steps"], 4)
             self.assertEqual(actual["training"]["completed_steps"], 4)
+            self.assertTrue(actual["training"]["gradient_checkpointing"])
             self.assertEqual(expected["model_state"].keys(), actual["model_state"].keys())
             for name in expected["model_state"]:
                 with self.subTest(parameter=name):

@@ -166,6 +166,40 @@ class DreamTransformerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.model.generate(prompt, temperature=-0.1)
 
+    def test_activation_checkpointing_matches_normal_forward_and_gradients(self):
+        torch.manual_seed(123)
+        config = DreamConfig(
+            block_size=16, d_model=32, n_heads=4, n_layers=2, dropout=0.0
+        )
+        regular = DreamTransformer(config).train()
+        checkpointed = DreamTransformer(config).train()
+        checkpointed.load_state_dict(regular.state_dict())
+        checkpointed.gradient_checkpointing = True
+        tokens = torch.randint(0, 256, (2, 12), dtype=torch.long)
+        targets = torch.randint(0, 256, (2, 12), dtype=torch.long)
+
+        regular_logits, regular_loss = regular(tokens, targets)
+        checkpoint_logits, checkpoint_loss = checkpointed(tokens, targets)
+        self.assertTrue(torch.allclose(
+            regular_logits, checkpoint_logits, atol=1e-6, rtol=1e-5
+        ))
+        self.assertTrue(torch.allclose(
+            regular_loss, checkpoint_loss, atol=1e-7, rtol=1e-6
+        ))
+
+        regular_loss.backward()
+        checkpoint_loss.backward()
+        for (regular_name, regular_parameter), (
+            checkpoint_name, checkpoint_parameter
+        ) in zip(regular.named_parameters(), checkpointed.named_parameters()):
+            self.assertEqual(regular_name, checkpoint_name)
+            self.assertIsNotNone(regular_parameter.grad)
+            self.assertIsNotNone(checkpoint_parameter.grad)
+            self.assertTrue(torch.allclose(
+                regular_parameter.grad, checkpoint_parameter.grad,
+                atol=1e-6, rtol=1e-5
+            ), msg=f"Gradient mismatch for {regular_name}")
+
     def test_training_step_updates_parameters(self):
         data = torch.randint(0, 256, (128,), dtype=torch.long)
         x, y = batches(data, batch_size=2, block_size=8, device="cpu")
@@ -179,6 +213,37 @@ class DreamTransformerTests(unittest.TestCase):
         loss.backward()
         optimizer.step()
         self.assertFalse(torch.equal(before, model.token_embedding.weight.detach()))
+
+    def test_activation_checkpointing_preserves_forward_and_gradients(self):
+        config = DreamConfig(
+            block_size=8, d_model=16, n_heads=4, n_layers=2, dropout=0.0
+        )
+        regular = DreamTransformer(config).train()
+        checkpointed = DreamTransformer(config).train()
+        checkpointed.load_state_dict(regular.state_dict())
+        checkpointed.gradient_checkpointing = True
+        tokens = torch.randint(0, config.vocab_size, (2, 8))
+
+        regular_logits, regular_loss = regular(tokens, tokens)
+        checkpointed_logits, checkpointed_loss = checkpointed(tokens, tokens)
+        self.assertTrue(torch.allclose(
+            regular_logits, checkpointed_logits, atol=1e-7, rtol=1e-6
+        ))
+        self.assertTrue(torch.allclose(
+            regular_loss, checkpointed_loss, atol=1e-7, rtol=1e-6
+        ))
+        regular_loss.backward()
+        checkpointed_loss.backward()
+        for (regular_name, regular_parameter), (checkpointed_name, checkpointed_parameter) in zip(
+            regular.named_parameters(), checkpointed.named_parameters()
+        ):
+            self.assertEqual(regular_name, checkpointed_name)
+            self.assertIsNotNone(regular_parameter.grad)
+            self.assertIsNotNone(checkpointed_parameter.grad)
+            self.assertTrue(torch.allclose(
+                regular_parameter.grad, checkpointed_parameter.grad,
+                atol=1e-7, rtol=1e-6
+            ), regular_name)
 
     def test_invalid_head_dimensions_are_rejected(self):
         with self.assertRaises(ValueError):

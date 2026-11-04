@@ -10,6 +10,7 @@ import math
 import torch
 from torch import nn
 from torch.nn import functional as F
+from torch.utils.checkpoint import checkpoint as activation_checkpoint
 
 
 @dataclass
@@ -165,6 +166,7 @@ class DreamTransformer(nn.Module):
     def __init__(self, config: DreamConfig | None = None):
         super().__init__()
         self.config = config or DreamConfig()
+        self.gradient_checkpointing = False
         self.token_embedding = nn.Embedding(
             self.config.vocab_size, self.config.d_model
         )
@@ -207,7 +209,10 @@ class DreamTransformer(nn.Module):
             self.position_embedding(positions)[None, :, :]
         )
         for block in self.blocks:
-            x = block(x)
+            if self.gradient_checkpointing and self.training and torch.is_grad_enabled():
+                x = activation_checkpoint(block, x, use_reentrant=False)
+            else:
+                x = block(x)
         logits = self.language_head(self.final_norm(x))
         loss = None
         if targets is not None:

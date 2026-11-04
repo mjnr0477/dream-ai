@@ -43,6 +43,8 @@ def main():
     parser.add_argument("--eval-every", type=int, default=200)
     parser.add_argument("--eval-batches", type=int, default=10)
     parser.add_argument("--seed", type=int, default=2026)
+    parser.add_argument("--gradient-checkpointing", action="store_true",
+                        help="Trade extra compute for lower activation memory during training")
     parser.add_argument("--tokenizer", choices=("byte", "bpe"), default="byte",
                         help="Tokenizer family; byte preserves the legacy default")
     parser.add_argument("--vocab-size", type=int, default=1024,
@@ -103,6 +105,7 @@ def main():
         n_heads=args.heads, n_layers=args.layers
     )
     model = DreamTransformer(config).to(device)
+    model.gradient_checkpointing = args.gradient_checkpointing
     optimizer = torch.optim.AdamW(
         model.parameters(), lr=args.learning_rate, weight_decay=0.1
     )
@@ -128,6 +131,8 @@ def main():
             raise SystemExit("Resume checkpoint evaluation batch count does not match.")
         if training_meta.get("eval_every") != args.eval_every:
             raise SystemExit("Resume checkpoint evaluation interval does not match.")
+        if training_meta.get("gradient_checkpointing", False) != args.gradient_checkpointing:
+            raise SystemExit("Resume checkpoint gradient checkpointing setting does not match.")
         model.load_state_dict(checkpoint["model_state"])
         if "optimizer_state" not in checkpoint:
             raise SystemExit("Resume checkpoint does not contain optimizer state.")
@@ -183,6 +188,7 @@ def main():
             "effective_batch_size": args.batch_size * args.grad_accum_steps,
             "eval_batches": args.eval_batches,
             "eval_every": args.eval_every,
+            "gradient_checkpointing": args.gradient_checkpointing,
             "tokenizer_format": "dream-bpe-v1" if args.tokenizer == "bpe" else "utf8-byte-v1",
             "tokenizer_vocab_size": tokenizer.vocab_size,
             "device": device,
