@@ -63,6 +63,8 @@ def audit_checkpoint(path):
         raise ValueError("Checkpoint model_state must be an object")
     model = DreamTransformer(config)
     expected = model.state_dict()
+    if any(not isinstance(name, str) for name in state):
+        raise ValueError("Model state keys must all be strings")
     missing = sorted(set(expected) - set(state))
     unexpected = sorted(set(state) - set(expected))
     if missing or unexpected:
@@ -81,6 +83,8 @@ def audit_checkpoint(path):
             raise ValueError(f"Model state tensor {name} has an incorrect shape")
         if tensor.dtype != expected_tensor.dtype:
             raise ValueError(f"Model state tensor {name} has an incorrect dtype")
+        if tensor.layout != expected_tensor.layout:
+            raise ValueError(f"Model state tensor {name} has an incorrect layout")
         if tensor.is_floating_point() and not torch.isfinite(tensor).all().item():
             raise ValueError(f"Model state tensor {name} contains NaN or infinity")
         tensor_count += 1
