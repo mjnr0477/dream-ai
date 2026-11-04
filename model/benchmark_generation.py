@@ -125,7 +125,7 @@ def benchmark(model, prompt_ids, max_new_tokens, runs=5, warmup=1):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint", required=True)
-    parser.add_argument("--prompt", default="USER: Hello DREAM.\\nASSISTANT:")
+    parser.add_argument("--prompt", default="USER: Hello DREAM.\nASSISTANT:")
     parser.add_argument("--tokens", type=int, default=64)
     parser.add_argument("--runs", type=int, default=5)
     parser.add_argument("--warmup", type=int, default=1)
@@ -175,7 +175,7 @@ def main():
             "cached generation was faster in this run. This is not a model-quality metric."
         ),
     }
-    rendered = json.dumps(report, ensure_ascii=False, indent=2) + "\\n"
+    rendered = json.dumps(report, ensure_ascii=False, indent=2) + "\n"
     if args.out:
         output = Path(args.out)
         output.parent.mkdir(parents=True, exist_ok=True)
