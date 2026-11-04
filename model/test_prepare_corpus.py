@@ -78,6 +78,53 @@ class CorpusPreparationTests(unittest.TestCase):
             self.assertFalse(groups["train"] & groups["test"])
             self.assertFalse(groups["validation"] & groups["test"])
 
+    def test_exports_hash_verified_per_language_files_without_split_leakage(self):
+        rows = self.make_records(count=6)
+        multilingual_rows = []
+        for row in rows:
+            multilingual_rows.append(row)
+            translated = dict(row)
+            translated["id"] = row["id"] + "-sw"
+            translated["language"] = "sw"
+            translated["text"] = (
+                f"Maandishi ya mfano {row['id']} yanaeleza maarifa kwa Kiswahili. "
+                "Kila rekodi inatoka kwa kundi huru lililokaguliwa."
+            )
+            multilingual_rows.append(translated)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            result = self.run_prepare(root, multilingual_rows)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            prepared = root / "prepared"
+            manifest = json.loads((prepared / "manifest.json").read_text())
+            all_groups = {}
+            for split in ("train", "validation", "test"):
+                split_meta = manifest["splits"][split]
+                language_files = split_meta["language_files"]
+                self.assertEqual(set(language_files), {"en", "sw"})
+                all_groups[split] = set(split_meta["source_group_ids"])
+                for language, metadata in language_files.items():
+                    language_path = prepared / metadata["path"]
+                    content = language_path.read_text(encoding="utf-8")
+                    self.assertTrue(content.strip())
+                    self.assertEqual(metadata["records"], len(metadata["record_ids"]))
+                    self.assertEqual(
+                        metadata["sha256"],
+                        hashlib.sha256(language_path.read_bytes()).hexdigest()
+                    )
+                    self.assertEqual(metadata["utf8_bytes"], len(language_path.read_bytes()))
+                    self.assertEqual(
+                        set(metadata["source_group_ids"]),
+                        all_groups[split]
+                    )
+                    self.assertIn("Record", content) if language == "en" else self.assertIn(
+                        "Maandishi", content
+                    )
+            self.assertFalse(all_groups["train"] & all_groups["validation"])
+            self.assertFalse(all_groups["train"] & all_groups["test"])
+            self.assertFalse(all_groups["validation"] & all_groups["test"])
+
     def test_manifest_counts_removed_exact_duplicate_text(self):
         rows = self.make_records()
         rows[1]["text"] = rows[0]["text"]

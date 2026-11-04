@@ -32,6 +32,22 @@ def counts(rows, field):
     return dict(sorted(result.items()))
 
 
+def write_text_file(path: Path, rows) -> dict:
+    """Write ordered record text and return verifiable corpus metadata."""
+    path.write_text(
+        "\n\n".join(row["text"] for row in rows) + "\n",
+        encoding="utf-8"
+    )
+    return {
+        "path": path.name,
+        "records": len(rows),
+        "utf8_bytes": path.stat().st_size,
+        "record_ids": sorted(row["id"] for row in rows),
+        "source_group_ids": sorted({row["source_group"] for row in rows}),
+        "sha256": sha256(path)
+    }
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True, help="Approved JSONL records")
@@ -159,24 +175,25 @@ def main():
     for split in ("train", "validation", "test"):
         selected = [row for row in records if split_by_group[row["source_group"]] == split]
         text_path = output / f"{split}.txt"
-        text_path.write_text(
-            "\n\n".join(row["text"] for row in selected) + "\n",
-            encoding="utf-8"
-        )
+        split_file = write_text_file(text_path, selected)
         split_groups = sorted({row["source_group"] for row in selected})
+        language_files = {}
+        for language in sorted({row["language"] for row in selected}):
+            language_rows = [row for row in selected if row["language"] == language]
+            language_key = hashlib.sha256(language.encode("utf-8")).hexdigest()[:16]
+            language_path = output / f"{split}.language-{language_key}.txt"
+            language_files[language] = write_text_file(language_path, language_rows)
+
         manifest["splits"][split] = {
-            "records": len(selected),
-            "utf8_bytes": text_path.stat().st_size,
+            **split_file,
             "source_groups": len(split_groups),
-            "source_group_ids": split_groups,
-            "record_ids": sorted(row["id"] for row in selected),
             "language_counts": counts(selected, "language"),
             "license_counts": counts(selected, "license"),
             "source_date_range": {
                 "earliest": min(row["source_date"] for row in selected),
                 "latest": max(row["source_date"] for row in selected)
             },
-            "sha256": sha256(text_path)
+            "language_files": language_files
         }
     all_split_groups = [
         set(manifest["splits"][split]["source_group_ids"])
