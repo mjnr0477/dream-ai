@@ -33,7 +33,7 @@ class MultilingualEvaluationTests(unittest.TestCase):
             "\n".join(json.dumps(row, ensure_ascii=False) for row in self.rows) + "\n",
             encoding="utf-8",
         )
-        self.test_text = "\n\n".join(row["text"] for row in self.rows) + "\n"
+        self.test_text = "\n\n".join(row["text"].strip() for row in self.rows) + "\n"
         self.test_path = self.root / "test.txt"
         self.test_path.write_text(self.test_text, encoding="utf-8")
         digest = hashlib.sha256(self.test_path.read_bytes()).hexdigest()
@@ -80,7 +80,7 @@ class MultilingualEvaluationTests(unittest.TestCase):
         manifest = json.loads(self.manifest.read_text(encoding="utf-8"))
         manifest["splits"]["test"]["record_ids"] = ["en-1"]
         self.manifest.write_text(json.dumps(manifest), encoding="utf-8")
-        with self.assertRaisesRegex(ValueError, "every manifest test record"):
+        with self.assertRaisesRegex(ValueError, "reconstruct the exact held-out test file"):
             load_language_test_corpora(self.records, self.manifest, self.test_path)
 
     def test_evaluation_is_deterministic_and_reports_byte_metrics(self):
