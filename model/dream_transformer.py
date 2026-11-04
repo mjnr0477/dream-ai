@@ -279,6 +279,84 @@ class DreamTransformer(nn.Module):
         logits = self.language_head(self.final_norm(x))
         return logits, tuple(presents)
 
+    @staticmethod
+    def _utf8_next_token_mask(pending_bytes, next_min, next_max, remaining_after):
+        """Return valid next-byte choices that can finish within the token budget."""
+        batch_size = pending_bytes.shape[0]
+        token_ids = torch.arange(256, device=pending_bytes.device)
+        no_pending = pending_bytes == 0
+        allowed = no_pending[:, None] & (token_ids[None, :] <= 0x7F)
+
+        if remaining_after >= 1:
+            two_byte_lead = (token_ids >= 0xC2) & (token_ids <= 0xDF)
+            allowed |= no_pending[:, None] & two_byte_lead[None, :]
+        if remaining_after >= 2:
+            three_byte_lead = (token_ids >= 0xE0) & (token_ids <= 0xEF)
+            allowed |= no_pending[:, None] & three_byte_lead[None, :]
+        if remaining_after >= 3:
+            four_byte_lead = (token_ids >= 0xF0) & (token_ids <= 0xF4)
+            allowed |= no_pending[:, None] & four_byte_lead[None, :]
+
+        continuation = (
+            (pending_bytes > 0)[:, None]
+            & (token_ids[None, :] >= next_min[:, None])
+            & (token_ids[None, :] <= next_max[:, None])
+        )
+        allowed |= continuation
+        return allowed
+
+    @staticmethod
+    def _advance_utf8_state(pending_bytes, next_min, next_max, next_token):
+        """Advance a per-sequence UTF-8 decoder state after selecting one byte."""
+        was_pending = pending_bytes > 0
+        continued = torch.clamp(pending_bytes - 1, min=0)
+        two_byte = (next_token >= 0xC2) & (next_token <= 0xDF)
+        three_byte = (next_token >= 0xE0) & (next_token <= 0xEF)
+        four_byte = (next_token >= 0xF0) & (next_token <= 0xF4)
+
+        new_pending = (
+            two_byte.to(torch.long)
+            + (2 * three_byte.to(torch.long))
+            + (3 * four_byte.to(torch.long))
+        )
+        pending_bytes = torch.where(was_pending, continued, new_pending)
+
+        minimum = torch.full_like(next_min, 0x80)
+        maximum = torch.full_like(next_max, 0xBF)
+        minimum = torch.where(was_pending, minimum, next_min)
+        maximum = torch.where(was_pending, maximum, next_max)
+        minimum = torch.where(next_token == 0xE0, torch.full_like(minimum, 0xA0), minimum)
+        maximum = torch.where(next_token == 0xED, torch.full_like(maximum, 0x9F), maximum)
+        minimum = torch.where(next_token == 0xF0, torch.full_like(minimum, 0x90), minimum)
+        maximum = torch.where(next_token == 0xF4, torch.full_like(maximum, 0x8F), maximum)
+        # Once a constrained continuation is consumed, subsequent continuations
+        # use the ordinary 0x80..0xBF range.
+        minimum = torch.where(was_pending & (continued > 0), torch.full_like(minimum, 0x80), minimum)
+        maximum = torch.where(was_pending & (continued > 0), torch.full_like(maximum, 0xBF), maximum)
+        return pending_bytes, minimum, maximum
+
+    def _sample_next_byte(self, logits, temperature, top_k, utf8_state, remaining_after):
+        pending_bytes, next_min, next_max = utf8_state
+        allowed = self._utf8_next_token_mask(
+            pending_bytes, next_min, next_max, remaining_after
+        )
+        logits = logits.masked_fill(~allowed, float("-inf"))
+        if temperature == 0:
+            next_token = torch.argmax(logits, dim=-1, keepdim=True)
+        else:
+            logits = logits / temperature
+            if top_k:
+                k = min(top_k, logits.size(-1))
+                threshold = torch.topk(logits, k).values[:, [-1]]
+                logits = logits.masked_fill(logits < threshold, float("-inf"))
+            probabilities = F.softmax(logits, dim=-1)
+            next_token = torch.multinomial(probabilities, num_samples=1)
+        next_token_values = next_token.squeeze(-1)
+        next_state = self._advance_utf8_state(
+            pending_bytes, next_min, next_max, next_token_values
+        )
+        return next_token, next_state
+
     @torch.no_grad()
     def generate(self, token_ids, max_new_tokens=100, temperature=0.8,
                  top_k=40):
@@ -308,20 +386,17 @@ class DreamTransformer(nn.Module):
         # sliding-window path so positions are re-based exactly as before.
         if token_ids.shape[1] + max_new_tokens <= self.config.block_size:
             logits, past_key_values = self.forward_cached(token_ids)
+            utf8_state = (
+                torch.zeros(token_ids.shape[0], dtype=torch.long, device=token_ids.device),
+                torch.full((token_ids.shape[0],), 0x80, dtype=torch.long, device=token_ids.device),
+                torch.full((token_ids.shape[0],), 0xBF, dtype=torch.long, device=token_ids.device),
+            )
             for step in range(max_new_tokens):
                 logits = logits[:, -1, :]
-                if temperature == 0:
-                    next_token = torch.argmax(logits, dim=-1, keepdim=True)
-                else:
-                    sampled_logits = logits / temperature
-                    if top_k:
-                        k = min(top_k, sampled_logits.size(-1))
-                        threshold = torch.topk(sampled_logits, k).values[:, [-1]]
-                        sampled_logits = sampled_logits.masked_fill(
-                            sampled_logits < threshold, float("-inf")
-                        )
-                    probabilities = F.softmax(sampled_logits, dim=-1)
-                    next_token = torch.multinomial(probabilities, num_samples=1)
+                next_token, utf8_state = self._sample_next_byte(
+                    logits, temperature, top_k, utf8_state,
+                    max_new_tokens - step - 1
+                )
                 token_ids = torch.cat((token_ids, next_token), dim=1)
                 if step + 1 < max_new_tokens:
                     logits, past_key_values = self.forward_cached(
@@ -329,20 +404,19 @@ class DreamTransformer(nn.Module):
                     )
             return token_ids
 
-        for _ in range(max_new_tokens):
+        utf8_state = (
+            torch.zeros(token_ids.shape[0], dtype=torch.long, device=token_ids.device),
+            torch.full((token_ids.shape[0],), 0x80, dtype=torch.long, device=token_ids.device),
+            torch.full((token_ids.shape[0],), 0xBF, dtype=torch.long, device=token_ids.device),
+        )
+        for step in range(max_new_tokens):
             context = token_ids[:, -self.config.block_size:]
             logits, _ = self(context)
             logits = logits[:, -1, :]
-            if temperature == 0:
-                next_token = torch.argmax(logits, dim=-1, keepdim=True)
-            else:
-                logits = logits / temperature
-                if top_k:
-                    k = min(top_k, logits.size(-1))
-                    threshold = torch.topk(logits, k).values[:, [-1]]
-                    logits = logits.masked_fill(logits < threshold, float("-inf"))
-                probabilities = F.softmax(logits, dim=-1)
-                next_token = torch.multinomial(probabilities, num_samples=1)
+            next_token, utf8_state = self._sample_next_byte(
+                logits, temperature, top_k, utf8_state,
+                max_new_tokens - step - 1
+            )
             token_ids = torch.cat((token_ids, next_token), dim=1)
         return token_ids
 
