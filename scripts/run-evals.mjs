@@ -106,4 +106,4 @@ for (const item of selected) {
 await mkdir("eval-results", { recursive: true });
 const filename = "dream-eval-" + new Date().toISOString().replace(/[:.]/g, "-") + ".jsonl";
 await writeFile(join("eval-results", filename), results.map(row => JSON.stringify(row)).join("\n") + "\n");
-process.stdout.write("Saved " + results.length + " raw responses to eval-results/" + filename + ". Score the rubric manually; this runner does not pretend to be an objective judge.\n");
+process.stdout.write("Saved " + results.length + " raw responses for checkpoint " + runtime.checkpoint_sha256 + " to eval-results/" + filename + ". Score the rubric manually; this runner does not pretend to be an objective judge.\n");
