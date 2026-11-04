@@ -10,7 +10,7 @@ DREAM will begin with its own decoder-only transformer implemented in PyTorch:
 - causal multi-head self-attention;
 - pre-normalized transformer blocks with GELU feed-forward layers;
 - tied token embedding and language-model output weights;
-- autoregressive sampling, an inference-only per-layer key/value cache for one-token decoding, and native checkpoint format.
+- autoregressive sampling, an inference-only per-layer key/value cache for one-token decoding, UTF-8-constrained byte sampling, and native checkpoint format.
 
 The first configurable experiment defaults to 6 layers, width 256, 8 attention heads and 256-byte context. Gradient accumulation allows a larger effective batch without holding every micro-batch in memory at once. This is a small research model, not a competitive production assistant. The architecture and all initial weights are DREAM-owned code/initialization; the checkpoint will only become a trained DREAM artifact after training and evaluation.
 
@@ -18,10 +18,10 @@ The first configurable experiment defaults to 6 layers, width 256, 8 attention h
 
 - `model/train.py` trains from random initialization on an authorized UTF-8 text corpus.
 - `model/sft.py` performs assistant-response-only supervised instruction fine-tuning from a trained DREAM checkpoint; prompt tokens are masked from the loss.
-- `model/generate.py` runs local inference from a DREAM checkpoint. Generation uses per-layer key/value caching when the prompt plus requested output fits the learned absolute-position context; if it would overflow, it retains the existing sliding-window recomputation path so positional behavior is unchanged.
+- `model/generate.py` runs local inference from a DREAM checkpoint. Generation uses per-layer key/value caching when the prompt plus requested output fits the learned absolute-position context; if it would overflow, it retains the existing sliding-window recomputation path so positional behavior is unchanged. Sampling also constrains emitted bytes to valid UTF-8 sequences (including continuation-byte ranges that exclude overlong encodings, surrogates and values above U+10FFFF); this guarantees valid Unicode encoding, not language fluency or factual quality.
 - `model/evaluate.py` reports held-out cross-entropy, bits-per-byte, perplexity-per-byte, SHA-256 provenance and a qualitative sample.
 - `model/serve.py` exposes the native checkpoint over a local HTTP endpoint. Its chat-completions-shaped JSON is only a transport protocol; no external model is called.
-- `model/test_dream_transformer.py`, `model/test_train.py` and `model/test_serve.py` test model behavior (including cached/full-logit equivalence, greedy output parity and context-window fallback), checkpoint/resume and local HTTP serving.
+- `model/test_dream_transformer.py`, `model/test_train.py` and `model/test_serve.py` test model behavior (including cached/full-logit equivalence, greedy output parity, context-window fallback and valid UTF-8 output constraints), checkpoint/resume and local HTTP serving.
 - `data/README.md` defines dataset provenance, privacy, licensing and quality gates.
 
 Install the model dependencies from `model/requirements.txt`. Run the training script from the repository root with a sufficiently large, high-quality corpus:
