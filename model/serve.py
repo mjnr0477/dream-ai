@@ -150,7 +150,8 @@ def create_handler(model, tokenizer, config, model_name, token, device):
                     if float(temperature) == 0:
                         generated = model.generate(
                             input_ids, max_new_tokens=max_tokens, temperature=0,
-                            constrain_utf8=tokenizer.vocab_size == 256
+                            constrain_utf8=True,
+                            token_byte_pieces=getattr(tokenizer, "token_byte_pieces", None)
                         )[0].tolist()
                     else:
                         torch.manual_seed(secrets.randbits(63))
@@ -159,7 +160,8 @@ def create_handler(model, tokenizer, config, model_name, token, device):
                             max_new_tokens=max_tokens,
                             temperature=float(temperature),
                             top_k=top_k,
-                            constrain_utf8=tokenizer.vocab_size == 256
+                            constrain_utf8=True,
+                            token_byte_pieces=getattr(tokenizer, "token_byte_pieces", None)
                         )[0].tolist()
                 answer = tokenizer.decode(generated[len(prompt_ids):]).strip()
             except Exception:

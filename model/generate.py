@@ -30,7 +30,8 @@ def main():
     ids = torch.tensor([prompt], dtype=torch.long, device=device)
     generated = model.generate(
         ids, max_new_tokens=args.tokens, temperature=args.temperature,
-        constrain_utf8=tokenizer.vocab_size == 256
+        constrain_utf8=True,
+        token_byte_pieces=getattr(tokenizer, "token_byte_pieces", None)
     )[0].tolist()
     print(tokenizer.decode(generated))
 
