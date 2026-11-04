@@ -104,7 +104,7 @@ def main():
     output = Path(args.out)
     output.parent.mkdir(parents=True, exist_ok=True)
     temporary = output.with_suffix(output.suffix + ".tmp")
-    temporary.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+    temporary.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     temporary.replace(output)
     print(json.dumps(report, ensure_ascii=False, indent=2))
 
