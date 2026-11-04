@@ -59,10 +59,18 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             self.assertTrue(saved["training"]["validation_sha256"])
             self.assertIsNotNone(saved["training"]["last_validation_loss"])
             self.assertEqual(saved["training"]["eval_batches"], 10)
+            self.assertEqual(saved["training"]["eval_every"], 1)
             self.assertEqual(saved["training"]["grad_accum_steps"], 2)
             self.assertEqual(saved["training"]["effective_batch_size"], 4)
             self.assertIn("torch_rng_state", saved)
             self.assertIn("cuda_rng_state", saved)
+
+            mismatched_schedule = self.run_training(
+                root, checkpoint,
+                extra=("--resume", str(checkpoint), "--eval-every", "2")
+            )
+            self.assertNotEqual(mismatched_schedule.returncode, 0)
+            self.assertIn("evaluation interval does not match", mismatched_schedule.stderr)
 
             resumed = self.run_training(
                 root, checkpoint, extra=("--resume", str(checkpoint))
