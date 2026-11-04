@@ -226,6 +226,43 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             self.assertIn("matches training or validation", result.stderr)
 
 
+    def test_activation_checkpointing_is_recorded_and_required_on_resume(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "train.txt").write_text(
+                "DREAM checkpointed training corpus with varied tokens. " * 12,
+                encoding="utf-8"
+            )
+            (root / "validation.txt").write_text(
+                "Independent DREAM validation corpus for checkpointing. " * 12,
+                encoding="utf-8"
+            )
+            checkpoint = root / "checkpointed.pt"
+            trained = self.run_training(
+                root, checkpoint, extra=("--gradient-checkpointing",)
+            )
+            self.assertEqual(trained.returncode, 0, trained.stdout + trained.stderr)
+
+            import torch
+            saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
+            self.assertTrue(saved["training"]["gradient_checkpointing"])
+
+            mismatched = self.run_training(
+                root, checkpoint,
+                extra=("--resume", str(checkpoint))
+            )
+            self.assertNotEqual(mismatched.returncode, 0)
+            self.assertIn(
+                "gradient checkpointing setting does not match",
+                mismatched.stderr
+            )
+
+            resumed = self.run_training(
+                root, checkpoint,
+                extra=("--resume", str(checkpoint), "--gradient-checkpointing")
+            )
+            self.assertEqual(resumed.returncode, 0, resumed.stdout + resumed.stderr)
+
     def test_interrupted_resume_matches_uninterrupted_training_exactly(self):
         import torch
 
