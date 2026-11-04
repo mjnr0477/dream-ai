@@ -140,7 +140,7 @@ class ParallelPairImporterTests(unittest.TestCase):
             for index, row in enumerate(rows):
                 row["story_id"] = f"private-story-{index // 2}"
                 row["id"] = f"private-{index}@example.test"
-            source.write_text("".join(json.dumps(row) + "\\n" for row in rows), encoding="utf-8")
+            source.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
             output = root / "out"
             result = self.run_import(source, output)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -154,7 +154,7 @@ class ParallelPairImporterTests(unittest.TestCase):
                 row["privacy_reviewed"] = True
                 row["quality_reviewed"] = True
             reviewed = root / "reviewed.jsonl"
-            reviewed.write_text("".join(json.dumps(row) + "\\n" for row in train), encoding="utf-8")
+            reviewed.write_text("".join(json.dumps(row) + "\n" for row in train), encoding="utf-8")
             examples = load_examples(reviewed, DreamByteTokenizer(), block_size=256)
             self.assertEqual(len(examples), len(train))
 
