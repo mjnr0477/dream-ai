@@ -62,5 +62,76 @@ class DreamEvaluationTests(unittest.TestCase):
             )
 
 
-if __name__ == "__main__":
+
+    def test_manifest_verified_language_subset_accepts_intact_test_files(self):
+        from evaluate import validate_language_subset
+        import hashlib
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            parent = root / "test.txt"
+            subset = root / "test.en.txt"
+            parent.write_text("English held out example.\\nKiswahili held out example.\\n", encoding="utf-8")
+            subset.write_text("English held out example.\\n", encoding="utf-8")
+            parent_hash = hashlib.sha256(parent.read_bytes()).hexdigest()
+            subset_hash = hashlib.sha256(subset.read_bytes()).hexdigest()
+            manifest = {
+                "schema": "dream-corpus-v1",
+                "splits": {"test": {
+                    "path": parent.name,
+                    "sha256": parent_hash,
+                    "source_group_ids": ["group-en", "group-sw"],
+                    "language_files": {"en": {
+                        "path": subset.name,
+                        "sha256": subset_hash,
+                        "source_group_ids": ["group-en"]
+                    }}
+                }}
+            }
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            self.assertEqual(
+                validate_language_subset(manifest_path, "en", subset, parent),
+                parent_hash
+            )
+
+    def test_manifest_verified_language_subset_rejects_modified_or_leaking_data(self):
+        from evaluate import validate_language_subset
+        import hashlib
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            parent = root / "test.txt"
+            subset = root / "test.en.txt"
+            parent.write_text("English held out example.\\nKiswahili held out example.\\n", encoding="utf-8")
+            subset.write_text("English held out example.\\n", encoding="utf-8")
+            manifest = {
+                "schema": "dream-corpus-v1",
+                "splits": {"test": {
+                    "path": parent.name,
+                    "sha256": hashlib.sha256(parent.read_bytes()).hexdigest(),
+                    "source_group_ids": ["group-en", "group-sw"],
+                    "language_files": {"en": {
+                        "path": subset.name,
+                        "sha256": hashlib.sha256(subset.read_bytes()).hexdigest(),
+                        "source_group_ids": ["group-en"]
+                    }}
+                }}
+            }
+            manifest_path = root / "manifest.json"
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            subset.write_text("Tampered evaluation data that is no longer in the manifest.", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "hash does not match"):
+                validate_language_subset(manifest_path, "en", subset, parent)
+
+            subset.write_text("English held out example.\\n", encoding="utf-8")
+            manifest["splits"]["test"]["language_files"]["en"]["sha256"] = hashlib.sha256(
+                subset.read_bytes()
+            ).hexdigest()
+            manifest["splits"]["test"]["language_files"]["en"]["source_group_ids"] = ["not-in-parent"]
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "source groups"):
+                validate_language_subset(manifest_path, "en", subset, parent)
+
+\nif __name__ == "__main__":
     unittest.main()
