@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import math
+import re
 from pathlib import Path
 
 
@@ -47,12 +48,23 @@ def validate(checkpoint_path, audit_path, evaluation_path):
     steps = audit.get("completed_steps")
     if not isinstance(steps, int) or isinstance(steps, bool) or steps < 1:
         raise ValueError("Checkpoint audit has invalid training-step metadata")
-    if audit.get("parameter_count") != evaluation.get("parameters"):
-        raise ValueError("Audit and evaluation parameter counts do not match")
-
     corpus_hash = evaluation.get("evaluation_corpus_sha256")
-    if not isinstance(corpus_hash, str) or len(corpus_hash) != 64:
-        raise ValueError("Evaluation report has no valid held-out corpus hash")
+    if not isinstance(corpus_hash, str) or not re.fullmatch(r"[0-9a-f]{64}", corpus_hash):
+        raise ValueError("Evaluation report has no valid held-out corpus SHA-256")
+    parameter_count = audit.get("parameter_count")
+    evaluation_parameters = evaluation.get("parameters")
+    for label, value in (
+        ("audit parameter_count", parameter_count),
+        ("evaluation parameters", evaluation_parameters),
+    ):
+        if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+            raise ValueError(f"{label} must be a positive integer")
+    if parameter_count != evaluation_parameters:
+        raise ValueError("Audit and evaluation parameter counts do not match")
+    for name in ("evaluation_bytes", "evaluation_tokens", "batches", "batch_size"):
+        value = evaluation.get(name)
+        if not isinstance(value, int) or isinstance(value, bool) or value < 1:
+            raise ValueError(f"Evaluation field {name} must be a positive integer")
     metrics = (
         "mean_cross_entropy_nats_per_token",
         "mean_cross_entropy_nats_per_byte",
@@ -65,6 +77,19 @@ def validate(checkpoint_path, audit_path, evaluation_path):
             raise ValueError(f"Evaluation metric {name} is missing or non-finite")
         if value < 0:
             raise ValueError(f"Evaluation metric {name} cannot be negative")
+    expected_bits = evaluation["mean_cross_entropy_nats_per_byte"] / math.log(2)
+    expected_perplexity = math.exp(min(
+        evaluation["mean_cross_entropy_nats_per_byte"], 20
+    ))
+    if not math.isclose(
+        evaluation["bits_per_byte"], expected_bits, rel_tol=1e-9, abs_tol=1e-9
+    ):
+        raise ValueError("bits_per_byte is inconsistent with byte cross-entropy")
+    if not math.isclose(
+        evaluation["perplexity_per_byte"], expected_perplexity,
+        rel_tol=1e-9, abs_tol=1e-9
+    ):
+        raise ValueError("perplexity_per_byte is inconsistent with byte cross-entropy")
 
     return {
         "schema": "dream-technical-release-gate-v1",
