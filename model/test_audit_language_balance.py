@@ -79,7 +79,7 @@ class LanguageBalanceTests(unittest.TestCase):
             payload = {"language": "sw", "approval_granted": False}
             write_json(output, payload)
             rendered = output.read_text(encoding="utf-8")
-            self.assertTrue(rendered.endswith("\\n"))
+            self.assertTrue(rendered.endswith("\n"))
             self.assertEqual(json.loads(rendered), payload)
             self.assertFalse(list(output.parent.glob("*.tmp")))
 
