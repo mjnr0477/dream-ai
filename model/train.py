@@ -13,10 +13,11 @@ from dream_transformer import DreamByteTokenizer, DreamConfig, DreamTransformer
 
 
 def batches(data, batch_size, block_size, device):
+    # max_start is inclusive: the final valid window predicts the last token.
     max_start = len(data) - block_size - 1
-    if max_start < 1:
+    if max_start < 0:
         raise ValueError("Corpus is too small for the configured block_size")
-    starts = torch.randint(max_start, (batch_size,))
+    starts = torch.randint(max_start + 1, (batch_size,))
     x = torch.stack([data[i:i + block_size] for i in starts.tolist()])
     y = torch.stack([data[i + 1:i + block_size + 1] for i in starts.tolist()])
     return x.to(device), y.to(device)
