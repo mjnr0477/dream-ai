@@ -153,7 +153,7 @@ def audit(input_path, max_record_bytes=1_000_000):
             if KENYAN_PHONE_RE.search(content):
                 findings.append({"line": line_number, "record_id": safe_id, "code": "possible_kenyan_phone", "severity": "review"})
                 pii_records += 1
-            elif has_international_phone(content):
+            if has_international_phone(content):
                 findings.append({"line": line_number, "record_id": safe_id, "code": "possible_international_phone", "severity": "review"})
                 pii_records += 1
             if any(ord(char) < 32 and char not in "\n\r\t" for char in content):
