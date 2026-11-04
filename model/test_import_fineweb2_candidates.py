@@ -120,7 +120,7 @@ class FineWeb2CandidateImporterTests(unittest.TestCase):
                 "url": "https://example.org/page",
                 "date": "2024-01-01",
                 "language": "eng"
-            }) + "\\n", encoding="utf-8")
+            }) + "\n", encoding="utf-8")
             original = source.read_text(encoding="utf-8")
             result = subprocess.run([
                 sys.executable, str(SCRIPT),
