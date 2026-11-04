@@ -4,6 +4,7 @@ The OpenAI-compatible response shape is only a transport format. All inference
 runs locally in this process using the native DREAM transformer weights.
 """
 import argparse
+import hashlib
 import hmac
 import json
 import os
@@ -25,6 +26,14 @@ MAX_MESSAGES = 12
 MAX_MESSAGE_CHARS = 8000
 MAX_OUTPUT_TOKENS = 256
 MODEL_LOCK = threading.Lock()
+
+
+def checkpoint_sha256(checkpoint_path):
+    digest = hashlib.sha256()
+    with open(checkpoint_path, "rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
 
 
 def load_model(checkpoint_path, device):
@@ -49,7 +58,7 @@ def format_prompt(messages):
     ) + "ASSISTANT:"
 
 
-def create_handler(model, tokenizer, config, model_name, token, device):
+def create_handler(model, tokenizer, config, model_name, token, device, metadata=None, checkpoint_hash=None):
     class Handler(BaseHTTPRequestHandler):
         server_version = "DREAMNativeRuntime/0.2"
 
@@ -79,7 +88,11 @@ def create_handler(model, tokenizer, config, model_name, token, device):
                 "engine": "dream-native-transformer",
                 "model": model_name,
                 "device": device,
-                "parameters": sum(parameter.numel() for parameter in model.parameters())
+                "parameters": sum(parameter.numel() for parameter in model.parameters()),
+                "completed_training_steps": (metadata or {}).get("completed_steps"),
+                "checkpoint_sha256": checkpoint_hash,
+                "tokenizer": type(tokenizer).__name__,
+                "architecture": config.__dict__
             })
 
         def do_POST(self):
@@ -214,7 +227,10 @@ def main():
     except Exception as exc:
         raise SystemExit(f"Cannot load DREAM checkpoint: {exc}") from exc
 
-    handler = create_handler(model, tokenizer, config, args.model_name, args.token, device)
+    handler = create_handler(
+        model, tokenizer, config, args.model_name, args.token, device,
+        metadata=metadata, checkpoint_hash=checkpoint_sha256(args.checkpoint)
+    )
     server = ThreadingHTTPServer((args.host, args.port), handler)
     print(json.dumps({
         "engine": "DREAM native inference",
