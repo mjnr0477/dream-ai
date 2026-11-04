@@ -94,6 +94,17 @@ class DreamBPETokenizerTests(unittest.TestCase):
                 self.assertEqual(tokenizer.encode(sample), reference_encode(sample))
                 self.assertEqual(tokenizer.decode(tokenizer.encode(sample)), sample)
 
+    def test_token_byte_length_matches_merged_utf8_piece_lengths(self):
+        sample = "akili bandia Kenya 🇰🇪 " * 8
+        tokenizer = DreamBPETokenizer.train(sample, vocab_size=320)
+        encoded = tokenizer.encode(sample)
+        self.assertEqual(
+            sum(tokenizer.token_byte_length(token) for token in encoded),
+            len(sample.encode("utf-8"))
+        )
+        with self.assertRaises(ValueError):
+            tokenizer.token_byte_length(tokenizer.vocab_size)
+
     def test_vocab_size_is_bounded(self):
         with self.assertRaises(ValueError):
             DreamBPETokenizer.train("text", vocab_size=255)

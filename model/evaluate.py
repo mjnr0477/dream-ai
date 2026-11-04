@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 import torch
+from torch.nn import functional as F
 
 from checkpoint_tokenizer import load_tokenizer
 from dream_transformer import DreamConfig, DreamTransformer
@@ -73,7 +74,10 @@ def main():
     model.eval()
     tokens = tokens.to(device)
     generator = torch.Generator(device="cpu").manual_seed(args.seed)
-    losses = []
+    total_nats = 0.0
+    total_token_nats = 0.0
+    total_target_tokens = 0
+    total_target_bytes = 0
     max_start = len(tokens) - config.block_size - 1
 
     with torch.inference_mode():
@@ -87,8 +91,22 @@ def main():
             y = torch.stack([
                 tokens[start + 1:start + config.block_size + 1] for start in starts
             ])
-            _, loss = model(x, y)
-            losses.append(float(loss.item()))
+            logits, _ = model(x)
+            token_losses = F.cross_entropy(
+                logits.reshape(-1, config.vocab_size),
+                y.reshape(-1),
+                reduction="none"
+            ).view_as(y)
+            byte_lengths = torch.tensor(
+                [tokenizer.token_byte_length(int(token_id))
+                 for token_id in y.reshape(-1).tolist()],
+                dtype=token_losses.dtype,
+                device=device
+            ).view_as(y)
+            total_nats += float((token_losses * byte_lengths).sum().item())
+            total_token_nats += float(token_losses.sum().item())
+            total_target_tokens += y.numel()
+            total_target_bytes += int(byte_lengths.sum().item())
 
         prompt_ids = tokenizer.encode(args.sample_prompt)
         if not prompt_ids:
@@ -103,7 +121,8 @@ def main():
         )[0].tolist()
         sample = tokenizer.decode(generated[len(prompt[0]):])
 
-    mean_loss = sum(losses) / len(losses)
+    mean_nats_per_token = total_token_nats / total_target_tokens
+    mean_nats_per_byte = total_nats / total_target_bytes
     result = {
         "schema": "dream-evaluation-v1",
         "evaluated_at": datetime.now(timezone.utc).isoformat(),
@@ -111,20 +130,24 @@ def main():
         "checkpoint_sha256": sha256(checkpoint_path),
         "evaluation_corpus": str(data_path),
         "evaluation_corpus_sha256": evaluation_hash,
-        "evaluation_bytes": len(tokens),
+        "evaluation_bytes": len(text.encode("utf-8")),
+        "evaluation_tokens": len(tokens),
         "architecture": config.__dict__,
         "parameters": sum(parameter.numel() for parameter in model.parameters()),
         "device": device,
         "seed": args.seed,
         "batches": args.batches,
         "batch_size": args.batch_size,
-        "mean_cross_entropy_nats_per_byte": mean_loss,
-        "bits_per_byte": mean_loss / math.log(2),
-        "perplexity_per_byte": math.exp(min(mean_loss, 20)),
+        "mean_cross_entropy_nats_per_token": mean_nats_per_token,
+        "mean_cross_entropy_nats_per_byte": mean_nats_per_byte,
+        "bits_per_byte": mean_nats_per_byte / math.log(2),
+        "perplexity_per_byte": math.exp(min(mean_nats_per_byte, 20)),
         "sample_prompt": args.sample_prompt,
         "sample_generation": sample,
         "limitations": [
-            "Byte-level next-token metrics do not measure instruction following or factual accuracy.",
+            "Cross-entropy is reported per token and normalized by decoded UTF-8 bytes; it is not a language-quality score.",
+            "Metrics use randomly sampled context windows and can vary with seed and batch count.",
+            "Metrics do not measure instruction following or factual accuracy.",
             "A low validation loss does not certify safety, reasoning, usefulness or generalization.",
             "Sample generation is qualitative and must be reviewed by humans."
         ]
