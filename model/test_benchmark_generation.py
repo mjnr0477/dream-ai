@@ -8,6 +8,7 @@ from pathlib import Path
 
 import torch
 
+from dream_bpe import DreamBPETokenizer
 from dream_transformer import DreamConfig, DreamTransformer
 from benchmark_generation import benchmark
 
@@ -25,6 +26,21 @@ class GenerationBenchmarkTests(unittest.TestCase):
         self.assertGreater(result["cached"]["median_seconds"], 0)
         self.assertGreater(result["full_prefix_reference"]["median_seconds"], 0)
         self.assertGreater(result["speedup_ratio"], 0)
+
+    def test_bpe_benchmark_confirms_cached_and_reference_output_parity(self):
+        tokenizer = DreamBPETokenizer.train("DREAM AI akili huru Kenya " * 20, vocab_size=300)
+        config = DreamConfig(
+            vocab_size=tokenizer.vocab_size, block_size=64,
+            d_model=16, n_heads=4, n_layers=1, dropout=0.0
+        )
+        model = DreamTransformer(config).eval()
+        prompt = torch.tensor([tokenizer.encode("DREAM:")], dtype=torch.long)
+        result = benchmark(
+            model, prompt, max_new_tokens=4, runs=1, warmup=0,
+            token_byte_pieces=tokenizer.token_byte_pieces
+        )
+        self.assertTrue(result["equivalent_outputs"])
+        self.assertEqual(result["generated_tokens"], 4)
 
     def test_cli_writes_checkpoint_hashed_json_report(self):
         with tempfile.TemporaryDirectory() as directory:

@@ -12,12 +12,8 @@ from pathlib import Path
 
 import torch
 
-from dream_transformer import (
-    DreamByteTokenizer,
-    DreamConfig,
-    DreamTransformer,
-    parameter_count,
-)
+from checkpoint_tokenizer import load_tokenizer
+from dream_transformer import DreamConfig, DreamTransformer, parameter_count
 
 
 def sha256(path):
@@ -28,24 +24,32 @@ def sha256(path):
     return digest.hexdigest()
 
 
-def generate_without_cache(model, prompt_ids, max_new_tokens):
+def generate_without_cache(model, prompt_ids, max_new_tokens, token_byte_pieces=None):
     """Reference greedy decoder that recomputes the complete prefix each step."""
     generated = prompt_ids.clone()
     batch_size = generated.shape[0]
     device = generated.device
     utf8_state = (
-        torch.zeros(batch_size, dtype=torch.long, device=device),
-        torch.full((batch_size,), 0x80, dtype=torch.long, device=device),
-        torch.full((batch_size,), 0xBF, dtype=torch.long, device=device),
+        [(0, 0x80, 0xBF)] * batch_size if token_byte_pieces is not None else (
+            torch.zeros(batch_size, dtype=torch.long, device=device),
+            torch.full((batch_size,), 0x80, dtype=torch.long, device=device),
+            torch.full((batch_size,), 0xBF, dtype=torch.long, device=device),
+        )
     )
     with torch.inference_mode():
         for step in range(max_new_tokens):
             context = generated[:, -model.config.block_size:]
             logits, _ = model(context)
-            next_token, utf8_state = model._sample_next_byte(
-                logits[:, -1, :], 0, 0, utf8_state,
-                max_new_tokens - step - 1,
-            )
+            if token_byte_pieces is not None:
+                next_token, utf8_state = model._sample_next_bpe_token(
+                    logits[:, -1, :], 0, 0, utf8_state, token_byte_pieces,
+                    max_new_tokens - step - 1,
+                )
+            else:
+                next_token, utf8_state = model._sample_next_byte(
+                    logits[:, -1, :], 0, 0, utf8_state,
+                    max_new_tokens - step - 1,
+                )
             generated = torch.cat((generated, next_token), dim=1)
     return generated
 
@@ -70,7 +74,8 @@ def measure(function, runs, warmup, device):
     return statistics.median(samples), samples
 
 
-def benchmark(model, prompt_ids, max_new_tokens, runs=5, warmup=1):
+def benchmark(model, prompt_ids, max_new_tokens, runs=5, warmup=1,
+              token_byte_pieces=None):
     if not isinstance(runs, int) or isinstance(runs, bool) or runs < 1:
         raise ValueError("runs must be a positive integer")
     if not isinstance(warmup, int) or isinstance(warmup, bool) or warmup < 0:
@@ -86,9 +91,12 @@ def benchmark(model, prompt_ids, max_new_tokens, runs=5, warmup=1):
     with torch.inference_mode():
         cached_output = model.generate(
             prompt_ids.clone(), max_new_tokens=max_new_tokens,
-            temperature=0, top_k=0,
+            temperature=0, top_k=0, constrain_utf8=True,
+            token_byte_pieces=token_byte_pieces,
         )
-        reference_output = generate_without_cache(model, prompt_ids, max_new_tokens)
+        reference_output = generate_without_cache(
+            model, prompt_ids, max_new_tokens, token_byte_pieces
+        )
     if not torch.equal(cached_output, reference_output):
         raise RuntimeError("Cached and full-prefix generation produced different token IDs")
 
@@ -96,12 +104,13 @@ def benchmark(model, prompt_ids, max_new_tokens, runs=5, warmup=1):
     cached_median, cached_samples = measure(
         lambda: model.generate(
             prompt_ids.clone(), max_new_tokens=max_new_tokens,
-            temperature=0, top_k=0,
+            temperature=0, top_k=0, constrain_utf8=True,
+            token_byte_pieces=token_byte_pieces,
         ),
         runs, warmup, device,
     )
     reference_median, reference_samples = measure(
-        lambda: generate_without_cache(model, prompt_ids, max_new_tokens),
+        lambda: generate_without_cache(model, prompt_ids, max_new_tokens, token_byte_pieces),
         runs, warmup, device,
     )
     return {
@@ -136,8 +145,6 @@ def main():
 
     checkpoint_path = Path(args.checkpoint)
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
-    if checkpoint.get("tokenizer") != "utf8-byte-v1":
-        raise SystemExit("Unsupported DREAM checkpoint tokenizer.")
     training = checkpoint.get("sft_training") or checkpoint.get("training") or {}
     completed_steps = training.get("completed_steps", 0)
     if not isinstance(completed_steps, int) or isinstance(completed_steps, bool) or completed_steps < 1:
@@ -145,6 +152,7 @@ def main():
 
     try:
         config = DreamConfig(**checkpoint["config"])
+        tokenizer = load_tokenizer(checkpoint, config)
         model = DreamTransformer(config)
         model.load_state_dict(checkpoint["model_state"], strict=True)
     except (KeyError, TypeError, ValueError, RuntimeError) as exc:
@@ -152,14 +160,16 @@ def main():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device).eval()
-    tokenizer = DreamByteTokenizer()
     prompt = tokenizer.encode(args.prompt)
     if not prompt:
         raise SystemExit("Prompt must not be empty.")
     prompt_ids = torch.tensor([prompt], dtype=torch.long, device=device)
 
     try:
-        results = benchmark(model, prompt_ids, args.tokens, args.runs, args.warmup)
+        results = benchmark(
+            model, prompt_ids, args.tokens, args.runs, args.warmup,
+            token_byte_pieces=getattr(tokenizer, "token_byte_pieces", None)
+        )
     except ValueError as exc:
         raise SystemExit(str(exc)) from exc
 
