@@ -21,6 +21,7 @@ class DreamBPETokenizer:
     def __init__(self, merges=None):
         self.merges = [tuple(map(int, pair)) for pair in (merges or [])]
         self._validate_merges()
+        self._merge_ranks = {pair: rank for rank, pair in enumerate(self.merges)}
         self._pieces = [bytes([i]) for i in range(self.base_vocab_size)]
         for left, right in self.merges:
             self._pieces.append(self._pieces[left] + self._pieces[right])
