@@ -43,7 +43,7 @@ class GenerationBenchmarkTests(unittest.TestCase):
             result = subprocess.run([
                 sys.executable, str(SCRIPT),
                 "--checkpoint", str(checkpoint),
-                "--prompt", "USER: hi\\nASSISTANT:",
+                "--prompt", "USER: hi\nASSISTANT:",
                 "--tokens", "3",
                 "--runs", "1",
                 "--warmup", "0",
