@@ -95,6 +95,10 @@ class CorpusAuditTests(unittest.TestCase):
                 "mixed-numbers",
                 "Call 0712345678 locally or +44 20 7946 0958 internationally for help."
             ),
+            self.record(
+                "kenyan-international",
+                "For local assistance in Kenya call +254 712 345 678 during business hours."
+            ),
         ]
         with tempfile.TemporaryDirectory() as directory:
             result, report = self.run_audit(Path(directory), rows)
@@ -109,7 +113,7 @@ class CorpusAuditTests(unittest.TestCase):
             self.assertNotIn("+44 20 7946 0958", serialized)
             self.assertEqual(
                 sum(item["code"] == "possible_kenyan_phone" for item in report["findings"]),
-                1
+                2
             )
 
     def test_private_record_identifier_is_not_exposed_in_report(self):
