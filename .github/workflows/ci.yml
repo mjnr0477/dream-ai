@@ -36,7 +36,7 @@ jobs:
         run: python model/estimate_model.py --out /tmp/dream-model-budget.json
       - name: Validate Colab notebook structure
         run: python -c "import json; n=json.load(open('training/dream_train_colab.ipynb', encoding='utf-8')); assert n['nbformat']==4 and n['cells'] and all(c['cell_type'] in ('code','markdown') for c in n['cells'])"
-      - name: Test DREAM transformer and runtime
+      - name: Test DREAM transformer, runtime and release gate
         run: python -m unittest discover -s model -p 'test_*.py' -v
       - name: Prepare synthetic pretraining smoke corpus
         run: python model/prepare_corpus.py --input data/smoke-test.jsonl --output /tmp/dream-smoke-data
@@ -58,6 +58,13 @@ jobs:
           --data /tmp/dream-smoke-data/test.txt
           --batch-size 1 --batches 1 --sample-tokens 8
           --out /tmp/dream-smoke-eval.json
+      - name: Cross-check checkpoint audit and held-out evaluation
+        run: >-
+          python model/validate_release.py
+          --checkpoint /tmp/dream-smoke-small.pt
+          --audit /tmp/dream-smoke-checkpoint-audit.json
+          --evaluation /tmp/dream-smoke-eval.json
+          --out /tmp/dream-smoke-release-gate.json
       - name: Fine-tune DREAM on synthetic assistant-only examples
         run: >-
           python model/sft.py
