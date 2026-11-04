@@ -6,6 +6,7 @@ from pathlib import Path
 
 import torch
 
+from checkpoint_tokenizer import load_tokenizer, tokenizer_name
 from dream_transformer import DreamConfig, DreamTransformer
 
 
@@ -28,9 +29,6 @@ def audit_checkpoint(path):
 
     if not isinstance(checkpoint, dict):
         raise ValueError("Checkpoint root must be an object")
-    if checkpoint.get("tokenizer") != "utf8-byte-v1":
-        raise ValueError("Unsupported or missing DREAM tokenizer")
-
     config_data = checkpoint.get("config")
     if not isinstance(config_data, dict):
         raise ValueError("Checkpoint config must be an object")
@@ -40,6 +38,11 @@ def audit_checkpoint(path):
             raise ValueError("Checkpoint config contains unexpected or missing fields")
     except (TypeError, ValueError) as exc:
         raise ValueError(f"Invalid DREAM model config: {exc}") from exc
+
+    try:
+        load_tokenizer(checkpoint, config)
+    except ValueError as exc:
+        raise ValueError(f"Invalid DREAM checkpoint tokenizer: {exc}") from exc
 
     metadata_kind = (
         "sft_training"
@@ -97,7 +100,7 @@ def audit_checkpoint(path):
     return {
         "schema": "dream-checkpoint-audit-v1",
         "checkpoint_sha256": sha256(checkpoint_path),
-        "tokenizer": checkpoint["tokenizer"],
+        "tokenizer": tokenizer_name(checkpoint["tokenizer"]),
         "config": config.__dict__,
         "completed_steps": completed_steps,
         "tensor_count": tensor_count,

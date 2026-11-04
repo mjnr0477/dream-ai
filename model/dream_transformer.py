@@ -360,9 +360,21 @@ class DreamTransformer(nn.Module):
         )
         return next_token, next_state
 
+    def _sample_next_token(self, logits, temperature, top_k):
+        """Sample from the full vocabulary without byte-level UTF-8 constraints."""
+        if temperature == 0:
+            return torch.argmax(logits, dim=-1, keepdim=True)
+        logits = logits / temperature
+        if top_k:
+            k = min(top_k, logits.size(-1))
+            threshold = torch.topk(logits, k).values[:, [-1]]
+            logits = logits.masked_fill(logits < threshold, float("-inf"))
+        probabilities = F.softmax(logits, dim=-1)
+        return torch.multinomial(probabilities, num_samples=1)
+
     @torch.no_grad()
     def generate(self, token_ids, max_new_tokens=100, temperature=0.8,
-                 top_k=40):
+                 top_k=40, constrain_utf8=True):
         if (not isinstance(max_new_tokens, int) or
                 isinstance(max_new_tokens, bool) or max_new_tokens < 0):
             raise ValueError("max_new_tokens must be a non-negative integer")
@@ -396,10 +408,13 @@ class DreamTransformer(nn.Module):
             )
             for step in range(max_new_tokens):
                 logits = logits[:, -1, :]
-                next_token, utf8_state = self._sample_next_byte(
-                    logits, temperature, top_k, utf8_state,
-                    max_new_tokens - step - 1
-                )
+                if constrain_utf8:
+                    next_token, utf8_state = self._sample_next_byte(
+                        logits, temperature, top_k, utf8_state,
+                        max_new_tokens - step - 1
+                    )
+                else:
+                    next_token = self._sample_next_token(logits, temperature, top_k)
                 token_ids = torch.cat((token_ids, next_token), dim=1)
                 if step + 1 < max_new_tokens:
                     logits, past_key_values = self.forward_cached(
@@ -416,10 +431,13 @@ class DreamTransformer(nn.Module):
             context = token_ids[:, -self.config.block_size:]
             logits, _ = self(context)
             logits = logits[:, -1, :]
-            next_token, utf8_state = self._sample_next_byte(
-                logits, temperature, top_k, utf8_state,
-                max_new_tokens - step - 1
-            )
+            if constrain_utf8:
+                next_token, utf8_state = self._sample_next_byte(
+                    logits, temperature, top_k, utf8_state,
+                    max_new_tokens - step - 1
+                )
+            else:
+                next_token = self._sample_next_token(logits, temperature, top_k)
             token_ids = torch.cat((token_ids, next_token), dim=1)
         return token_ids
 

@@ -16,7 +16,8 @@ from urllib.parse import urlparse
 
 import torch
 
-from dream_transformer import DreamByteTokenizer, DreamConfig, DreamTransformer
+from checkpoint_tokenizer import load_tokenizer
+from dream_transformer import DreamConfig, DreamTransformer
 
 
 MAX_BODY_BYTES = 64 * 1024
@@ -28,18 +29,17 @@ MODEL_LOCK = threading.Lock()
 
 def load_model(checkpoint_path, device):
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
-    if checkpoint.get("tokenizer") != "utf8-byte-v1":
-        raise ValueError("Unsupported DREAM tokenizer in checkpoint.")
     metadata = checkpoint.get("sft_training") or checkpoint.get("training") or {}
     completed_steps = metadata.get("completed_steps", 0)
     if (not isinstance(completed_steps, int) or
             isinstance(completed_steps, bool) or completed_steps < 1):
         raise ValueError("Refusing to serve a checkpoint without completed DREAM training.")
     config = DreamConfig(**checkpoint["config"])
+    tokenizer = load_tokenizer(checkpoint, config)
     model = DreamTransformer(config)
     model.load_state_dict(checkpoint["model_state"], strict=True)
     model.to(device).eval()
-    return model, DreamByteTokenizer(), config, metadata
+    return model, tokenizer, config, metadata
 
 
 def format_prompt(messages):
@@ -135,7 +135,7 @@ def create_handler(model, tokenizer, config, model_name, token, device):
                     raise ValueError
                 if not 0 <= temperature <= 2.0:
                     raise ValueError
-                if not 0 <= top_k <= 256:
+                if not 0 <= top_k <= config.vocab_size:
                     raise ValueError
             except (TypeError, ValueError, OverflowError):
                 return self.send_json(400, {"error": {"message": "Invalid generation settings"}})
@@ -149,7 +149,8 @@ def create_handler(model, tokenizer, config, model_name, token, device):
                 with MODEL_LOCK, torch.inference_mode():
                     if float(temperature) == 0:
                         generated = model.generate(
-                            input_ids, max_new_tokens=max_tokens, temperature=0
+                            input_ids, max_new_tokens=max_tokens, temperature=0,
+                            constrain_utf8=tokenizer.vocab_size == 256
                         )[0].tolist()
                     else:
                         torch.manual_seed(secrets.randbits(63))
@@ -157,7 +158,8 @@ def create_handler(model, tokenizer, config, model_name, token, device):
                             input_ids,
                             max_new_tokens=max_tokens,
                             temperature=float(temperature),
-                            top_k=top_k
+                            top_k=top_k,
+                            constrain_utf8=tokenizer.vocab_size == 256
                         )[0].tolist()
                 answer = tokenizer.decode(generated[len(prompt_ids):]).strip()
             except Exception:
