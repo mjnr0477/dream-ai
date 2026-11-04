@@ -41,6 +41,13 @@ class ColabNotebookTests(unittest.TestCase):
         self.assertIn("language-balance.json", bundle)
         self.assertIn("not an approval", corpus)
 
+    def test_colab_estimates_model_budget_for_selected_tokenizer(self):
+        training = "".join(self.notebook["cells"][6]["source"])
+        bundle = "".join(self.notebook["cells"][14]["source"])
+        self.assertIn("model/estimate_model.py", training)
+        self.assertIn("'--vocab-size', str(MODEL_VOCAB_SIZE)", training)
+        self.assertIn("model-budget.json", bundle)
+
 
 if __name__ == "__main__":
     unittest.main()
