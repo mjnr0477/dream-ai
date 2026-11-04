@@ -5,6 +5,7 @@ import { summarizeRows } from "./summarize-evals.mjs";
 function result(id, language, overrides = {}) {
   return {
     runId: "run-001",
+    runStartedAt: "2026-11-05T00:00:00.000Z",
     evaluationSet: "core-v1",
     model: "dream-native",
     checkpointSha256: "a".repeat(64),
