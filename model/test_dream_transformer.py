@@ -137,14 +137,14 @@ class DreamTransformerTests(unittest.TestCase):
         self.assertTrue(two_steps_left[0, 0xC2:0xE0].all().item())
         self.assertFalse(two_steps_left[0, 0xE0:].any().item())
 
-        for lead, expected_min, expected_max in (
-            (0xE0, 0xA0, 0xBF), (0xED, 0x80, 0x9F),
-            (0xF0, 0x90, 0xBF), (0xF4, 0x80, 0x8F),
+        for lead, expected_min, expected_max, remaining_after in (
+            (0xE0, 0xA0, 0xBF, 1), (0xED, 0x80, 0x9F, 1),
+            (0xF0, 0x90, 0xBF, 2), (0xF4, 0x80, 0x8F, 2),
         ):
             state = self.model._advance_utf8_state(
                 pending, minimum, maximum, torch.tensor([lead])
             )
-            allowed = self.model._utf8_next_token_mask(*state, 1)
+            allowed = self.model._utf8_next_token_mask(*state, remaining_after)
             self.assertTrue(allowed[0, expected_min:expected_max + 1].all().item())
             self.assertEqual(int(allowed[0].sum().item()), expected_max - expected_min + 1)
 
