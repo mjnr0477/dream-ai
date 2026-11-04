@@ -28,6 +28,10 @@ class DreamBPETokenizer:
     def vocab_size(self):
         return self.base_vocab_size + len(self.merges)
 
+    @property
+    def token_byte_pieces(self):
+        return tuple(self._pieces)
+
     def _validate_merges(self):
         for index, pair in enumerate(self.merges):
             if len(pair) != 2:

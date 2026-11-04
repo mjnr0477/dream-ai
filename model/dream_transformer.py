@@ -365,6 +365,62 @@ class DreamTransformer(nn.Module):
         )
         return next_token, next_state
 
+
+    @staticmethod
+    def _advance_utf8_piece(state, piece):
+        """Advance a UTF-8 decoder state across every byte in one BPE token."""
+        pending, minimum, maximum = state
+        for value in piece:
+            if pending:
+                if not minimum <= value <= maximum:
+                    return None
+                pending -= 1
+                minimum, maximum = 0x80, 0xBF
+                continue
+            if value <= 0x7F:
+                continue
+            if 0xC2 <= value <= 0xDF:
+                pending = 1
+            elif value == 0xE0:
+                pending, minimum = 2, 0xA0
+            elif 0xE1 <= value <= 0xEC or 0xEE <= value <= 0xEF:
+                pending = 2
+            elif value == 0xED:
+                pending, maximum = 2, 0x9F
+            elif value == 0xF0:
+                pending, minimum = 3, 0x90
+            elif 0xF1 <= value <= 0xF3:
+                pending = 3
+            elif value == 0xF4:
+                pending, maximum = 3, 0x8F
+            else:
+                return None
+        return pending, minimum, maximum
+
+    def _sample_next_bpe_token(
+        self, logits, temperature, top_k, utf8_states, token_byte_pieces,
+        remaining_after
+    ):
+        """Sample BPE tokens that preserve valid UTF-8 and can finish in budget."""
+        rows = []
+        for state in utf8_states:
+            row = []
+            for piece in token_byte_pieces:
+                next_state = self._advance_utf8_piece(state, piece)
+                row.append(next_state is not None and next_state[0] <= remaining_after)
+            rows.append(row)
+        allowed = torch.tensor(rows, dtype=torch.bool, device=logits.device)
+        if not allowed.any(dim=1).all().item():
+            raise RuntimeError("No UTF-8-valid BPE token can complete within the token budget")
+        masked_logits = logits.masked_fill(~allowed, float("-inf"))
+        next_token = self._sample_next_token(masked_logits, temperature, top_k)
+        selected = next_token.squeeze(-1).tolist()
+        next_states = [
+            self._advance_utf8_piece(state, token_byte_pieces[token_id])
+            for state, token_id in zip(utf8_states, selected)
+        ]
+        return next_token, next_states
+
     def _sample_next_token(self, logits, temperature, top_k):
         """Sample from the full vocabulary without byte-level UTF-8 constraints."""
         if temperature == 0:
@@ -379,7 +435,7 @@ class DreamTransformer(nn.Module):
 
     @torch.no_grad()
     def generate(self, token_ids, max_new_tokens=100, temperature=0.8,
-                 top_k=40, constrain_utf8=True):
+                 top_k=40, constrain_utf8=True, token_byte_pieces=None):
         if (not isinstance(max_new_tokens, int) or
                 isinstance(max_new_tokens, bool) or max_new_tokens < 0):
             raise ValueError("max_new_tokens must be a non-negative integer")
@@ -398,9 +454,19 @@ class DreamTransformer(nn.Module):
             raise TypeError("generation prompt must use torch.long")
         if torch.any((token_ids < 0) | (token_ids >= self.config.vocab_size)):
             raise ValueError("generation prompt contains IDs outside the configured vocabulary")
+        if token_byte_pieces is not None:
+            if (not isinstance(token_byte_pieces, (tuple, list))
+                    or len(token_byte_pieces) != self.config.vocab_size
+                    or any(not isinstance(piece, bytes) or not piece
+                           for piece in token_byte_pieces)):
+                raise ValueError("token_byte_pieces must contain one non-empty bytes value per vocabulary ID")
         self.eval()
         if max_new_tokens == 0:
             return token_ids
+        bpe_utf8_states = (
+            [(0, 0x80, 0xBF)] * token_ids.shape[0]
+            if token_byte_pieces is not None else None
+        )
         # Cache is exact while the complete prompt + generation fits the learned
         # absolute-position window. Once it would overflow, use the original
         # sliding-window path so positions are re-based exactly as before.
@@ -413,7 +479,12 @@ class DreamTransformer(nn.Module):
             )
             for step in range(max_new_tokens):
                 logits = logits[:, -1, :]
-                if constrain_utf8:
+                if constrain_utf8 and token_byte_pieces is not None:
+                    next_token, bpe_utf8_states = self._sample_next_bpe_token(
+                        logits, temperature, top_k, bpe_utf8_states,
+                        token_byte_pieces, max_new_tokens - step - 1
+                    )
+                elif constrain_utf8:
                     next_token, utf8_state = self._sample_next_byte(
                         logits, temperature, top_k, utf8_state,
                         max_new_tokens - step - 1
@@ -436,7 +507,12 @@ class DreamTransformer(nn.Module):
             context = token_ids[:, -self.config.block_size:]
             logits, _ = self(context)
             logits = logits[:, -1, :]
-            if constrain_utf8:
+            if constrain_utf8 and token_byte_pieces is not None:
+                next_token, bpe_utf8_states = self._sample_next_bpe_token(
+                    logits, temperature, top_k, bpe_utf8_states,
+                    token_byte_pieces, max_new_tokens - step - 1
+                )
+            elif constrain_utf8:
                 next_token, utf8_state = self._sample_next_byte(
                     logits, temperature, top_k, utf8_state,
                     max_new_tokens - step - 1
