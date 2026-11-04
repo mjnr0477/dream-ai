@@ -20,6 +20,7 @@ The first configurable experiment defaults to 6 layers, width 256, 8 attention h
 - `model/sft.py` performs assistant-response-only supervised instruction fine-tuning from a trained DREAM checkpoint; prompt tokens are masked from the loss.
 - `model/generate.py` runs local inference from a DREAM checkpoint. Generation uses per-layer key/value caching when the prompt plus requested output fits the learned absolute-position context; if it would overflow, it retains the existing sliding-window recomputation path so positional behavior is unchanged. Sampling also constrains emitted bytes to valid UTF-8 sequences (including continuation-byte ranges that exclude overlong encodings, surrogates and values above U+10FFFF); this guarantees valid Unicode encoding, not language fluency or factual quality.
 - `model/benchmark_generation.py` compares cached greedy decoding against a full-prefix recomputation reference, first requiring exact token-ID parity, then reporting median latency, generated tokens/second and speedup ratio for the selected checkpoint and device. Run it only when the requested output fits inside the configured context window; results are local performance measurements, not model-quality evidence.
+- `model/audit_checkpoint.py` performs a read-only checkpoint preflight: validates the byte tokenizer, model config, positive training-step metadata, exact state-dict keys/shapes/dtypes, finite floating-point weights and strict model loading. It emits a SHA-256 identity report and does not prove that training data, rights attestations or model quality are valid.
 - `model/evaluate.py` reports held-out cross-entropy, bits-per-byte, perplexity-per-byte, SHA-256 provenance and a qualitative sample.
 - `model/serve.py` exposes the native checkpoint over a local HTTP endpoint. Its chat-completions-shaped JSON is only a transport protocol; no external model is called.
 - `model/test_dream_transformer.py`, `model/test_train.py` and `model/test_serve.py` test model behavior (including cached/full-logit equivalence, greedy output parity, context-window fallback and valid UTF-8 output constraints), checkpoint/resume and local HTTP serving.
@@ -31,6 +32,7 @@ Install the model dependencies from `model/requirements.txt`. Run the training s
 python -m pip install -r model/requirements.txt
 python model/prepare_corpus.py --input data/approved-records.jsonl
 python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --eval-batches 10 --batch-size 4 --grad-accum-steps 8
+python model/audit_checkpoint.py --checkpoint checkpoints/dream-small.pt --out eval-results/checkpoint-audit.json
 # Resume the saved run later, keeping the same corpus, architecture and optimizer settings:
 python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --resume checkpoints/dream-small.pt
 python model/evaluate.py --checkpoint checkpoints/dream-small.pt --data data/prepared/test.txt --out eval-results/dream-small.json
