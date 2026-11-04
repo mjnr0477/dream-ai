@@ -53,6 +53,8 @@ def main():
             item = json.loads(line)
         except json.JSONDecodeError as exc:
             raise SystemExit(f"Invalid JSON at line {line_number}: {exc}") from exc
+        if not isinstance(item, dict):
+            raise SystemExit(f"Record must be a JSON object at line {line_number}")
 
         required = (
             "id", "source", "source_group", "license", "license_url",
@@ -88,7 +90,7 @@ def main():
         if len(item["text"].strip()) < 40:
             raise SystemExit(f"Text too short at line {line_number}")
         if item["id"] in seen_ids:
-            raise SystemExit(f"Duplicate record id: {item['id']}")
+            raise SystemExit(f"Duplicate record id at line {line_number}")
 
         seen_ids.add(item["id"])
         normalized = " ".join(item["text"].split()).casefold()
