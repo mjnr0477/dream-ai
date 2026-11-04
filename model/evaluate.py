@@ -57,7 +57,7 @@ def validate_language_subset(manifest_path, language, data_path, parent_test_pat
             or not all(isinstance(group, str) and group for group in parent_groups + language_groups)
             or len(set(parent_groups)) != len(parent_groups)
             or len(set(language_groups)) != len(language_groups)
-            or not set(language_groups).issubset(set(parent_groups)):
+            or not set(language_groups).issubset(set(parent_groups))):
         raise ValueError("Language test source groups are not a valid subset of parent test groups")
     return parent_hash
 
