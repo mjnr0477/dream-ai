@@ -128,6 +128,101 @@ class DreamServingTests(unittest.TestCase):
         )
         self.assertEqual(metadata["completed_steps"], 1)
 
+    def test_bpe_checkpoint_serves_native_unicode_completion_over_http(self):
+        sample = "habari dunia — akili huru kutoka Kenya 🇰🇪 " * 8
+        tokenizer = DreamBPETokenizer.train(sample, vocab_size=300)
+        config = DreamConfig(
+            vocab_size=tokenizer.vocab_size, block_size=64,
+            d_model=16, n_heads=4, n_layers=1, dropout=0.0
+        )
+        model = DreamTransformer(config)
+        with torch.no_grad():
+            for parameter in model.parameters():
+                parameter.zero_()
+            model.final_norm.bias.fill_(1.0)
+            model.token_embedding.weight[65].fill_(1.0)
+        checkpoint = self.root / "dream-bpe-http.pt"
+        torch.save({
+            "model_state": model.state_dict(),
+            "config": config.__dict__,
+            "tokenizer": tokenizer.to_dict(),
+            "training": {"completed_steps": 1, "initialization": "test-fixture"}
+        }, checkpoint)
+
+        _, restored_tokenizer, restored_config, metadata = load_model(
+            checkpoint, "cpu"
+        )
+        self.assertEqual(restored_config.vocab_size, tokenizer.vocab_size)
+        self.assertEqual(restored_tokenizer.to_dict(), tokenizer.to_dict())
+        self.assertEqual(metadata["completed_steps"], 1)
+        self.assertEqual(
+            restored_tokenizer.decode(restored_tokenizer.encode(sample)), sample
+        )
+
+        with socket.socket() as sock:
+            sock.bind(("127.0.0.1", 0))
+            port = sock.getsockname()[1]
+        env = os.environ.copy()
+        env.update({
+            "DREAM_CHECKPOINT": str(checkpoint),
+            "DREAM_RUNTIME_HOST": "127.0.0.1",
+            "DREAM_RUNTIME_PORT": str(port),
+            "DREAM_RUNTIME_TOKEN": "bpe-test-token",
+            "DREAM_MODEL_NAME": "dream-bpe-http"
+        })
+        process = subprocess.Popen(
+            [sys.executable, str(SERVER)],
+            cwd=str(SERVER.parent), env=env,
+            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True
+        )
+        base_url = f"http://127.0.0.1:{port}"
+        try:
+            deadline = time.monotonic() + 20
+            while time.monotonic() < deadline:
+                if process.poll() is not None:
+                    self.fail(
+                        "BPE DREAM runtime exited during startup: "
+                        + process.stderr.read()
+                    )
+                try:
+                    with urllib.request.urlopen(
+                        base_url + "/health", timeout=2
+                    ) as response:
+                        self.assertEqual(response.status, 200)
+                    break
+                except OSError:
+                    time.sleep(0.1)
+            else:
+                self.fail("BPE DREAM runtime did not become ready")
+
+            request = urllib.request.Request(
+                base_url + "/v1/chat/completions",
+                data=json.dumps({
+                    "model": "dream-bpe-http",
+                    "messages": [{"role": "user", "content": "Habari DREAM"}],
+                    "max_tokens": 1,
+                    "temperature": 0
+                }).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer bpe-test-token"
+                },
+                method="POST"
+            )
+            with urllib.request.urlopen(request, timeout=10) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+            self.assertEqual(payload["model"], "dream-bpe-http")
+            self.assertEqual(
+                payload["choices"][0]["message"]["content"], "A"
+            )
+        finally:
+            process.terminate()
+            try:
+                process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait(timeout=5)
+
     def test_health_identifies_native_runtime(self):
         status, body = self.request("GET", "/health")
         self.assertEqual(status, 200)
