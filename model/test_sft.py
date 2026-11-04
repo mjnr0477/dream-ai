@@ -9,6 +9,7 @@ from pathlib import Path
 
 import torch
 
+from dream_bpe import DreamBPETokenizer
 from dream_transformer import DreamConfig, DreamTransformer, DreamByteTokenizer
 from sft import load_examples
 
@@ -95,6 +96,78 @@ class DreamSFTTests(unittest.TestCase):
             self.assertTrue(any(target != -100 for target in targets))
             supervised = bytes(target for target in targets if target != -100)
             self.assertIn(b"Answer from train number", supervised)
+
+
+    def test_bpe_sft_checkpoint_preserves_tokenizer_and_evaluates(self):
+        train_path = self.root / "bpe-train.jsonl"
+        val_path = self.root / "bpe-validation.jsonl"
+        self.write_records(train_path, "train")
+        self.write_records(val_path, "validation")
+        corpus = train_path.read_text(encoding="utf-8") + val_path.read_text(encoding="utf-8")
+        tokenizer = DreamBPETokenizer.train(corpus, vocab_size=300)
+        config = DreamConfig(vocab_size=tokenizer.vocab_size, block_size=64,
+                             d_model=16, n_heads=4, n_layers=1, dropout=0.0)
+        model = DreamTransformer(config)
+        bpe_base = self.root / "pretrained-bpe.pt"
+        torch.save({"model_state": model.state_dict(), "config": config.__dict__,
+                    "tokenizer": tokenizer.to_dict(),
+                    "training": {"completed_steps": 2, "initialization": "random"}}, bpe_base)
+        output = self.root / "dream-bpe-instruct.pt"
+        result = subprocess.run([
+            sys.executable, str(SCRIPT), "--checkpoint", str(bpe_base),
+            "--train-data", str(train_path), "--validation-data", str(val_path),
+            "--pretraining-manifest", str(self.manifest),
+            "--pretraining-test-data", str(self.test_data), "--out", str(output),
+            "--steps", "1", "--batch-size", "2", "--grad-accum-steps", "1",
+            "--eval-every", "1", "--eval-batches", "1", "--checkpoint-every", "1"
+        ], capture_output=True, text=True, timeout=120)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        saved = torch.load(output, map_location="cpu", weights_only=True)
+        self.assertEqual(saved["tokenizer"], tokenizer.to_dict())
+        self.assertEqual(saved["config"]["vocab_size"], tokenizer.vocab_size)
+        audited = subprocess.run([
+            sys.executable, str(Path(__file__).with_name("audit_checkpoint.py")),
+            "--checkpoint", str(output)
+        ], capture_output=True, text=True, timeout=30)
+        self.assertEqual(audited.returncode, 0, audited.stdout + audited.stderr)
+        self.assertEqual(json.loads(audited.stdout)["tokenizer"], "dream-bpe-v1")
+        evaluated = subprocess.run([
+            sys.executable, str(EVALUATOR), "--checkpoint", str(output),
+            "--data", str(self.test_data), "--sample-tokens", "2",
+            "--batches", "1", "--batch-size", "1",
+            "--out", str(self.root / "bpe-sft-eval.json")
+        ], capture_output=True, text=True, timeout=60)
+        self.assertEqual(evaluated.returncode, 0, evaluated.stdout + evaluated.stderr)
+
+        resumed = subprocess.run([
+            sys.executable, str(SCRIPT), "--checkpoint", str(bpe_base),
+            "--train-data", str(train_path), "--validation-data", str(val_path),
+            "--pretraining-manifest", str(self.manifest),
+            "--pretraining-test-data", str(self.test_data), "--out", str(output),
+            "--steps", "1", "--batch-size", "2", "--grad-accum-steps", "1",
+            "--eval-every", "1", "--eval-batches", "1", "--checkpoint-every", "1",
+            "--resume", str(output)
+        ], capture_output=True, text=True, timeout=120)
+        self.assertEqual(resumed.returncode, 0, resumed.stdout + resumed.stderr)
+        resumed_checkpoint = torch.load(output, map_location="cpu", weights_only=True)
+        self.assertEqual(resumed_checkpoint["sft_training"]["completed_steps"], 2)
+        self.assertEqual(resumed_checkpoint["tokenizer"], tokenizer.to_dict())
+
+        corrupted = dict(resumed_checkpoint)
+        corrupted["tokenizer"] = "utf8-byte-v1"
+        corrupted_path = self.root / "wrong-tokenizer-resume.pt"
+        torch.save(corrupted, corrupted_path)
+        rejected = subprocess.run([
+            sys.executable, str(SCRIPT), "--checkpoint", str(bpe_base),
+            "--train-data", str(train_path), "--validation-data", str(val_path),
+            "--pretraining-manifest", str(self.manifest),
+            "--pretraining-test-data", str(self.test_data), "--out", str(output),
+            "--steps", "1", "--batch-size", "2", "--grad-accum-steps", "1",
+            "--eval-every", "1", "--eval-batches", "1", "--checkpoint-every", "1",
+            "--resume", str(corrupted_path)
+        ], capture_output=True, text=True, timeout=30)
+        self.assertNotEqual(rejected.returncode, 0)
+        self.assertIn("resume tokenizer does not match", rejected.stderr)
 
     def test_sft_rejects_missing_or_invalid_source_date(self):
         train_path = self.root / "train.jsonl"

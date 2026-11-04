@@ -13,7 +13,8 @@ from pathlib import Path
 
 import torch
 
-from dream_transformer import DreamByteTokenizer, DreamConfig, DreamTransformer
+from checkpoint_tokenizer import load_tokenizer
+from dream_transformer import DreamConfig, DreamTransformer
 
 
 def sha256(path):
@@ -209,13 +210,15 @@ def main():
         raise SystemExit("SFT training and validation content hashes must differ.")
 
     base = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
-    if base.get("tokenizer") != "utf8-byte-v1":
-        raise SystemExit("Unsupported base DREAM tokenizer.")
     base_steps = base.get("training", {}).get("completed_steps", 0)
     if not isinstance(base_steps, int) or base_steps < 1:
         raise SystemExit("SFT requires a DREAM checkpoint with completed pretraining steps.")
     config = DreamConfig(**base["config"])
-    tokenizer = DreamByteTokenizer()
+    try:
+        tokenizer = load_tokenizer(base, config)
+    except ValueError as exc:
+        raise SystemExit(f"Unsupported base DREAM tokenizer: {exc}") from exc
+    tokenizer_metadata = base["tokenizer"]
     try:
         pretraining_manifest = json.loads(
             Path(args.pretraining_manifest).read_text(encoding="utf-8")
@@ -269,6 +272,8 @@ def main():
     if args.resume:
         saved = torch.load(args.resume, map_location=device, weights_only=True)
         meta = saved.get("sft_training", {})
+        if saved.get("tokenizer") != tokenizer_metadata:
+            raise SystemExit("SFT resume tokenizer does not match the base checkpoint.")
         if saved.get("base_checkpoint_sha256") != sha256(args.checkpoint):
             raise SystemExit("SFT resume base checkpoint hash does not match.")
         if meta.get("train_sha256") != train_hash or meta.get("validation_sha256") != validation_hash:
@@ -317,7 +322,7 @@ def main():
             "python_rng_state": random.getstate(),
             "cuda_rng_state": torch.cuda.get_rng_state_all() if torch.cuda.is_available() else [],
             "config": config.__dict__,
-            "tokenizer": "utf8-byte-v1",
+            "tokenizer": tokenizer_metadata,
             "base_checkpoint_sha256": sha256(args.checkpoint),
             "sft_training": {
                 "method": "assistant-response-only-supervised-finetuning",
