@@ -13,7 +13,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 EMAIL_RE = re.compile(r"(?<![\w.+-])[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}(?![\w.-])")
-KENYAN_PHONE_RE = re.compile(r"(?<!\w)(?:\+254|254|0)(?:7|1)\d(?:[ .()-]?\d){7}(?!\w)")
+KENYAN_PHONE_RE = re.compile(r"(?<!\w)(?:\+254[ .()-]?|254[ .()-]?|0)(?:7|1)\d(?:[ .()-]?\d){7}(?!\w)")
 INTERNATIONAL_PHONE_RE = re.compile(
     r"(?<![\w])(?P<prefix>\+\d{1,3}|00\d{1,3})(?:[ .()-]*\d){7,14}(?!\w)"
 )
