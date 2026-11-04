@@ -4,7 +4,7 @@ DREAM AI is an independent AI research and application project, separate from Dr
 
 ## Project status
 
-DREAM has its own decoder-only transformer architecture, byte tokenizer, random initialization, training script, inference script and native model-serving API in `model/`. This is the beginning of a from-scratch model, not a borrowed foundation-model checkpoint.
+DREAM has its own decoder-only transformer architecture, byte-tokenizer default, optional byte-fallback BPE tokenizer, random initialization, training script, inference script and native model-serving API in `model/`. This is the beginning of a from-scratch model, not a borrowed foundation-model checkpoint.
 
 **No production-trained DREAM checkpoint is being claimed yet.** CI now proves that a tiny model can train from random initialization, complete assistant-only instruction tuning and pass held-out smoke evaluation. Those synthetic tests validate the pipeline only; they do not establish useful model intelligence. The Node web app and model runtime are separate. The Render web service hosts the application; training and inference run on suitable compute that we control.
 
@@ -24,10 +24,10 @@ The web interface is not itself a trained model. Until a trained native DREAM ch
 See [model/BASELINE.md](model/BASELINE.md) for the architecture, commands and release gates. For a phone-friendly, free-tier training workflow, open the [DREAM from-scratch Colab notebook](https://colab.research.google.com/github/mjnr0477/dream-ai/blob/main/training/dream_train_colab.ipynb). Colab GPU availability and session limits are controlled by Google; download the checkpoint and evaluation report before the session ends.
 
 - `model/dream_transformer.py`: DREAM's own transformer blocks, causal attention, embeddings, UTF-8 byte tokenizer, inference-time key/value caching when the sequence fits the context window, and UTF-8-constrained output-byte sampling.
-- `model/dream_bpe.py`: experimental deterministic byte-fallback BPE tokenizer; it is not yet integrated into model checkpoints or serving.
+- `model/dream_bpe.py`: deterministic byte-fallback BPE tokenizer, integrated with native pretraining, SFT, checkpoint auditing, evaluation, generation and serving. Existing byte-tokenizer checkpoints remain supported.
 - `model/benchmark_multilingual_tokenizer.py`: measures BPE token efficiency per language on held-out UTF-8 text, checks train/test text overlap and verifies exact Unicode round trips. This measures compression only, not language understanding.
 - `model/train.py`: trains from random initialization.
-- `model/evaluate.py`: produces a held-out corpus report with cross-entropy, bits-per-byte, perplexity-per-byte, corpus/checkpoint hashes and a sample generation.
+- `model/evaluate.py`: reconstructs the checkpoint tokenizer and reports held-out cross-entropy per token and per represented UTF-8 byte, bits-per-byte, perplexity-per-byte, corpus/checkpoint hashes and a sample generation.
 - `model/generate.py`: local checkpoint inference.
 - `model/benchmark_generation.py`: compares cached greedy generation with exact full-prefix recomputation, verifies identical token output, and reports local median latency and throughput. The result is hardware/checkpoint-specific, not a model-quality score.
 - `model/audit_checkpoint.py`: read-only preflight audit for checkpoint tokenizer/configuration, trained-step metadata, exact tensor keys/shapes/dtypes, finite weights, strict state loading and SHA-256 identity.
