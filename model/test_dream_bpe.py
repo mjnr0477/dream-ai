@@ -17,7 +17,7 @@ class DreamBPETokenizerTests(unittest.TestCase):
         import re
 
         def reference_train(text, vocab_size, min_frequency):
-            frequencies = Counter(re.findall(r"\\s+|[^\\s]+", text))
+            frequencies = Counter(re.findall(r"\s+|[^\s]+", text))
             sequences = {
                 tuple(piece.encode("utf-8")): count
                 for piece, count in frequencies.items()

@@ -56,7 +56,7 @@ class DreamBPETokenizer:
         # Keep whitespace runs and non-whitespace runs separate so merges do
         # not accidentally combine across lexical boundaries. Each distinct
         # piece is represented once and weighted by its corpus frequency.
-        frequencies = Counter(re.findall(r"\\s+|[^\\s]+", text))
+        frequencies = Counter(re.findall(r"\s+|[^\s]+", text))
         sequences = [
             (list(piece.encode("utf-8")), frequency)
             for piece, frequency in frequencies.items()
