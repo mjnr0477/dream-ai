@@ -72,6 +72,17 @@ class LanguageBalanceTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     audit(path, min_records=1)
 
+    def test_write_json_is_valid_utf8_json_with_final_newline(self):
+        from audit_language_balance import write_json
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "nested" / "report.json"
+            payload = {"language": "sw", "approval_granted": False}
+            write_json(output, payload)
+            rendered = output.read_text(encoding="utf-8")
+            self.assertTrue(rendered.endswith("\\n"))
+            self.assertEqual(json.loads(rendered), payload)
+            self.assertFalse(list(output.parent.glob("*.tmp")))
+
     def test_rejects_empty_corpus(self):
         with tempfile.TemporaryDirectory() as directory:
             path = self.write_rows(Path(directory), [])
