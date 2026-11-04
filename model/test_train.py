@@ -226,5 +226,72 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             self.assertIn("matches training or validation", result.stderr)
 
 
+    def test_interrupted_resume_matches_uninterrupted_training_exactly(self):
+        import torch
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "train.txt").write_text(
+                "DREAM reproducibility training corpus with varied words. " * 12,
+                encoding="utf-8"
+            )
+            (root / "validation.txt").write_text(
+                "Independent DREAM validation corpus with other words. " * 12,
+                encoding="utf-8"
+            )
+            continuous_checkpoint = root / "continuous.pt"
+            resumed_checkpoint = root / "resumed.pt"
+
+            continuous = self.run_training(
+                root, continuous_checkpoint, extra=("--steps", "4")
+            )
+            self.assertEqual(
+                continuous.returncode, 0, continuous.stdout + continuous.stderr
+            )
+
+            interrupted = self.run_training(root, resumed_checkpoint)
+            self.assertEqual(
+                interrupted.returncode, 0, interrupted.stdout + interrupted.stderr
+            )
+            resumed = self.run_training(
+                root, resumed_checkpoint,
+                extra=("--resume", str(resumed_checkpoint), "--steps", "2")
+            )
+            self.assertEqual(resumed.returncode, 0, resumed.stdout + resumed.stderr)
+
+            expected = torch.load(
+                continuous_checkpoint, map_location="cpu", weights_only=True
+            )
+            actual = torch.load(
+                resumed_checkpoint, map_location="cpu", weights_only=True
+            )
+            self.assertEqual(expected["training"]["completed_steps"], 4)
+            self.assertEqual(actual["training"]["completed_steps"], 4)
+            self.assertEqual(expected["model_state"].keys(), actual["model_state"].keys())
+            for name in expected["model_state"]:
+                with self.subTest(parameter=name):
+                    self.assertTrue(torch.equal(
+                        expected["model_state"][name], actual["model_state"][name]
+                    ))
+            self.assertEqual(
+                expected["optimizer_state"]["state"].keys(),
+                actual["optimizer_state"]["state"].keys()
+            )
+            for parameter_id, expected_state in expected["optimizer_state"]["state"].items():
+                actual_state = actual["optimizer_state"]["state"][parameter_id]
+                self.assertEqual(expected_state.keys(), actual_state.keys())
+                for key, expected_value in expected_state.items():
+                    with self.subTest(parameter=parameter_id, state=key):
+                        if isinstance(expected_value, torch.Tensor):
+                            self.assertTrue(torch.equal(
+                                expected_value, actual_state[key]
+                            ))
+                        else:
+                            self.assertEqual(expected_value, actual_state[key])
+            self.assertTrue(torch.equal(
+                expected["torch_rng_state"], actual["torch_rng_state"]
+            ))
+
+
 if __name__ == "__main__":
     unittest.main()
