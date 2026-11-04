@@ -81,6 +81,9 @@ for (const item of selected) {
     throw new Error("Runtime failed on " + item.id + ": HTTP " + response.status);
   }
   const data = await response.json();
+  if (data?.model !== modelName) {
+    throw new Error("Runtime completion model does not match the verified DREAM model for " + item.id);
+  }
   const output = data?.choices?.[0]?.message?.content;
   if (typeof output !== "string" || !output.trim()) {
     throw new Error("Runtime returned no text for " + item.id);
