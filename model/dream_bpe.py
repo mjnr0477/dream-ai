@@ -1,7 +1,7 @@
-"""Deterministic, byte-fallback BPE tokenizer for experimental DREAM checkpoints.
+"""Deterministic byte-fallback BPE tokenizer for native DREAM checkpoints.
 
-This module is deliberately standalone: existing utf8-byte-v1 checkpoints and
-runtime behavior remain unchanged until an end-to-end migration is tested.
+Legacy utf8-byte-v1 checkpoints remain supported; BPE vocabulary and byte pieces
+are reconstructed from the checkpoint metadata for training and inference.
 """
 from __future__ import annotations
 
@@ -27,6 +27,10 @@ class DreamBPETokenizer:
     @property
     def vocab_size(self):
         return self.base_vocab_size + len(self.merges)
+
+    @property
+    def token_byte_pieces(self):
+        return tuple(self._pieces)
 
     def _validate_merges(self):
         for index, pair in enumerate(self.merges):
