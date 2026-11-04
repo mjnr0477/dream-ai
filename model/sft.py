@@ -1,7 +1,7 @@
 """Supervised instruction fine-tuning for DREAM's own pretrained checkpoint.
 
 Only assistant response tokens contribute to loss. No external model or API is used.
-Input records are human-reviewed JSONL conversation examples.
+Input records are human-reviewed JSONL conversation examples with HTTPS source/license URLs and an explicit, verified rights basis.
 """
 import argparse
 import hashlib
