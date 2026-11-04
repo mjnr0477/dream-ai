@@ -84,6 +84,20 @@ class FineWeb2CandidateImporterTests(unittest.TestCase):
             self.assertTrue(all(json.loads(line)["language"] == "swa"
                                 for line in first_content.splitlines()))
 
+    def test_rejects_empty_language_filter_result_without_writing_candidates(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            row = {
+                "id": "eng-1", "text": "English source document with enough text for candidate review. " * 2,
+                "url": "https://example.org/1", "date": "2024-01-01", "language": "eng"
+            }
+            (root / "fineweb2.jsonl").write_text(json.dumps(row) + "\n", encoding="utf-8")
+            result, output, summary = self.run_import(root, "--languages", "swa")
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("No eligible FineWeb2 records", result.stderr)
+            self.assertFalse(output.exists())
+            self.assertFalse(summary.exists())
+
     def test_rejects_invalid_or_missing_source_url(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
