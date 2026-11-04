@@ -33,6 +33,14 @@ class ColabNotebookTests(unittest.TestCase):
         self.assertIn("UTF-8 byte", evaluation)
         self.assertIn("dream-bpe.json", report)
 
+    def test_colab_audits_language_balance_and_bundles_the_report(self):
+        corpus = "".join(self.notebook["cells"][4]["source"])
+        bundle = "".join(self.notebook["cells"][14]["source"])
+        self.assertIn("model/audit_language_balance.py", corpus)
+        self.assertIn("data/approved-records.jsonl", corpus)
+        self.assertIn("language-balance.json", bundle)
+        self.assertIn("not an approval", corpus)
+
 
 if __name__ == "__main__":
     unittest.main()
