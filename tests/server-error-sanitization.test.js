@@ -56,7 +56,8 @@ test("chat preserves safe runtime diagnostics without exposing configured URLs",
     headers: {
       "content-type": "application/json",
       origin: baseUrl,
-      "x-forwarded-for": "198.51.100.111"
+      "cf-connecting-ip": "198.51.100.111",
+      "x-forwarded-for": "203.0.113.250"
     },
     body: JSON.stringify({
       mode: "general",
