@@ -30,6 +30,7 @@ printf '%s\n' \
   'DREAM_MODEL_NAME=dream-native-v1' \
   'DREAM_RUNTIME_HOST=0.0.0.0' \
   'DREAM_RUNTIME_PORT=8081' \
+  'DREAM_CPU_THREADS=2' \
   "DREAM_RUNTIME_TOKEN=$TOKEN" > /absolute/path/dream-runtime.env
 unset TOKEN
 chmod 600 /absolute/path/dream-runtime.env
@@ -46,7 +47,7 @@ docker run --detach --name dream-native \
   dream-native-runtime:local
 ```
 
-The server refuses non-loopback binding without a token of at least 24 characters. Keep the token private and use HTTPS/TLS at the hosting proxy. Do not expose port 8081 directly to the public internet without TLS and access controls.
+`DREAM_CPU_THREADS` limits PyTorch CPU parallelism (default 2 in the container); set it to the actual CPU capacity of the host to avoid thread oversubscription. The server refuses non-loopback binding without a token of at least 24 characters. Keep the token private and use HTTPS/TLS at the hosting proxy. Do not expose port 8081 directly to the public internet without TLS and access controls.
 
 ## 4. Verify the native checkpoint
 
