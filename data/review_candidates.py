@@ -5,6 +5,7 @@ human confirmation of rights, privacy, quality and training approval.
 """
 import argparse
 import json
+import re
 from datetime import date, datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
@@ -22,14 +23,17 @@ REVIEW_FIELDS = (
 
 def record_content(record):
     text = record.get("text")
-    if isinstance(text, str):
+    if isinstance(text, str) and text.strip():
         return text.strip()
     messages = record.get("messages")
     if isinstance(messages, list):
         parts = [
-            f"{item.get('role', 'unknown').upper()}: {item.get('content', '').strip()}"
+            f"{item['role'].upper()}: {item['content'].strip()}"
             for item in messages
-            if isinstance(item, dict) and isinstance(item.get("content"), str)
+            if isinstance(item, dict)
+            and item.get("role") in {"system", "user", "assistant"}
+            and isinstance(item.get("content"), str)
+            and item.get("content", "").strip()
         ]
         return "\n\n".join(parts).strip()
     return ""
@@ -42,6 +46,8 @@ def candidate_problem(record):
     for field in ("id", "source", "source_group", "license", "language"):
         if not isinstance(record.get(field), str) or not record[field].strip():
             return "missing_" + field
+    if not re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", record["id"]):
+        return "invalid_id"
     for field in ("source_url", "license_url"):
         value = record.get(field)
         try:
@@ -59,6 +65,23 @@ def candidate_problem(record):
         parsed_date = None
     if not parsed_date or parsed_date.isoformat() != source_date:
         return "invalid_source_date"
+    text = record.get("text")
+    if not (isinstance(text, str) and text.strip()):
+        messages = record.get("messages")
+        if not isinstance(messages, list) or not messages:
+            return "missing_or_invalid_content"
+        roles = set()
+        for item in messages:
+            if (
+                not isinstance(item, dict)
+                or item.get("role") not in {"system", "user", "assistant"}
+                or not isinstance(item.get("content"), str)
+                or not item["content"].strip()
+            ):
+                return "invalid_messages"
+            roles.add(item["role"])
+        if not {"user", "assistant"}.issubset(roles):
+            return "incomplete_messages"
     if len(record_content(record)) < 40:
         return "missing_or_short_content"
     return None
