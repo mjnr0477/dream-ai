@@ -273,6 +273,7 @@ class DreamTransformer(nn.Module):
                     raise ValueError("Cache and token tensors must use the same device")
                 if (
                     key.dtype != value.dtype
+                    or key.dtype != self.token_embedding.weight.dtype
                     or not key.is_floating_point()
                     or key.layout != torch.strided
                     or value.layout != torch.strided
