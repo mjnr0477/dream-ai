@@ -143,6 +143,21 @@ class CorpusAuditTests(unittest.TestCase):
             self.assertIn("human_review_incomplete", codes)
             self.assertEqual(report["unreviewed_records"], 1)
 
+
+    def test_unicode_compatibility_duplicates_are_reported(self):
+        first = self.record("first")
+        second = self.record("second")
+        second["text"] = first["text"].replace("sample", "ｓａｍｐｌｅ", 1)
+        with tempfile.TemporaryDirectory() as directory:
+            result, report = self.run_audit(Path(directory), [first, second])
+            self.assertEqual(result.returncode, 0, result.stderr)
+            duplicates = [
+                item for item in report["findings"]
+                if item["code"] == "duplicate_normalized_content"
+            ]
+            self.assertEqual(len(duplicates), 1)
+            self.assertEqual(duplicates[0]["duplicate_of_line"], 1)
+
     def test_invalid_metadata_returns_nonzero_and_writes_report(self):
         row = self.record()
         row["license_url"] = "http://example.org/license"
