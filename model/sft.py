@@ -67,6 +67,8 @@ def record_signatures(path):
             raise SystemExit(f"Invalid JSON at line {line_number}: {exc}") from exc
         record_id = item.get("id")
         if isinstance(record_id, str) and record_id:
+            if record_id in record_ids:
+                raise SystemExit(f"Duplicate SFT record ID within {path}: {record_id}")
             record_ids.add(record_id)
         messages = item.get("messages")
         if isinstance(messages, list):
@@ -82,7 +84,10 @@ def record_signatures(path):
                     )
             if normalized:
                 canonical = "\n".join(normalized).encode("utf-8")
-                content_hashes.add(hashlib.sha256(canonical).hexdigest())
+                fingerprint = hashlib.sha256(canonical).hexdigest()
+                if fingerprint in content_hashes:
+                    raise SystemExit(f"Duplicate SFT dialogue content within {path}.")
+                content_hashes.add(fingerprint)
     return record_ids, content_hashes
 
 
