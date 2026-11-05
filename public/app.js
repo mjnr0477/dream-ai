@@ -149,6 +149,7 @@ function renderAssistantContent(container, content) {
       editor.setAttribute("aria-label", "Edit code locally");
       const editorActions = document.createElement("div");
       editorActions.className = "code-editor-actions";
+      editorActions.hidden = true;
       const apply = document.createElement("button");
       apply.type = "button";
       apply.textContent = "Apply changes";
@@ -164,6 +165,7 @@ function renderAssistantContent(container, content) {
           pre.hidden = true;
           apply.hidden = false;
           cancel.hidden = false;
+          editorActions.hidden = false;
           edit.textContent = "Editing";
           editor.focus();
         }
@@ -173,6 +175,7 @@ function renderAssistantContent(container, content) {
         pre.hidden = false;
         apply.hidden = true;
         cancel.hidden = true;
+        editorActions.hidden = true;
         edit.textContent = "Edit locally";
       });
       apply.addEventListener("click", () => {
@@ -182,6 +185,7 @@ function renderAssistantContent(container, content) {
         pre.hidden = false;
         apply.hidden = true;
         cancel.hidden = true;
+        editorActions.hidden = true;
         edit.textContent = "Edit locally";
         const originalFence = `\`\`\`${language || ""}\n${codeText}\`\`\``;
         const updatedFence = `\`\`\`${language || ""}\n${updatedCode}\`\`\``;
