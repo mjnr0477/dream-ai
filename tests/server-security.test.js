@@ -119,4 +119,5 @@ test("static pages receive restrictive security headers", async () => {
   assert.equal(response.headers.get("x-content-type-options"), "nosniff");
   assert.match(response.headers.get("content-security-policy") || "", /default-src 'self'/);
   assert.match(response.headers.get("content-security-policy") || "", /frame-ancestors 'none'/);
+  assert.match(response.headers.get("content-security-policy") || "", /style-src-attr 'unsafe-inline'/);
 });
