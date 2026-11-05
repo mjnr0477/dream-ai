@@ -9,6 +9,12 @@ from pathlib import Path
 SCRIPT = Path(__file__).with_name("prepare_corpus.py")
 
 
+def identifier_fingerprint(value, kind):
+    return hashlib.sha256(
+        f"dream-corpus:{kind}:v1\0{value}".encode("utf-8")
+    ).hexdigest()
+
+
 class CorpusPreparationTests(unittest.TestCase):
     def make_records(self, count=6, rights=True):
         rows = []
@@ -53,6 +59,11 @@ class CorpusPreparationTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             manifest = json.loads((root / "prepared" / "manifest.json").read_text())
             self.assertEqual(manifest["records"], 6)
+            self.assertEqual(manifest["identifier_format"], "sha256-domain-separated-v1")
+            manifest_text = json.dumps(manifest)
+            for index in range(6):
+                self.assertNotIn(f"record-{index}", manifest_text)
+                self.assertNotIn(f"independent-group-{index}", manifest_text)
             groups = {}
             for split in ("train", "validation", "test"):
                 text = (root / "prepared" / f"{split}.txt").read_text()
@@ -62,12 +73,16 @@ class CorpusPreparationTests(unittest.TestCase):
                 }
                 self.assertTrue(text.strip())
                 split_manifest = manifest["splits"][split]
-                self.assertEqual(set(split_manifest["source_group_ids"]), groups[split])
+                self.assertEqual(
+                    set(split_manifest["source_group_ids"]),
+                    {identifier_fingerprint(value, "source-group") for value in groups[split]}
+                )
                 self.assertEqual(split_manifest["records"], len(groups[split]))
                 self.assertEqual(split_manifest["source_groups"], len(groups[split]))
                 self.assertEqual(split_manifest["utf8_bytes"], len(text.encode("utf-8")))
                 self.assertEqual(split_manifest["record_ids"], sorted(
-                    f"record-{i}" for i in range(6) if f"Record {i}" in text
+                    identifier_fingerprint(f"record-{i}", "record")
+                    for i in range(6) if f"Record {i}" in text
                 ))
                 self.assertEqual(split_manifest["language_counts"], {"en": len(groups[split])})
                 self.assertEqual(split_manifest["license_counts"], {"CC0-1.0": len(groups[split])})
