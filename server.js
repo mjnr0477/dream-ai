@@ -4,6 +4,7 @@ import { extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generateDreamReply, getDreamRuntimeStatus } from "./lib/dream-engine.js";
 import { getDreamCapabilities } from "./lib/capabilities.js";
+import { RequestRateLimiter, validateApiRequest } from "./lib/request-guard.js";
 import { runPublicResearch } from "./lib/dream-tools.js";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
@@ -13,6 +14,12 @@ const MAX_BODY_BYTES = 32 * 1024;
 const MAX_MESSAGE_CHARS = 8000;
 const MAX_HISTORY_ITEMS = 12;
 const MAX_ACTIVE_CHATS = 2;
+const configuredRateLimit = Number(process.env.DREAM_API_RATE_LIMIT);
+const apiRateLimiter = new RequestRateLimiter({
+  limit: Number.isInteger(configuredRateLimit) && configuredRateLimit > 0
+    ? Math.min(configuredRateLimit, 120)
+    : 20
+});
 let activeChats = 0;
 let activeResearch = 0;
 const MODES = ["general", "coding", "learning"];
@@ -25,13 +32,30 @@ const MIME = {
   ".ico": "image/x-icon"
 };
 
-function json(res, status, payload) {
+function json(res, status, payload, extraHeaders = {}) {
   res.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store",
-    "x-content-type-options": "nosniff"
+    "x-content-type-options": "nosniff",
+    ...extraHeaders
   });
   res.end(JSON.stringify(payload));
+}
+
+function guardApiRequest(req, res) {
+  const invalid = validateApiRequest(req);
+  if (invalid) {
+    json(res, invalid.status, { error: invalid.message });
+    return false;
+  }
+  const budget = apiRateLimiter.acquire(req);
+  if (!budget.allowed) {
+    json(res, 429, {
+      error: "DREAM is receiving too many requests from this connection. Please wait before retrying."
+    }, { "retry-after": String(budget.retryAfterSeconds) });
+    return false;
+  }
+  return budget.release;
 }
 
 async function readJson(req) {
@@ -206,19 +230,27 @@ const server = http.createServer(async (req, res) => {
     return json(res, 200, getDreamCapabilities(runtime));
   }
   if (req.method === "POST" && url.pathname === "/api/research") {
+    const release = guardApiRequest(req, res);
+    if (!release) return;
     try {
       return await handleResearch(req, res);
     } catch (error) {
       return json(res, error.status || 500, { error: error.status ? error.message : "An unexpected server error occurred." });
+    } finally {
+      release();
     }
   }
   if (req.method === "POST" && url.pathname === "/api/chat") {
+    const release = guardApiRequest(req, res);
+    if (!release) return;
     try {
       return await handleChat(req, res);
     } catch (error) {
       return json(res, error.status || 500, {
         error: error.status ? error.message : "An unexpected server error occurred."
       });
+    } finally {
+      release();
     }
   }
   if (req.method === "GET") return serveStatic(url.pathname, res);
