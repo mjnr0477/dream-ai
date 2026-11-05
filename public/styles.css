@@ -37,3 +37,10 @@
   .mobile-brand{display:flex;align-items:center;gap:9px;border:0;background:none;color:#e8edfb;font:700 13px "Space Grotesk",sans-serif;letter-spacing:.09em;cursor:pointer;padding:8px 0;}
   .mobile-brand:focus-visible{outline:2px solid var(--purple);outline-offset:4px;border-radius:5px;}
 }
+
+/* A real, keyboard-operable backdrop closes the mobile history drawer. */
+.sidebar-backdrop[hidden]{display:none}
+@media(max-width:680px){
+  .sidebar-backdrop{display:block;position:fixed;inset:0;width:100%;height:100%;border:0;border-radius:0;background:#02050bd1;z-index:2;cursor:pointer;}
+  body.sidebar-open::after{content:none;}
+}
