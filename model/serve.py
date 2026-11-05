@@ -46,11 +46,11 @@ class BoundedThreadingHTTPServer(ThreadingHTTPServer):
             # to discover that the model is already saturated.
             try:
                 request.sendall(
-                    b"HTTP/1.1 503 Service Unavailable\\r\\n"
-                    b"Content-Type: application/json\\r\\n"
-                    b"Content-Length: 60\\r\\n"
-                    b"Cache-Control: no-store\\r\\n"
-                    b"Connection: close\\r\\n\\r\\n"
+                    b"HTTP/1.1 503 Service Unavailable\r\n"
+                    b"Content-Type: application/json\r\n"
+                    b"Content-Length: 60\r\n"
+                    b"Cache-Control: no-store\r\n"
+                    b"Connection: close\r\n\r\n"
                     b'{"error":{"message":"DREAM runtime is busy; retry shortly"}}'
                 )
             except OSError:
