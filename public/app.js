@@ -120,13 +120,14 @@ function renderAssistantContent(container, content) {
     if (prose) appendInline(container, prose);
     const language = segments[i + 1];
     const codeText = segments[i + 2];
+    const filePath = prose.match(/\*\*([^*\r\n]+)\*\*\s*$/)?.[1] || "";
     if (codeText !== undefined) {
       const block = document.createElement("div");
       block.className = "code-block";
       const header = document.createElement("div");
       header.className = "code-block-header";
       const label = document.createElement("span");
-      label.textContent = language || "CODE";
+      label.textContent = filePath || language || "CODE";
       const actions = document.createElement("div");
       actions.className = "code-block-actions";
       const edit = document.createElement("button");
@@ -208,7 +209,7 @@ function renderAssistantContent(container, content) {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
-        link.download = `dream-ai-code.${extension}`;
+        link.download = filePath ? filePath.split("/").pop() : `dream-ai-code.${extension}`;
         link.click();
         URL.revokeObjectURL(url);
       });
