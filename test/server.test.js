@@ -467,14 +467,14 @@ test("per-client concurrency rejects a second active request but allows another 
       await new Promise(resolve => setTimeout(resolve, 20));
     }
     assert.equal(modelRequests.length, beforeCount + 2, "a different client should be admitted independently");
-    const response = await otherClient;
-    assert.equal(response.status, 200);
+    // Keep both admitted requests pending until the held model responses are released.
   } finally {
     holdModelResponses = false;
     for (const respond of heldModelResponses.splice(0)) respond();
   }
-  const response = await first;
-  assert.equal(response.status, 200);
+  const [firstResponse, otherResponse] = await Promise.all([first, otherClient]);
+  assert.equal(firstResponse.status, 200);
+  assert.equal(otherResponse.status, 200);
 });
 
 test("security headers are present on API and static responses", async () => {
