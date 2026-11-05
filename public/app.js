@@ -24,7 +24,7 @@ function saveMemory() {
   try {
     if (!value) { localStorage.removeItem(MEMORY_KEY); userMemory = ""; }
     else { localStorage.setItem(MEMORY_KEY, JSON.stringify(value)); userMemory = value; }
-    memoryStatus.textContent = userMemory ? "Saved on this device · included in new chats" : "Memory deleted from this device.";
+    memoryStatus.textContent = userMemory ? "Saved on this device · sent with chat requests" : "Memory deleted from this device.";
   } catch { memoryStatus.textContent = "Could not save memory in this browser."; }
 }
 
@@ -368,6 +368,6 @@ document.querySelector("#clear-memory")?.addEventListener("click", () => {
   memoryNotes.value = "";
   saveMemory();
 });
-if (userMemory && memoryStatus) memoryStatus.textContent = "Saved on this device · included in new chats";
+if (userMemory && memoryStatus) memoryStatus.textContent = "Saved on this device · sent with chat requests";
 renderHistory();
 checkHealth();
