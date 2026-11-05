@@ -116,6 +116,14 @@ class ReviewCandidatesTests(unittest.TestCase):
             self.assertEqual(resumed["presented"], 0)
             self.assertEqual(len(output.read_text(encoding="utf-8").splitlines()), 1)
 
+    def test_candidate_input_cannot_be_reused_as_output_or_ledger(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root / "candidates.jsonl"
+            source.write_text(json.dumps(candidate()) + "\\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "must be separate files"):
+                review_file(source, source, root / "decisions.jsonl")
+
 
 if __name__ == "__main__":
     unittest.main()
