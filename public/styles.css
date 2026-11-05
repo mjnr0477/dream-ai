@@ -14,3 +14,9 @@
 
 .mode[data-mode-select="research"]{border-color:#304b5a;color:#83d9e3}
 .mode[data-mode-select="research"].active{border-color:#477b87;background:#122a32;color:#a6f0f4}
+
+.research-result{margin:10px 0;padding:10px 12px;border:1px solid #2a3850;border-radius:10px;background:#101827}
+.research-result a{color:#b8acff;font-weight:600;text-decoration:none}
+.research-result a:hover{text-decoration:underline}
+.research-result p{margin:5px 0 0;color:#a6b4c9;font-size:12px;line-height:1.6}
+.research-note{margin:8px 0;color:#8290a8;font-size:10px}
