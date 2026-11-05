@@ -23,6 +23,16 @@ class ColabNotebookTests(unittest.TestCase):
         self.assertIn("import os, subprocess, sys, torch, json", setup)
         self.assertLess(setup.index("import os"), corpus.index("json.loads"))
 
+
+    def test_pretraining_and_sft_audits_fail_closed_without_stale_reports(self):
+        corpus = "".join(self.notebook["cells"][4]["source"])
+        sft = "".join(self.notebook["cells"][11]["source"])
+        self.assertIn("Path('eval-results/corpus-audit.json').unlink(missing_ok=True)", corpus)
+        self.assertIn("], capture_output=True, text=True, check=True)", corpus)
+        self.assertIn("Path(audit_path).unlink(missing_ok=True)", sft)
+        self.assertIn("], check=True, capture_output=True, text=True)", sft)
+        self.assertNotIn("check=False", sft)
+
     def test_fresh_training_defaults_to_bpe_and_exposes_legacy_byte_mode(self):
         source = "".join(self.notebook["cells"][6]["source"])
         self.assertIn('TOKENIZER = "bpe"', source)
