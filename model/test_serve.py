@@ -335,6 +335,53 @@ class DreamServingTests(unittest.TestCase):
             server.server_close()
             thread.join(timeout=5)
 
+    def test_inference_failure_logs_type_without_prompt_or_exception_text(self):
+        import contextlib
+        import io
+        import threading
+        from unittest.mock import patch
+
+        model, tokenizer, config, metadata = load_model(self.checkpoint, "cpu")
+        handler = serve.create_handler(
+            model, tokenizer, config, "dream-test", "test-secret-token", "cpu",
+            metadata=metadata,
+            checkpoint_hash=hashlib.sha256(self.checkpoint.read_bytes()).hexdigest()
+        )
+        server = serve.BoundedThreadingHTTPServer(("127.0.0.1", 0), handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        base = f"http://127.0.0.1:{server.server_port}"
+        prompt_marker = "private-prompt-marker"
+        logs = io.StringIO()
+        request = urllib.request.Request(
+            base + "/v1/chat/completions",
+            data=json.dumps({
+                "model": "dream-test",
+                "messages": [{"role": "user", "content": prompt_marker}],
+                "max_tokens": 1
+            }).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer test-secret-token"
+            },
+            method="POST"
+        )
+        try:
+            with contextlib.redirect_stdout(logs), patch.object(
+                model, "generate", side_effect=RuntimeError("sensitive-error-detail")
+            ):
+                with self.assertRaises(urllib.error.HTTPError) as raised:
+                    urllib.request.urlopen(request, timeout=5)
+                self.assertEqual(raised.exception.code, 500)
+                self.assertIn("inference failed", raised.exception.read().decode("utf-8"))
+            self.assertIn("RuntimeError", logs.getvalue())
+            self.assertNotIn(prompt_marker, logs.getvalue())
+            self.assertNotIn("sensitive-error-detail", logs.getvalue())
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
     def test_zero_temperature_enables_greedy_decoding(self):
         status, body = self.request(
             "POST", "/v1/chat/completions",
