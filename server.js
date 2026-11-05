@@ -174,94 +174,100 @@ async function readJson(req) {
 
 async function handleResearch(req, res) {
   validateBrowserRequest(req);
-  if (!enforceApiRateLimit(req, res)) return;
-  const body = await readJson(req);
-  if (!body || typeof body !== "object" || Array.isArray(body)) {
-    return json(res, 400, { error: "Request body must be a JSON object." });
-  }
-  if (typeof body.query !== "string" || !body.query.trim() || body.query.length > 200) {
-    return json(res, 400, { error: "Research query must contain 1 to 200 characters." });
-  }
-  if (activeResearch >= 2) {
-    res.writeHead(503, { ...SECURITY_HEADERS,
-      "retry-after": "3", "content-type": "application/json; charset=utf-8", "cache-control": "no-store"
-    });
-    return res.end(JSON.stringify({ error: "DREAM research is busy. Please retry in a few seconds." }));
-  }
   const releaseClientSlot = acquireClientRequestSlot(req, res);
   if (!releaseClientSlot) return;
-  activeResearch += 1;
   try {
-    return json(res, 200, await runPublicResearch(body.query));
-  } catch (error) {
-    console.error("DREAM public research failed:", error.message);
-    return json(res, 502, { error: "Public research is temporarily unavailable. Please try again." });
+    if (!enforceApiRateLimit(req, res)) return;
+    const body = await readJson(req);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return json(res, 400, { error: "Request body must be a JSON object." });
+    }
+    if (typeof body.query !== "string" || !body.query.trim() || body.query.length > 200) {
+      return json(res, 400, { error: "Research query must contain 1 to 200 characters." });
+    }
+    if (activeResearch >= 2) {
+      res.writeHead(503, { ...SECURITY_HEADERS,
+        "retry-after": "3", "content-type": "application/json; charset=utf-8", "cache-control": "no-store"
+      });
+      return res.end(JSON.stringify({ error: "DREAM research is busy. Please retry in a few seconds." }));
+    }
+    activeResearch += 1;
+    try {
+      return json(res, 200, await runPublicResearch(body.query));
+    } catch (error) {
+      console.error("DREAM public research failed:", error.message);
+      return json(res, 502, { error: "Public research is temporarily unavailable. Please try again." });
+    } finally {
+      activeResearch -= 1;
+    }
   } finally {
-    activeResearch -= 1;
     releaseClientSlot();
   }
 }
 
 async function handleChat(req, res) {
   validateBrowserRequest(req);
-  if (!enforceApiRateLimit(req, res)) return;
-  const body = await readJson(req);
-  if (!body || typeof body !== "object" || Array.isArray(body)) {
-    return json(res, 400, { error: "Request body must be a JSON object." });
-  }
-  const mode = body.mode ?? "general";
-  const memoryContext = body.memoryContext ?? "";
-  if (typeof memoryContext !== "string" || memoryContext.length > 3000) {
-    return json(res, 400, { error: "Memory context must be text no longer than 3,000 characters." });
-  }
-  if (!MODES.includes(mode)) {
-    return json(res, 400, { error: "Mode must be general, coding or learning." });
-  }
-  if (!Array.isArray(body.messages) || body.messages.length === 0) {
-    return json(res, 400, { error: "Send a non-empty messages array." });
-  }
-  const messages = body.messages.slice(-MAX_HISTORY_ITEMS);
-  for (const item of messages) {
-    if (
-      !item ||
-      !["user", "assistant"].includes(item.role) ||
-      typeof item.content !== "string" ||
-      !item.content.trim() ||
-      item.content.length > MAX_MESSAGE_CHARS
-    ) {
-      return json(res, 400, {
-        error: "Each message needs a valid user/assistant role and text under 8,000 characters."
-      });
-    }
-  }
-  if (messages.at(-1).role !== "user") {
-    return json(res, 400, { error: "The last message must be from the user." });
-  }
-
-  if (activeChats >= MAX_ACTIVE_CHATS) {
-    res.writeHead(503, { ...SECURITY_HEADERS,
-      "retry-after": "3", "content-type": "application/json; charset=utf-8", "cache-control": "no-store"
-    });
-    return res.end(JSON.stringify({
-      error: "DREAM AI is handling other requests. Please retry in a few seconds."
-    }));
-  }
-
   const releaseClientSlot = acquireClientRequestSlot(req, res);
   if (!releaseClientSlot) return;
-  activeChats += 1;
   try {
-    const result = await generateDreamReply(messages, mode, process.env, memoryContext);
-    return json(res, 200, {
-      reply: result.reply,
-      mode,
-      source: result.source
-    });
-  } catch (error) {
-    console.error("DREAM AI request failed:", error.message);
-    return json(res, 502, { error: error.message || "DREAM AI runtime unavailable." });
+    if (!enforceApiRateLimit(req, res)) return;
+    const body = await readJson(req);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return json(res, 400, { error: "Request body must be a JSON object." });
+    }
+    const mode = body.mode ?? "general";
+    const memoryContext = body.memoryContext ?? "";
+    if (typeof memoryContext !== "string" || memoryContext.length > 3000) {
+      return json(res, 400, { error: "Memory context must be text no longer than 3,000 characters." });
+    }
+    if (!MODES.includes(mode)) {
+      return json(res, 400, { error: "Mode must be general, coding or learning." });
+    }
+    if (!Array.isArray(body.messages) || body.messages.length === 0) {
+      return json(res, 400, { error: "Send a non-empty messages array." });
+    }
+    const messages = body.messages.slice(-MAX_HISTORY_ITEMS);
+    for (const item of messages) {
+      if (
+        !item ||
+        !["user", "assistant"].includes(item.role) ||
+        typeof item.content !== "string" ||
+        !item.content.trim() ||
+        item.content.length > MAX_MESSAGE_CHARS
+      ) {
+        return json(res, 400, {
+          error: "Each message needs a valid user/assistant role and text under 8,000 characters."
+        });
+      }
+    }
+    if (messages.at(-1).role !== "user") {
+      return json(res, 400, { error: "The last message must be from the user." });
+    }
+
+    if (activeChats >= MAX_ACTIVE_CHATS) {
+      res.writeHead(503, { ...SECURITY_HEADERS,
+        "retry-after": "3", "content-type": "application/json; charset=utf-8", "cache-control": "no-store"
+      });
+      return res.end(JSON.stringify({
+        error: "DREAM AI is handling other requests. Please retry in a few seconds."
+      }));
+    }
+
+    activeChats += 1;
+    try {
+      const result = await generateDreamReply(messages, mode, process.env, memoryContext);
+      return json(res, 200, {
+        reply: result.reply,
+        mode,
+        source: result.source
+      });
+    } catch (error) {
+      console.error("DREAM AI request failed:", error.message);
+      return json(res, 502, { error: error.message || "DREAM AI runtime unavailable." });
+    } finally {
+      activeChats -= 1;
+    }
   } finally {
-    activeChats -= 1;
     releaseClientSlot();
   }
 }
