@@ -8,6 +8,7 @@ import torch
 from dream_transformer import DreamConfig, DreamTransformer
 from runtime_checkpoint import (
     MAX_CHECKPOINT_BYTES,
+    estimated_parameter_count,
     load_validated_checkpoint,
 )
 
@@ -80,6 +81,22 @@ class RuntimeCheckpointValidationTests(unittest.TestCase):
     def test_rejects_tokenizer_vocab_mismatch(self):
         self.checkpoint["config"]["vocab_size"] = 300
         with self.assertRaisesRegex(ValueError, "Tokenizer vocabulary size"):
+            load_validated_checkpoint(self.save())
+
+
+
+    def test_parameter_count_estimate_matches_actual_model_parameters(self):
+        expected = sum(parameter.numel() for parameter in self.model.parameters())
+        self.assertEqual(estimated_parameter_count(self.config), expected)
+
+    def test_rejects_pathological_dimensions_before_model_allocation(self):
+        self.checkpoint["config"]["block_size"] = 100_000
+        with self.assertRaisesRegex(ValueError, "block_size must be"):
+            load_validated_checkpoint(self.save())
+
+        self.checkpoint["config"] = self.config.__dict__.copy()
+        self.checkpoint["config"]["vocab_size"] = 100_000
+        with self.assertRaisesRegex(ValueError, "vocab_size must be"):
             load_validated_checkpoint(self.save())
 
     def test_rejects_oversized_checkpoint_before_deserialization(self):
