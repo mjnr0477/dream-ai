@@ -4,8 +4,8 @@ import { extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generateDreamReply, getDreamRuntimeStatus } from "./lib/dream-engine.js";
 import { getDreamCapabilities } from "./lib/capabilities.js";
-import { searchPublicKnowledge } from "./lib/research.js";
 import { RequestRateLimiter, validateApiRequest } from "./lib/request-guard.js";
+import { runPublicResearch } from "./lib/dream-tools.js";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC_DIR = join(ROOT, "public");
@@ -98,7 +98,7 @@ async function handleResearch(req, res) {
   }
   activeResearch += 1;
   try {
-    return json(res, 200, await searchPublicKnowledge(body.query));
+    return json(res, 200, await runPublicResearch(body.query));
   } catch (error) {
     console.error("DREAM public research failed:", error.message);
     return json(res, 502, { error: "Public research is temporarily unavailable. Please try again." });
