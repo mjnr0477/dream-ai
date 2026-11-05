@@ -11,7 +11,7 @@ DREAM has its own decoder-only transformer architecture, byte-tokenizer default,
 ## Current application
 
 - Responsive mobile-first chat workspace.
-- General, coding and learning modes.
+- General, coding, learning and public-source research modes. Research currently searches Wikipedia and returns linked source snippets; it is a limited retrieval tool, not general web browsing or a trained model capability.
 - Browser-local conversation history, export and copy.
 - Node API with bounded request validation, two-request model concurrency protection with retry guidance, and health status.
 - Provider-independent DREAM engine adapter.
@@ -133,7 +133,8 @@ Kaggle documents free P100 notebook accelerators, but GPU access can be limited 
 - `GET /api/health` reports application availability separately from model configuration and live native-checkpoint readiness. A ready runtime must identify as the native DREAM transformer and report positive completed training steps plus a 64-character checkpoint SHA-256. This is a runtime/provenance check, not a quality certification.
 - `GET /api/capabilities` returns a versioned, server-owned capability contract. It distinguishes implemented application features from tools that are not configured or not implemented; it never advertises disabled tools as ready. Tool execution is disabled by default and external actions require approval.
 - `POST /api/chat`
-- Supported modes: `general`, `coding`, `learning`
+- `POST /api/research` searches only the fixed English Wikipedia API, returns up to five linked snippets, and enforces a 200-character query limit, a seven-second timeout and two-request concurrency cap. It does not fetch user-supplied URLs. Source synthesis requires a connected native DREAM checkpoint.
+- Supported chat modes: `general`, `coding`, `learning`; `research` uses the separate public-source endpoint.
 
 ## Security principles
 
