@@ -8,6 +8,7 @@ import torch
 from dream_transformer import DreamConfig, DreamTransformer
 from runtime_checkpoint import (
     MAX_CHECKPOINT_BYTES,
+    estimated_parameter_count,
     load_validated_checkpoint,
 )
 
@@ -88,8 +89,23 @@ class RuntimeCheckpointValidationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Checkpoint file size"):
             load_validated_checkpoint(self.path)
 
+    def test_parameter_count_estimate_matches_actual_model_parameters(self):
+        expected = sum(parameter.numel() for parameter in self.model.parameters())
+        self.assertEqual(estimated_parameter_count(self.config), expected)
+
+    def test_rejects_pathological_dimensions_before_model_allocation(self):
+        self.checkpoint["config"]["block_size"] = 100_000
+        with self.assertRaisesRegex(ValueError, "block_size must be"):
+            load_validated_checkpoint(self.save())
+        self.checkpoint["config"] = self.config.__dict__.copy()
+        self.checkpoint["config"]["vocab_size"] = 100_000
+        with self.assertRaisesRegex(ValueError, "vocab_size must be"):
+            load_validated_checkpoint(self.save())
+
     def test_rejects_architecture_over_parameter_budget_before_allocation(self):
-        self.checkpoint["config"]["vocab_size"] = 2_000_000
+        self.checkpoint["config"]["vocab_size"] = 65_536
+        self.checkpoint["config"]["d_model"] = 2_048
+        self.checkpoint["config"]["n_heads"] = 32
         with self.assertRaisesRegex(ValueError, "exceeds the .*parameter runtime limit"):
             load_validated_checkpoint(self.save())
 
