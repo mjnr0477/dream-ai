@@ -193,6 +193,7 @@ def split_sft(input_path, train_path, validation_path, manifest_path,
     manifest = {
         "version": 1,
         "policy": "source-group-disjoint-deterministic",
+        "split_unit": "source_group",
         "seed": seed,
         "validation_fraction": validation_fraction,
         "input_sha256": file_sha256(input_path),
@@ -232,7 +233,8 @@ def main():
     parser.add_argument("--train-out", default="data/sft-train.jsonl")
     parser.add_argument("--validation-out", default="data/sft-validation.jsonl")
     parser.add_argument("--manifest", default="data/sft-split-manifest.json")
-    parser.add_argument("--validation-fraction", type=float, default=0.2)
+    parser.add_argument("--validation-fraction", type=float, default=0.2,
+                        help="Fraction of distinct source groups reserved for validation")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--overwrite", action="store_true",
                         help="Regenerate existing split outputs from the approved input")
