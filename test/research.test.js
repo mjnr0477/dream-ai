@@ -284,3 +284,14 @@ test("marks a cleaned introduction truncated only when visible text exceeds the 
   assert.equal(result.results[0].extract.length, 350);
   assert.equal(result.results[0].extractTruncated, true);
 });
+
+
+test("research UI presents scholarly metadata without misrepresenting it as paper findings", async () => {
+  const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  assert.ok(app.includes("data.scholarlyResearch?.results"));
+  assert.ok(app.includes("Crossref and OpenAlex scholarly metadata"));
+  assert.ok(app.includes("no abstract or full text retrieved"));
+  assert.ok(app.includes("A scholarly metadata record supports bibliographic facts only"));
+  assert.ok(app.includes("Freshness classification"));
+  assert.ok(app.includes("providerAvailability"));
+});
