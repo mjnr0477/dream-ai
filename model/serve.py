@@ -25,6 +25,49 @@ MAX_MESSAGES = 12
 MAX_MESSAGE_CHARS = 8000
 MAX_OUTPUT_TOKENS = 256
 MODEL_LOCK = threading.Lock()
+MAX_HTTP_WORKERS = 8
+
+
+class BoundedThreadingHTTPServer(ThreadingHTTPServer):
+    """Threaded HTTP server with a hard cap on active request workers."""
+
+    daemon_threads = True
+    block_on_close = False
+
+    def __init__(self, server_address, RequestHandlerClass, max_workers=MAX_HTTP_WORKERS, **kwargs):
+        if isinstance(max_workers, bool) or not isinstance(max_workers, int) or max_workers < 1:
+            raise ValueError("max_workers must be a positive integer")
+        self._worker_slots = threading.BoundedSemaphore(max_workers)
+        super().__init__(server_address, RequestHandlerClass, **kwargs)
+
+    def process_request(self, request, client_address):
+        if not self._worker_slots.acquire(blocking=False):
+            # Reject at the accept boundary: do not create another thread just
+            # to discover that the model is already saturated.
+            try:
+                request.sendall(
+                    b"HTTP/1.1 503 Service Unavailable\\r\\n"
+                    b"Content-Type: application/json\\r\\n"
+                    b"Content-Length: 64\\r\\n"
+                    b"Cache-Control: no-store\\r\\n"
+                    b"Connection: close\\r\\n\\r\\n"
+                    b'{"error":{"message":"DREAM runtime is busy; retry shortly"}}'
+                )
+            except OSError:
+                pass
+            self.shutdown_request(request)
+            return
+        try:
+            super().process_request(request, client_address)
+        except BaseException:
+            self._worker_slots.release()
+            raise
+
+    def process_request_thread(self, request, client_address):
+        try:
+            super().process_request_thread(request, client_address)
+        finally:
+            self._worker_slots.release()
 
 
 def checkpoint_sha256(checkpoint_path):
@@ -257,7 +300,7 @@ def main():
         model, tokenizer, config, args.model_name, args.token, device,
         metadata=metadata, checkpoint_hash=checkpoint_sha256(args.checkpoint)
     )
-    server = ThreadingHTTPServer((args.host, args.port), handler)
+    server = BoundedThreadingHTTPServer((args.host, args.port), handler)
     print(json.dumps({
         "engine": "DREAM native inference",
         "model": args.model_name,
