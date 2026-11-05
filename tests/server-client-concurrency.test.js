@@ -58,7 +58,7 @@ before(async () => {
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({ choices: [{ message: { content: "Test response" } }] }));
         activeCompletions -= 1;
-      }, 350);
+      }, 900);
     }
     res.writeHead(404).end();
   });
