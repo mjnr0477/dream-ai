@@ -128,7 +128,7 @@ test("liveness endpoint stays healthy when the native model is unavailable", asy
   }
 });
 
-test("health endpoint identifies the DREAM engine and configured model", async () => {
+test("health endpoint exposes minimal runtime readiness without diagnostics", async () => {
   const response = await fetch(`${base}/api/health`);
   assert.equal(response.status, 200);
   const data = await response.json();
