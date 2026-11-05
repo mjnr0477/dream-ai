@@ -73,3 +73,13 @@
 .suggestion:focus-visible{outline-offset:4px}
 @media(max-width:680px){.workspace-nav{margin-top:22px}.workspace-link{min-height:42px}.workspace-note{margin-top:12px;padding:0 8px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+
+
+/* Editable code blocks keep editing, copying and downloads local to the browser. */
+.code-block-header{gap:10px;flex-wrap:wrap}
+.code-block-actions,.code-editor-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.code-block-actions button,.code-editor-actions button{border:1px solid #38445d;border-radius:6px;background:#1b2638;color:#c8d2e5;padding:5px 8px;font-size:10px;cursor:pointer}
+.code-block-actions button:hover,.code-editor-actions button:hover{border-color:#8e7bd2;background:#252e45}
+.code-editor{box-sizing:border-box;display:block;width:100%;min-height:150px;resize:vertical;padding:14px;border:0;border-top:1px solid #303b52;background:#080d17;color:#d7e4f8;font:12px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;tab-size:2}
+.code-editor[hidden],.code-editor-actions [hidden],.code-block pre[hidden]{display:none}
+.code-editor-actions{justify-content:flex-end;padding:8px 10px;border-top:1px solid #303b52;background:#141d2d}
