@@ -11,3 +11,6 @@
 .retry-message{display:inline-flex;align-items:center;margin-top:9px;padding:7px 11px;border:1px solid #665d9b;border-radius:8px;background:#211d39;color:#d4caff;font:600 11px system-ui,sans-serif;cursor:pointer}
 .retry-message:hover{background:#30294e;border-color:#9d8de8}
 .retry-message:focus-visible{outline:2px solid #b39cff;outline-offset:3px}
+
+.mode[data-mode-select="research"]{border-color:#304b5a;color:#83d9e3}
+.mode[data-mode-select="research"].active{border-color:#477b87;background:#122a32;color:#a6f0f4}
