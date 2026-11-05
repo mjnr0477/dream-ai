@@ -210,6 +210,10 @@ async function sendResearch(text, isRetry = false) {
       ? `Public-source results · ${data.provider}`
       : `No results found · ${data.provider}`;
     replyNode.append(heading);
+    const note = document.createElement("p");
+    note.className = "research-note";
+    note.textContent = "Public Wikipedia search snippets. Open the source pages to verify details and follow their references.";
+    replyNode.append(note);
     const transcript = [];
     for (const result of data.results) {
       const item = document.createElement("article");
