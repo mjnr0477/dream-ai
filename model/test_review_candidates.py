@@ -124,6 +124,18 @@ class ReviewCandidatesTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "must be separate files"):
                 review_file(source, source, root / "decisions.jsonl")
 
+    def test_rejects_identifying_ids_and_malformed_message_records(self):
+        item = candidate("reviewer@example.com")
+        self.assertEqual(candidate_problem(item), "invalid_id")
+
+        item = candidate("conversation-1")
+        item.pop("text")
+        item["messages"] = [
+            {"role": "user", "content": "A valid user message that is sufficiently long."},
+            {"role": "tool", "content": "Unexpected role content that should not be accepted."}
+        ]
+        self.assertEqual(candidate_problem(item), "invalid_messages")
+
 
 if __name__ == "__main__":
     unittest.main()
