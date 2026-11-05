@@ -105,3 +105,29 @@ python data/review_candidates.py \
 The reviewer displays each candidate and requires four separate affirmative human decisions: rights for this exact use, privacy inspection, quality inspection, and explicit training approval. Any negative answer rejects the record. There is no automatic approval. Re-run the command to review the next batch; the decision ledger prevents already-reviewed IDs from being prompted again and stores IDs/decisions without duplicating the record text. Approved records are appended without overwriting prior work. Correct invalid provenance before reviewing again.
 
 The reviewer is an aid, not a legal or privacy classifier. The reviewer must inspect the actual source terms and content. The existing corpus audit, provenance checks, deduplication and held-out split rules remain mandatory after review.
+
+
+### SFT conversation review and splitting
+
+The same reviewer accepts complete conversation candidates with a `messages` array:
+
+```sh
+python data/review_candidates.py \
+  --input data/oasst1-sft-candidates.jsonl \
+  --output data/approved-sft-records.jsonl \
+  --decisions data/sft-review-decisions.jsonl \
+  --limit 25
+```
+
+After at least two independent source groups have been reviewed and approved, create deterministic train/validation files without splitting a source group across both partitions:
+
+```sh
+python data/split_sft.py \
+  --input data/approved-sft-records.jsonl \
+  --train-out data/sft-train.jsonl \
+  --validation-out data/sft-validation.jsonl \
+  --manifest data/sft-split-manifest.json \
+  --validation-fraction 0.2 --seed 42
+```
+
+The splitter requires every review flag to be true, validates complete alternating user/assistant conversations, rejects duplicate IDs and duplicate dialogue content, and keeps source groups disjoint. Existing outputs are protected unless `--overwrite` is explicitly supplied. The notebook's later corpus audit and SFT held-out checks remain mandatory.
