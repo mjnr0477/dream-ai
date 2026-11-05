@@ -77,6 +77,13 @@ class ColabNotebookTests(unittest.TestCase):
         self.assertIn("sft-validation-corpus-audit.json", bundle)
         self.assertIn("corpus-audit.json", bundle)
 
+    def test_sft_evaluation_removes_stale_report_before_running(self):
+        evaluation = "".join(self.notebook["cells"][12]["source"])
+        self.assertLess(
+            evaluation.index("unlink(missing_ok=True)"),
+            evaluation.index("model/evaluate.py")
+        )
+
     def test_colab_has_authenticated_temporary_native_runtime_bridge(self):
         markdown = "".join(self.notebook["cells"][15]["source"])
         runtime = "".join(self.notebook["cells"][16]["source"])
