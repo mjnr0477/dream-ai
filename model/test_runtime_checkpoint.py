@@ -6,7 +6,10 @@ from pathlib import Path
 import torch
 
 from dream_transformer import DreamConfig, DreamTransformer
-from runtime_checkpoint import load_validated_checkpoint
+from runtime_checkpoint import (
+    MAX_CHECKPOINT_BYTES,
+    load_validated_checkpoint,
+)
 
 
 class RuntimeCheckpointValidationTests(unittest.TestCase):
@@ -77,6 +80,17 @@ class RuntimeCheckpointValidationTests(unittest.TestCase):
     def test_rejects_tokenizer_vocab_mismatch(self):
         self.checkpoint["config"]["vocab_size"] = 300
         with self.assertRaisesRegex(ValueError, "Tokenizer vocabulary size"):
+            load_validated_checkpoint(self.save())
+
+    def test_rejects_oversized_checkpoint_before_deserialization(self):
+        with self.path.open("wb") as handle:
+            handle.truncate(MAX_CHECKPOINT_BYTES + 1)
+        with self.assertRaisesRegex(ValueError, "Checkpoint file size"):
+            load_validated_checkpoint(self.path)
+
+    def test_rejects_architecture_over_parameter_budget_before_allocation(self):
+        self.checkpoint["config"]["vocab_size"] = 100_000
+        with self.assertRaisesRegex(ValueError, "exceeds the .*parameter runtime limit"):
             load_validated_checkpoint(self.save())
 
     def test_rejects_unsafe_or_corrupt_checkpoint_file(self):
