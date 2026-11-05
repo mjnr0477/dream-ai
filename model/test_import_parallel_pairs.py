@@ -153,6 +153,7 @@ class ParallelPairImporterTests(unittest.TestCase):
                 row["rights_confirmed"] = True
                 row["privacy_reviewed"] = True
                 row["quality_reviewed"] = True
+                row["approval_granted"] = True
                 row["rights_basis"] = "explicit-permission"
             reviewed = root / "reviewed.jsonl"
             reviewed.write_text("".join(json.dumps(row) + "\n" for row in train), encoding="utf-8")

@@ -21,6 +21,7 @@ class CorpusAuditTests(unittest.TestCase):
             "rights_confirmed": True,
             "privacy_reviewed": True,
             "quality_reviewed": True,
+            "approval_granted": True,
             "language": "en",
             "text": text
         }
@@ -133,6 +134,7 @@ class CorpusAuditTests(unittest.TestCase):
         second = self.record("second")
         second["text"] = "  THIS IS A SUFFICIENTLY LONG SAMPLE RECORD FOR CORPUS AUDITING. "
         second["privacy_reviewed"] = False
+        second["approval_granted"] = False
         with tempfile.TemporaryDirectory() as directory:
             result, report = self.run_audit(Path(directory), [first, second])
             self.assertEqual(result.returncode, 0, result.stderr)

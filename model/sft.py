@@ -117,6 +117,8 @@ def load_examples(path, tokenizer, block_size):
         ):
             if item.get(field) is not True:
                 raise SystemExit(f"{label.title()} review not confirmed at line {line_number}")
+        if item.get("approval_granted") is not True:
+            raise SystemExit(f"Explicit SFT training approval not confirmed at line {line_number}")
         if item["id"] in seen_ids:
             raise SystemExit(f"Duplicate SFT record id at line {line_number}")
         seen_ids.add(item["id"])
