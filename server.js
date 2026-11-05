@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generateDreamReply, getDreamRuntimeStatus } from "./lib/dream-engine.js";
+import { searchPublicKnowledge } from "./lib/research.js";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC_DIR = join(ROOT, "public");
@@ -49,6 +50,23 @@ async function readJson(req) {
     const error = new Error("Request body must be valid JSON.");
     error.status = 400;
     throw error;
+  }
+}
+
+async function handleResearch(req, res) {
+  const body = await readJson(req);
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return json(res, 400, { error: "Request body must be a JSON object." });
+  }
+  if (typeof body.query !== "string" || !body.query.trim() || body.query.length > 200) {
+    return json(res, 400, { error: "Research query must contain 1 to 200 characters." });
+  }
+  try {
+    const result = await searchPublicKnowledge(body.query);
+    return json(res, 200, result);
+  } catch (error) {
+    console.error("DREAM public research failed:", error.message);
+    return json(res, 502, { error: "Public research is temporarily unavailable. Please try again." });
   }
 }
 
@@ -166,6 +184,15 @@ const server = http.createServer(async (req, res) => {
         tokenizer: runtime.tokenizer
       } : null
     });
+  }
+  if (req.method === "POST" && url.pathname === "/api/research") {
+    try {
+      return await handleResearch(req, res);
+    } catch (error) {
+      return json(res, error.status || 500, {
+        error: error.status ? error.message : "An unexpected server error occurred."
+      });
+    }
   }
   if (req.method === "POST" && url.pathname === "/api/chat") {
     try {
