@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createDreamToolRegistry } from "../lib/dream-tools.js";
+import { createDreamToolRegistry, runPublicResearch } from "../lib/dream-tools.js";
 
 const principal = {
   id: "test-public-research",
@@ -132,4 +132,42 @@ test("public research tool rejects oversized or unexpected input before upstream
     /unexpected property/
   );
   assert.equal(called, false);
+});
+
+
+test("research orchestration combines encyclopedia excerpts with scholarly metadata for reasoning", async () => {
+  const registry = createDreamToolRegistry({
+    audit: () => {},
+    fetchImpl: async url => {
+      const parsed = new URL(url);
+      if (parsed.hostname === "en.wikipedia.org" && parsed.searchParams.get("list") === "search") {
+        return responseWith([{ pageid: 12, title: "Climate adaptation", snippet: "A public overview." }]);
+      }
+      if (parsed.hostname === "en.wikipedia.org") {
+        return responseWithPages({ "12": {
+          pageid: 12, extract: "A short encyclopedia introduction.",
+          touched: "2026-10-01T00:00:00Z",
+          fullurl: "https://en.wikipedia.org/wiki/Climate_adaptation"
+        }});
+      }
+      if (parsed.hostname === "api.crossref.org") {
+        return new Response(JSON.stringify({ message: { items: [{
+          DOI: "10.1234/climate", title: ["Climate adaptation paper"],
+          author: [{ given: "A", family: "Scientist" }],
+          published: { "date-parts": [[2025, 2, 1]] }
+        }]}}), { status: 200, headers: { "content-type": "application/json" }});
+      }
+      return new Response(JSON.stringify({ results: [{
+        id: "https://openalex.org/W12", doi: "https://doi.org/10.1234/climate",
+        title: "Climate adaptation paper", publication_date: "2025-02-01",
+        authorships: [], primary_location: { landing_page_url: "https://doi.org/10.1234/climate" }
+      }] }), { status: 200, headers: { "content-type": "application/json" }});
+    }
+  });
+  const result = await runPublicResearch("climate adaptation", registry);
+  assert.equal(result.provider, "Wikipedia");
+  assert.equal(result.results.length, 1);
+  assert.equal(result.scholarlyResearch.results.length, 1);
+  assert.equal(result.scholarlyResearch.results[0].provider, "Crossref");
+  assert.deepEqual(result.providerAvailability, { encyclopedia: "available", scholarly: "available" });
 });
