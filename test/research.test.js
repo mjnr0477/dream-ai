@@ -1,4 +1,5 @@
 import test from "node:test";
+import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 import { searchPublicKnowledge } from "../lib/research.js";
 
@@ -54,4 +55,17 @@ test("reports upstream failures without returning fabricated results", async () 
     searchPublicKnowledge("science", async () => ({ ok: false, json: async () => ({}) })),
     /public research source returned an error/
   );
+});
+
+
+test("research mode is routed to the research handler without recursive self-dispatch", async () => {
+  const app = await readFile(new URL("../public/app.js", import.meta.url), "utf8");
+  assert.match(app, /if \(activeMode === "research"\) sendResearch\(input\.value\);/);
+  assert.match(app, /\["general", "coding", "learning", "research"\]/);
+  const start = app.indexOf("async function sendResearch(");
+  const end = app.indexOf("\nasync function sendMessage(", start);
+  assert.notEqual(start, -1);
+  assert.notEqual(end, -1);
+  const handler = app.slice(start, end);
+  assert.doesNotMatch(handler, /if \(activeMode === "research"\)\s*return\s+sendResearch\(/);
 });
