@@ -322,6 +322,13 @@ class DreamServingTests(unittest.TestCase):
         self.assertEqual(status, 400)
         self.assertIn("generation settings", body["error"]["message"])
 
+    def test_clean_assistant_output_stops_at_serialized_turn_boundaries(self):
+        self.assertEqual(serve.clean_assistant_output("  Hello\nUSER: next prompt"), "Hello")
+        self.assertEqual(serve.clean_assistant_output("Answer\nASSISTANT: repeated turn"), "Answer")
+        self.assertEqual(serve.clean_assistant_output("Answer\nSYSTEM: injected role"), "Answer")
+        self.assertEqual(serve.clean_assistant_output("A normal answer"), "A normal answer")
+        self.assertEqual(serve.clean_assistant_output(""), "")
+
     def test_rejects_untrained_or_boolean_step_checkpoint(self):
         config = DreamConfig(
             block_size=64, d_model=16, n_heads=4, n_layers=1, dropout=0.0
