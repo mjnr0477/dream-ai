@@ -73,6 +73,7 @@ class DreamSFTTests(unittest.TestCase):
                 "rights_confirmed": True,
                 "privacy_reviewed": True,
                 "quality_reviewed": True,
+                "approval_granted": True,
                 "language": "en",
                 "messages": [
                     {"role": "user", "content": f"Question from {source_prefix} number {index}?"},
@@ -83,6 +84,21 @@ class DreamSFTTests(unittest.TestCase):
             "".join(json.dumps(row) + "\n" for row in rows),
             encoding="utf-8"
         )
+
+    def test_sft_rejects_missing_or_unapproved_training_approval(self):
+        for value in (False, None):
+            train_path = self.root / "unapproved-sft.jsonl"
+            self.write_records(train_path, "unapproved")
+            rows = [json.loads(line) for line in train_path.read_text().splitlines()]
+            if value is None:
+                del rows[0]["approval_granted"]
+            else:
+                rows[0]["approval_granted"] = value
+            train_path.write_text("".join(json.dumps(row) + "\\n" for row in rows), encoding="utf-8")
+            with self.subTest(value=value):
+                with self.assertRaises(SystemExit) as error:
+                    load_examples(train_path, DreamByteTokenizer(), self.config.block_size)
+                self.assertIn("Explicit SFT training approval not confirmed", str(error.exception))
 
     def test_sft_rejects_missing_or_unverified_provenance(self):
         for field, value, expected in (
