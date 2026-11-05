@@ -221,7 +221,9 @@ async function sendMessage(text) {
     }
   } catch (error) {
     replyNode.textContent = error.message || "Something went wrong. Please try again.";
-    statusText.textContent = "Model runtime unavailable · check connection";
+    statusText.textContent = /retry in a few seconds/i.test(error.message || "")
+      ? "DREAM AI is busy · please retry shortly"
+      : "Model runtime unavailable · check connection";
     messages.pop();
   } finally {
     send.disabled = false;
