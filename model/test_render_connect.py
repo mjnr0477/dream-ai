@@ -117,6 +117,8 @@ class RenderConnectTests(unittest.TestCase):
             update_render_model_env(**self.values, opener=fail_second)
 
         self.assertIn("DREAM_MODEL_URL", str(raised.exception))
+        self.assertIn("DREAM_MODEL_NAME", str(raised.exception))
+        self.assertIn("may now be saved", str(raised.exception))
         self.assertIn("No deploy was requested", str(raised.exception))
         self.assertNotIn(self.api_key, str(raised.exception))
         self.assertNotIn(self.model_token, str(raised.exception))
