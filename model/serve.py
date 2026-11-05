@@ -17,8 +17,7 @@ from urllib.parse import urlparse
 
 import torch
 
-from checkpoint_tokenizer import load_tokenizer
-from dream_transformer import DreamConfig, DreamTransformer
+from runtime_checkpoint import load_validated_checkpoint
 
 
 MAX_BODY_BYTES = 64 * 1024
@@ -37,16 +36,7 @@ def checkpoint_sha256(checkpoint_path):
 
 
 def load_model(checkpoint_path, device):
-    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
-    metadata = checkpoint.get("sft_training") or checkpoint.get("training") or {}
-    completed_steps = metadata.get("completed_steps", 0)
-    if (not isinstance(completed_steps, int) or
-            isinstance(completed_steps, bool) or completed_steps < 1):
-        raise ValueError("Refusing to serve a checkpoint without completed DREAM training.")
-    config = DreamConfig(**checkpoint["config"])
-    tokenizer = load_tokenizer(checkpoint, config)
-    model = DreamTransformer(config)
-    model.load_state_dict(checkpoint["model_state"], strict=True)
+    model, tokenizer, config, metadata = load_validated_checkpoint(checkpoint_path)
     model.to(device).eval()
     return model, tokenizer, config, metadata
 
