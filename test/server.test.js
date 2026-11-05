@@ -77,6 +77,14 @@ after(async () => {
   if (model) await new Promise(resolve => model.close(resolve));
 });
 
+async function postResearch(payload, rawBody) {
+  return fetch(`${base}/api/research`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: rawBody ?? JSON.stringify(payload)
+  });
+}
+
 async function postChat(payload, rawBody) {
   return fetch(`${base}/api/chat`, {
     method: "POST",
@@ -85,13 +93,6 @@ async function postChat(payload, rawBody) {
   });
 }
 
-async function postResearch(payload, rawBody) {
-  return fetch(`${base}/api/research`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: rawBody ?? JSON.stringify(payload)
-  });
-}
 
 test("research endpoint rejects malformed and oversized queries before upstream access", async () => {
   for (const payload of [
@@ -110,6 +111,21 @@ test("research endpoint rejects malformed and oversized queries before upstream 
   const malformed = await postResearch(null, "{");
   assert.equal(malformed.status, 400);
   assert.match((await malformed.json()).error, /valid JSON/i);
+});
+
+test("liveness endpoint stays healthy when the native model is unavailable", async () => {
+  modelHasCheckpoint = false;
+  try {
+    const response = await fetch(`${base}/api/health/live`);
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      ok: true,
+      name: "DREAM AI",
+      status: "live"
+    });
+  } finally {
+    modelHasCheckpoint = true;
+  }
 });
 
 test("health endpoint identifies the DREAM engine and configured model", async () => {
@@ -274,6 +290,37 @@ test("chat endpoint enforces the request body limit", async () => {
     messages: [{ role: "user", content: "x".repeat(40000) }]
   }));
   assert.equal(response.status, 413);
+});
+
+
+test("capabilities endpoint reports only verified runtime and tool availability", async () => {
+  const response = await fetch(`${base}/api/capabilities`);
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.equal(data.product, "DREAM AI");
+  assert.equal(data.contractVersion, 1);
+  assert.equal(data.model.status, "ready");
+  assert.equal(data.model.completedTrainingSteps, 12);
+  assert.deepEqual(data.application.modes, ["general", "coding", "learning"]);
+  assert.equal(data.safety.toolExecutionDefault, "disabled");
+  assert.equal(data.safety.unrestrictedAccess, false);
+  assert.ok(data.tools.some(tool => tool.id === "code_execution" && tool.status === "not-implemented"));
+  assert.ok(data.tools.every(tool => tool.status !== "ready"));
+});
+
+
+test("capabilities endpoint never reports an unverified model as ready", async () => {
+  modelHasCheckpoint = false;
+  try {
+    const response = await fetch(`${base}/api/capabilities`);
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.model.status, "unavailable");
+    assert.equal(data.model.completedTrainingSteps, null);
+    assert.equal(data.model.checkpointSha256, null);
+  } finally {
+    modelHasCheckpoint = true;
+  }
 });
 
 test("root serves the DREAM AI application", async () => {
