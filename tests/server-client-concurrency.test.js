@@ -51,7 +51,7 @@ before(async () => {
         parameters: 100
       }));
     }
-    if (req.url === "/chat/completions" && req.method === "POST") {
+    if (["/chat/completions", "/v1/chat/completions"].includes(req.url) && req.method === "POST") {
       activeCompletions += 1;
       if (activeCompletions === 1) signalFirstCompletion();
       return setTimeout(() => {
