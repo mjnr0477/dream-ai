@@ -23,6 +23,7 @@ The application has meaningful request-boundary protections, but it is not yet a
 | ID | Severity | Finding | Status |
 |---|---|---|---|
 | S7-01 | High | PR #167's ClientConcurrencyLimiter helper was unit-tested but not imported or invoked by server.js; real chat/research requests were not receiving the advertised per-client concurrency control. | Fixed in PR #174; awaiting CI and review |
+| S7-07 | Medium | The chat route returned unexpected runtime exception messages directly to clients, potentially disclosing deployment/configuration details. | Fixed in PR #174 with generic public error and regression test |
 | S7-02 | High | No authenticated user/account system or server-side conversation store was found in the inspected application. Per-IP limits do not establish user identity or data ownership. | Open architectural requirement |
 | S7-03 | Medium | The per-IP rate limiter is process-local and is not a shared quota across multiple instances. | Documented limitation |
 | S7-04 | Medium | Native runtime authentication depends on deployment configuration; remote runtime deployment must set a strong token and restrict network exposure. | Deployment verification required |
@@ -37,6 +38,7 @@ The application has meaningful request-boundary protections, but it is not yet a
 - Release the slot in finally for normal completion, validation errors, rate-limit exits and handler failures.
 - Preserve global caps, per-IP rate limits, origin checks and loopback development behavior.
 - Add a live HTTP test using a local mock native runtime. It checks same-client chat/research exclusion, independent-client progress and slot recovery.
+- Replace unexpected chat runtime exception details with a generic public 502 response; add a route-level regression test using an intentionally invalid runtime URL.
 
 ## Verification still required
 
