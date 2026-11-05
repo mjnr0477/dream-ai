@@ -265,12 +265,19 @@ class DreamTransformer(nn.Module):
                 key, value = pair
                 if not isinstance(key, torch.Tensor) or not isinstance(value, torch.Tensor):
                     raise ValueError("Cache keys and values must be tensors")
-                if key.shape != value.shape or key.ndim != 4:
+                if key.shape != value.shape or key.ndim != 4 or key.shape[2] < 1:
                     raise ValueError("Cache key/value tensor shapes are invalid")
                 if key.shape[:2] != (batch, self.config.n_heads) or key.shape[3] != self.config.d_model // self.config.n_heads:
                     raise ValueError("Cache dimensions do not match this model")
                 if key.device != token_ids.device or value.device != token_ids.device:
                     raise ValueError("Cache and token tensors must use the same device")
+                if (
+                    key.dtype != value.dtype
+                    or not key.is_floating_point()
+                    or key.layout != torch.strided
+                    or value.layout != torch.strided
+                ):
+                    raise ValueError("Cache key/value tensor dtypes or layouts are invalid")
                 lengths.add(key.shape[2])
             if len(lengths) != 1:
                 raise ValueError("All layer caches must have the same sequence length")
