@@ -63,6 +63,7 @@ class SplitSFTTests(unittest.TestCase):
             self.assertEqual(summary["validation_records"], 1)
             self.assertTrue(train_groups.isdisjoint(validation_groups))
             self.assertTrue(manifest["source_groups_disjoint"])
+            self.assertEqual(manifest["split_unit"], "source_group")
             self.assertEqual(manifest["record_count"], 4)
             self.assertEqual(manifest["train_records"], 3)
             self.assertEqual(manifest["validation_records"], 1)
