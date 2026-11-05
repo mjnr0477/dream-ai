@@ -128,7 +128,7 @@ class ColabNotebookTests(unittest.TestCase):
         self.assertIn("preserving other variables", markdown)
         self.assertIn("RENDER_API_KEY", markdown)
         self.assertIn("not printed", runtime)
-        self.assertIn("DREAM_MODEL_TOKEN=" + " + RUNTIME_TOKEN", runtime)
+        self.assertIn('print("DREAM_MODEL_TOKEN=" + RUNTIME_TOKEN)', runtime)
 \n    def test_colab_estimates_model_budget_for_selected_tokenizer(self):
         training = "".join(self.notebook["cells"][8]["source"])
         bundle = "".join(self.notebook["cells"][16]["source"])
