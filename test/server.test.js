@@ -53,7 +53,8 @@ before(async () => {
       PORT: String(port),
       DREAM_MODEL_URL: `http://127.0.0.1:${modelPort}/v1`,
       DREAM_MODEL_NAME: "dream-test-model",
-      DREAM_MODEL_TOKEN: ""
+      DREAM_MODEL_TOKEN: "",
+      DREAM_API_RATE_LIMIT: "3"
     },
     stdio: "ignore"
   });
@@ -329,6 +330,98 @@ test("capabilities endpoint never reports an unverified model as ready", async (
   } finally {
     modelHasCheckpoint = true;
   }
+});
+
+
+test("chat and research reject non-JSON and cross-site browser requests", async () => {
+  const missingType = await fetch(`${base}/api/chat`, {
+    method: "POST",
+    body: JSON.stringify({ messages: [{ role: "user", content: "hello" }] })
+  });
+  assert.equal(missingType.status, 415);
+
+  const textType = await fetch(`${base}/api/research`, {
+    method: "POST",
+    headers: { "content-type": "text/plain" },
+    body: JSON.stringify({ query: "DREAM" })
+  });
+  assert.equal(textType.status, 415);
+
+  for (const [url, payload] of [
+    ["/api/chat", { messages: [{ role: "user", content: "hello" }] }],
+    ["/api/research", { query: "DREAM" }]
+  ]) {
+    const hostile = await fetch(base + url, {
+      method: "POST",
+      headers: { "content-type": "application/json", origin: "https://attacker.example" },
+      body: JSON.stringify(payload)
+    });
+    assert.equal(hostile.status, 403);
+  }
+
+  const crossSite = await fetch(`${base}/api/chat`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      origin: base,
+      "sec-fetch-site": "cross-site"
+    },
+    body: JSON.stringify({ messages: [{ role: "user", content: "hello" }] })
+  });
+  assert.equal(crossSite.status, 403);
+});
+
+test("same-host origin with the wrong scheme is rejected", async () => {
+  const response = await fetch(`${base}/api/chat`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      origin: base.replace("http://", "https://")
+    },
+    body: JSON.stringify({ messages: [{ role: "user", content: "hello" }] })
+  });
+  assert.equal(response.status, 403);
+});
+
+test("shared per-IP token bucket limits chat and research using the first forwarded IP", async () => {
+  const forwarded = "198.51.100.77, 203.0.113.9";
+  for (let i = 0; i < 3; i++) {
+    const response = await fetch(`${base}/api/chat`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-forwarded-for": forwarded
+      },
+      body: JSON.stringify({ messages: [{ role: "user", content: `limit test ${i}` }] })
+    });
+    assert.equal(response.status, 200);
+  }
+
+  const blocked = await fetch(`${base}/api/research`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-forwarded-for": "198.51.100.77, 192.0.2.44"
+    },
+    body: JSON.stringify({ query: "DREAM" })
+  });
+  assert.equal(blocked.status, 429);
+  assert.ok(Number(blocked.headers.get("retry-after")) >= 1);
+});
+
+test("security headers are present on API and static responses", async () => {
+  const api = await fetch(`${base}/api/health`);
+  assert.equal(api.headers.get("x-frame-options"), "DENY");
+  assert.equal(api.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(api.headers.get("cache-control"), "no-store");
+  assert.equal(api.headers.get("permissions-policy"), "camera=(), microphone=(), geolocation=()");
+
+  const page = await fetch(base + "/");
+  const csp = page.headers.get("content-security-policy") || "";
+  assert.match(csp, /default-src 'self'/);
+  assert.match(csp, /script-src 'self'/);
+  assert.match(csp, /frame-ancestors 'none'/);
+  assert.match(csp, /style-src-attr 'unsafe-inline'/);
 });
 
 test("root serves the DREAM AI application", async () => {
