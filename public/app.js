@@ -219,7 +219,7 @@ function openChat(id) {
   const chat = chats.find(item => item.id === id);
   if (!chat) return;
   activeChatId = chat.id;
-  messages = chat.messages.map(item => ({ role: item.role, content: item.content }));
+  messages = chat.messages.map(item => ({ role: item.role, content: item.content, ...(item.artifacts ? { artifacts: item.artifacts } : {}) }));
   setMode(chat.mode);
   renderMessages();
   renderHistory();
