@@ -104,11 +104,15 @@ function validateBrowserRequest(req) {
 
 
 function getClientIp(req) {
-  // Render documents X-Forwarded-For as the source of the real client IP.
-  // Use only its first address; never trust later proxy-supplied entries.
-  const forwarded = req.headers["x-forwarded-for"];
-  const first = typeof forwarded === "string" ? forwarded.split(",")[0].trim() : "";
-  if (first && isIP(first)) return first;
+  // Render's Cloudflare edge supplies CF-Connecting-IP with the visitor IP.
+  // Do not use X-Forwarded-For for security decisions: clients can send a
+  // forged prefix and some proxy chains preserve it when appending addresses.
+  const cloudflareClientIp = req.headers["cf-connecting-ip"];
+  const candidate = typeof cloudflareClientIp === "string" ? cloudflareClientIp.trim() : "";
+  if (candidate && isIP(candidate)) return candidate;
+  // Fail closed to the transport peer when the trusted edge header is absent
+  // or malformed. This may group clients behind a proxy, but cannot let them
+  // choose arbitrary rate-limit/concurrency identities via request headers.
   const remote = req.socket?.remoteAddress;
   return remote && isIP(remote) ? remote : "unknown";
 }
