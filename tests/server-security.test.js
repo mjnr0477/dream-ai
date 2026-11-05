@@ -96,7 +96,7 @@ test("chat and research share a bounded per-client rate limit", async () => {
     origin: baseUrl,
     "x-forwarded-for": clientIp + ", 10.0.0.1"
   };
-  for (let index = 0; index < 12; index += 1) {
+  for (let index = 0; index < 20; index += 1) {
     const response = await fetch(baseUrl + "/api/chat", {
       method: "POST",
       headers,
