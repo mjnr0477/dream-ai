@@ -97,3 +97,24 @@ test("enforces the concurrent execution limit", async () => {
   release("done");
   await pending;
 });
+
+test("does not free concurrency capacity while a timed-out handler is still running", async () => {
+  const registry = new ToolRegistry({ maxConcurrent: 1 });
+  const short = { ...definition, timeoutMs: 100 };
+  const releases = [];
+  registry.register(short, async () => new Promise((resolve) => releases.push(resolve)));
+  const first = registry.execute({ toolId: short.id, input: { key: "first" }, principal });
+  await assert.rejects(first, /timed out/);
+  assert.equal(releases.length, 1);
+  await assert.rejects(
+    registry.execute({ toolId: short.id, input: { key: "second" }, principal }),
+    /capacity reached/
+  );
+  releases[0]("first finished");
+  await new Promise((resolve) => setImmediate(resolve));
+  const second = registry.execute({ toolId: short.id, input: { key: "second" }, principal });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(releases.length, 2);
+  releases[1]("second finished");
+  await second;
+});
