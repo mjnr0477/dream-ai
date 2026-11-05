@@ -8,6 +8,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     DREAM_CHECKPOINT=/models/dream-instruct.pt \
     DREAM_RUNTIME_HOST=0.0.0.0 \
     DREAM_RUNTIME_PORT=8081 \
+    DREAM_CPU_THREADS=2 \
     DREAM_MODEL_NAME=dream-native-v1
 
 RUN apt-get update \
