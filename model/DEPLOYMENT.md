@@ -76,6 +76,8 @@ Set these environment variables on the existing DREAM AI web service:
 
 Use the HTTPS URL of the deployed model service, not the example placeholder. Redeploy the web application after setting the variables. Then open `/api/health`; it should report `modelReady: true` only after the model host passes identity and checkpoint-provenance checks.
 
+The web application rejects remote model URLs that use plain HTTP or contain embedded username/password credentials. HTTPS is mandatory for remote hosts; plain HTTP is permitted only for local loopback development (`localhost`, `127.0.0.1`, or `::1`). Keep the runtime token in the Render environment settings, never in the URL.
+
 The existing Render Node application and native model host are separate services. The free Render web service does not provide a persistent GPU training machine or a durable model checkpoint volume. Do not upload a private training bundle or expose a checkpoint through a public static directory.
 
 ## Limitations
