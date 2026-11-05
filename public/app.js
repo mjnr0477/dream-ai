@@ -95,8 +95,92 @@ function renderHistory() {
 }
 
 
-function renderAssistantContent(container, content) {
+function renderAssistantContent(container, content, artifacts = null) {
   container.replaceChildren();
+  if (Array.isArray(artifacts) && artifacts.length > 0) {
+    const summary = document.createElement("p");
+    summary.textContent = "Generated " + artifacts.length + " project files.";
+    container.append(summary);
+    for (const artifact of artifacts) {
+      const block = document.createElement("div");
+      block.className = "code-block";
+      const header = document.createElement("div");
+      header.className = "code-block-header";
+      const label = document.createElement("span");
+      label.textContent = artifact.path;
+      const actions = document.createElement("div");
+      actions.className = "code-block-actions";
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.textContent = "Edit locally";
+      const copy = document.createElement("button");
+      copy.type = "button";
+      copy.textContent = "Copy file";
+      const download = document.createElement("button");
+      download.type = "button";
+      download.textContent = "Download";
+      const pre = document.createElement("pre");
+      const code = document.createElement("code");
+      code.textContent = artifact.content;
+      pre.append(code);
+      const editor = document.createElement("textarea");
+      editor.className = "code-editor";
+      editor.hidden = true;
+      editor.rows = Math.max(6, Math.min(18, artifact.content.split("\n").length + 1));
+      editor.setAttribute("aria-label", "Edit " + artifact.path + " locally");
+      const editorActions = document.createElement("div");
+      editorActions.className = "code-editor-actions";
+      editorActions.hidden = true;
+      const apply = document.createElement("button");
+      apply.type = "button";
+      apply.textContent = "Apply changes";
+      const cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.textContent = "Cancel";
+      edit.addEventListener("click", () => {
+        editor.value = artifact.content;
+        editor.hidden = false;
+        pre.hidden = true;
+        editorActions.hidden = false;
+        edit.hidden = true;
+        editor.focus();
+      });
+      cancel.addEventListener("click", () => {
+        editor.hidden = true;
+        pre.hidden = false;
+        editorActions.hidden = true;
+        edit.hidden = false;
+      });
+      apply.addEventListener("click", () => {
+        artifact.content = editor.value;
+        code.textContent = artifact.content;
+        editor.hidden = true;
+        pre.hidden = false;
+        editorActions.hidden = true;
+        edit.hidden = false;
+        persistActiveChat();
+      });
+      copy.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(artifact.content); copy.textContent = "Copied"; }
+        catch { copy.textContent = "Copy unavailable"; }
+      });
+      download.addEventListener("click", () => {
+        const blob = new Blob([artifact.content], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = artifact.path.split("/").pop() || "dream-ai-code.txt";
+        link.click();
+        URL.revokeObjectURL(url);
+      });
+      actions.append(edit, copy, download);
+      header.append(label, actions);
+      editorActions.append(apply, cancel);
+      block.append(header, pre, editor, editorActions);
+      container.append(block);
+    }
+    return;
+  }
   const segments = content.split(/```([A-Za-z0-9_+-]*)\n([\s\S]*?)```/g);
 
   function appendInline(parent, text) {
@@ -221,7 +305,7 @@ function renderAssistantContent(container, content) {
   }
 }
 
-function addMessage(role, content) {
+function addMessage(role, content, artifacts = null) {
   const row = document.createElement("article");
   row.className = `message ${role}`;
   const avatar = document.createElement("div");
@@ -229,7 +313,7 @@ function addMessage(role, content) {
   avatar.textContent = role === "user" ? "Y" : "✳";
   const body = document.createElement("div");
   body.className = "message-content";
-  if (role === "assistant") renderAssistantContent(body, content);
+  if (role === "assistant") renderAssistantContent(body, content, artifacts);
   else body.textContent = content;
   row.append(avatar, body);
   conversation.append(row);
@@ -252,7 +336,7 @@ function addMessage(role, content) {
 
 function renderMessages() {
   conversation.replaceChildren();
-  for (const item of messages) addMessage(item.role, item.content);
+  for (const item of messages) addMessage(item.role, item.content, item.artifacts);
   welcome.hidden = messages.length > 0;
 }
 
@@ -267,7 +351,7 @@ function openChat(id) {
   const chat = chats.find(item => item.id === id);
   if (!chat) return;
   activeChatId = chat.id;
-  messages = chat.messages.map(item => ({ role: item.role, content: item.content }));
+  messages = chat.messages.map(item => ({ role: item.role, content: item.content, ...(item.artifacts ? { artifacts: item.artifacts } : {}) }));
   setMode(chat.mode);
   renderMessages();
   renderHistory();
@@ -522,7 +606,7 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "The request failed.");
-    renderAssistantContent(replyNode, data.reply);
+    renderAssistantContent(replyNode, data.reply, data.artifacts);
     statusText.textContent = data.source === "dream-model"
       ? "DREAM native model connected"
       : "Application online · native model not connected";
@@ -537,7 +621,7 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
     });
     tools.append(copy);
     replyNode.parentElement.append(tools);
-    messages.push({ role: "assistant", content: data.reply });
+    messages.push({ role: "assistant", content: data.reply, ...(Array.isArray(data.artifacts) ? { artifacts: data.artifacts } : {}) });
     persistActiveChat();
     if (data.mode === "starter") {
       statusText.textContent = "Service online · connect a model for real AI replies";
