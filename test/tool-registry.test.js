@@ -65,9 +65,9 @@ test("requires approval bound to exact inputs for write and destructive tools", 
   registry.register(write, async ({ input }) => ({ saved: input.key }));
   const actor = { id: "u", permissions: ["settings:write"] };
   const input = { key: "safe-value" };
-  await assert.rejects(registry.execute({ toolId: write.id, input, principal: actor }), /requires explicit approval/);
+  await assert.rejects(registry.execute({ toolId: write.id, input, principal: actor }), /requires server-verified user approval/);
   const approval = { token: "trusted-test-token", toolId: write.id, inputSha256: registry.approvalDigest(write.id, input), principalId: actor.id };
-  await assert.rejects(registry.execute({ toolId: write.id, input: { key: "different" }, principal: actor, approval }), /requires explicit approval/);
+  await assert.rejects(registry.execute({ toolId: write.id, input: { key: "different" }, principal: actor, approval }), /requires server-verified user approval/);
   const result = await registry.execute({ toolId: write.id, input, principal: actor, approval });
   assert.deepEqual(result.result, { saved: "safe-value" });
 });
