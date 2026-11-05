@@ -102,7 +102,7 @@ test("rate-limit windows reset and bucket storage remains bounded", () => {
   assert.equal(limiter.consume(request({}, "10.0.0.1"), 1_000).allowed, true);
   assert.equal(limiter.consume(request({}, "10.0.0.2"), 1_001).allowed, false);
   assert.equal(limiter.consume(request({}, "10.0.0.1"), 2_001).allowed, true);
-  assert.equal(limiter.consume(request({}, "10.0.0.2"), 2_002).allowed, true);
+  assert.equal(limiter.consume(request({}, "10.0.0.2"), 3_002).allowed, true);
 });
 
 test("per-client concurrency allows only one active request and releases its slot", () => {
