@@ -31,7 +31,19 @@
     <main class="main">
       <header class="topbar">
         <button class="mobile-brand" id="mobile-new" aria-label="Start a new chat">✳ <span>DREAM AI</span></button>
-        <div class="topbar-right"><span class="top-tag"><i></i> PRIVATE BETA</span><button class="icon-button" id="export-chat" title="Export conversation" aria-label="Export conversation">⇩</button></div>
+        <div class="topbar-right">
+          <details class="capability-menu" id="capability-menu">
+            <summary>Capabilities</summary>
+            <section class="capability-panel" aria-label="DREAM AI capability status">
+              <p class="capability-heading">Verified system status</p>
+              <p id="capability-model" class="capability-model">Open to load live capability status.</p>
+              <ul id="capability-tools" class="capability-tools"></ul>
+              <p class="capability-note">Only connected and verified features are shown as ready. Unavailable tools are not executable.</p>
+            </section>
+          </details>
+          <span class="top-tag"><i></i> PRIVATE BETA</span>
+          <button class="icon-button" id="export-chat" title="Export conversation" aria-label="Export conversation">⇩</button>
+        </div>
       </header>
 
       <section class="welcome" id="welcome">
