@@ -4,7 +4,6 @@ import assert from "node:assert/strict";
 import { searchPublicKnowledge } from "../lib/research.js";
 
 test("searches the fixed public knowledge endpoint and returns safe source links", async () => {
-  let requestedUrl;
   const requestedUrls = [];
   const result = await searchPublicKnowledge("Kenya education", async url => {
     requestedUrls.push(new URL(url));
@@ -150,4 +149,27 @@ test("keeps search results usable when article introductions cannot be retrieved
   assert.equal(result.results[0].snippet, "A search snippet.");
   assert.equal(result.results[0].extract, null);
   assert.equal(result.results[0].lastModified, null);
+});
+
+test("ignores search entries without valid MediaWiki page identifiers", async () => {
+  let calls = 0;
+  const result = await searchPublicKnowledge("research integrity", async () => {
+    calls += 1;
+    return {
+      ok: true,
+      json: async () => ({
+        query: {
+          search: [
+            { title: "Missing page identifier", snippet: "Must be ignored." },
+            { pageid: -1, title: "Invalid page identifier", snippet: "Must be ignored." },
+            { pageid: 9, title: "Valid result", snippet: "Retained result." }
+          ],
+          pages: {}
+        }
+      })
+    };
+  });
+
+  assert.equal(calls, 2);
+  assert.deepEqual(result.results.map(item => item.title), ["Valid result"]);
 });
