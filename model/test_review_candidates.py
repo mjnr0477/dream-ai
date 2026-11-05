@@ -106,6 +106,10 @@ class ReviewCandidatesTests(unittest.TestCase):
             self.assertEqual(len(decision_rows), 2)
             self.assertNotIn("text", decision_rows[0])
             self.assertNotIn("text", decision_rows[1])
+            self.assertIn("id_hash", decision_rows[0])
+            self.assertIn("id_hash", decision_rows[1])
+            self.assertNotIn("id", decision_rows[0])
+            self.assertNotIn("id", decision_rows[1])
 
             resumed = review_file(
                 source, output, decisions, limit=2,
