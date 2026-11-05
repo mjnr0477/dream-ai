@@ -6,6 +6,8 @@ const welcome = document.querySelector("#welcome");
 const statusText = document.querySelector("#service-status");
 const statusDot = document.querySelector(".status-dot");
 const historyList = document.querySelector("#history-list");
+const sidebar = document.querySelector("#sidebar");
+const mobileHistoryButton = document.querySelector("#mobile-history");
 const STORAGE_KEY = "dream-ai-conversations-v1";
 const MAX_SAVED_CHATS = 30;
 let chats = loadChats();
@@ -59,7 +61,10 @@ function renderHistory() {
     button.className = "history-item" + (chat.id === activeChatId ? " selected" : "");
     button.textContent = chat.title || "Conversation";
     button.title = chat.title || "Conversation";
-    button.addEventListener("click", () => openChat(chat.id));
+    button.addEventListener("click", () => {
+      openChat(chat.id);
+      closeMobileHistory();
+    });
     historyList.append(button);
   }
 }
@@ -287,6 +292,11 @@ async function sendMessage(text, isRetry = false) {
   }
 }
 
+function closeMobileHistory() {
+  document.body.classList.remove("sidebar-open");
+  mobileHistoryButton?.setAttribute("aria-expanded", "false");
+}
+
 function resetChat() {
   activeChatId = null;
   messages = [];
@@ -294,6 +304,7 @@ function resetChat() {
   welcome.hidden = false;
   input.value = "";
   renderHistory();
+  closeMobileHistory();
   input.focus();
 }
 
@@ -312,7 +323,13 @@ input.addEventListener("keydown", event => {
   }
 });
 document.querySelector("#new-chat").addEventListener("click", resetChat);
-document.querySelector("#mobile-new").addEventListener("click", resetChat);
+mobileHistoryButton?.addEventListener("click", () => {
+  const isOpen = document.body.classList.toggle("sidebar-open");
+  mobileHistoryButton.setAttribute("aria-expanded", String(isOpen));
+});
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape") closeMobileHistory();
+});
 document.querySelectorAll("[data-prompt]").forEach(button => {
   button.addEventListener("click", () => {
     setMode(button.dataset.mode || "general");
