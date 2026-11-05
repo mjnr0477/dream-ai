@@ -20,7 +20,7 @@ INTERNATIONAL_PHONE_RE = re.compile(
 ALLOWED_RIGHTS = {
     "original-authorship", "public-domain", "open-license", "explicit-permission"
 }
-REVIEW_FLAGS = ("rights_confirmed", "privacy_reviewed", "quality_reviewed")
+REVIEW_FLAGS = ("rights_confirmed", "privacy_reviewed", "quality_reviewed", "approval_granted")
 
 
 def normalized_content(record):
