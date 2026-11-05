@@ -102,7 +102,7 @@ python data/review_candidates.py \
   --limit 25
 ```
 
-The reviewer displays each candidate and requires four separate affirmative human decisions: rights for this exact use, privacy inspection, quality inspection, and explicit training approval. Any negative answer rejects the record. There is no automatic approval. Re-run the command to review the next batch; the decision ledger prevents already-reviewed IDs from being prompted again and stores IDs/decisions without duplicating record text. Approved records are appended without overwriting prior work. Correct invalid provenance before reviewing again.
+The reviewer displays each candidate and requires four separate affirmative human decisions: rights for this exact use, privacy inspection, quality inspection, and explicit training approval. Any negative answer rejects the record. There is no automatic approval. Re-run the command to review the next batch; the decision ledger prevents already-reviewed IDs from being prompted again and stores one-way hashes of IDs and decisions, not raw IDs or record text. Approved records are appended without overwriting prior work. Correct invalid provenance before reviewing again.
 
 The reviewer is an aid, not a legal or privacy classifier. The reviewer must inspect the actual source terms and content. The existing corpus audit, provenance checks, deduplication and held-out split rules remain mandatory.
 
