@@ -85,6 +85,22 @@ async function postChat(payload, rawBody) {
   });
 }
 
+
+test("liveness endpoint stays healthy when the native model is unavailable", async () => {
+  modelHasCheckpoint = false;
+  try {
+    const response = await fetch(`${base}/api/health/live`);
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      ok: true,
+      name: "DREAM AI",
+      status: "live"
+    });
+  } finally {
+    modelHasCheckpoint = true;
+  }
+});
+
 test("health endpoint identifies the DREAM engine and configured model", async () => {
   const response = await fetch(`${base}/api/health`);
   assert.equal(response.status, 200);
