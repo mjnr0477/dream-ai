@@ -101,7 +101,7 @@ Render's free web service is not a GPU training environment. Keep the Node app o
 
 ## API
 
-- `GET /api/health`
+- `GET /api/health` reports application availability separately from model configuration and live native-checkpoint readiness. A ready runtime must identify as the native DREAM transformer and report positive completed training steps plus a 64-character checkpoint SHA-256. This is a runtime/provenance check, not a quality certification.
 - `POST /api/chat`
 - Supported modes: `general`, `coding`, `learning`
 

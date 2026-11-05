@@ -172,7 +172,11 @@ async function checkHealth() {
     const response = await fetch("/api/health");
     const health = await response.json();
     if (!response.ok) throw new Error("Health check failed");
-    statusText.textContent = health.modelConfigured ? "Service online · model connection checked when you chat" : "Service online · model setup needed";
+    statusText.textContent = health.modelReady
+      ? "DREAM native model ready"
+      : health.modelConfigured
+        ? "Application online · native model unavailable"
+        : "Application online · native model setup needed";
     statusDot.classList.add("online");
   } catch {
     statusText.textContent = "Service connection unavailable";
