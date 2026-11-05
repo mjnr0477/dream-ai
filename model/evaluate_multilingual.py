@@ -9,6 +9,66 @@ from pathlib import Path
 from evaluate import validate_language_subset
 
 
+
+def validate_language_coverage(manifest, language):
+    """Verify and return per-language source-group coverage from a corpus manifest.
+
+    Legacy manifests without coverage metadata remain readable but return None.
+    """
+    coverage = manifest.get("language_split_coverage")
+    if coverage is None:
+        return None
+    if not isinstance(coverage, dict) or language not in coverage:
+        raise ValueError(f"Missing language source-group coverage for {language!r}")
+    entry = coverage[language]
+    if not isinstance(entry, dict):
+        raise ValueError(f"Invalid language source-group coverage for {language!r}")
+
+    actual_counts = {}
+    all_groups = set()
+    for split in ("train", "validation", "test"):
+        split_meta = manifest.get("splits", {}).get(split)
+        if not isinstance(split_meta, dict):
+            raise ValueError(f"Missing {split} split metadata")
+        language_files = split_meta.get("language_files", {})
+        if not isinstance(language_files, dict):
+            raise ValueError(f"Invalid {split} language-file metadata")
+        language_meta = language_files.get(language)
+        groups = [] if language_meta is None else language_meta.get("source_group_ids")
+        if not isinstance(groups, list) or any(not isinstance(group, str) or not group for group in groups) or len(groups) != len(set(groups)):
+            if language_meta is None:
+                groups = []
+            else:
+                raise ValueError(f"Invalid {split} source groups for {language!r}")
+        if all_groups.intersection(groups):
+            raise ValueError(f"Source groups for {language!r} leak across corpus splits")
+        all_groups.update(groups)
+        actual_counts[split] = len(groups)
+
+    total_groups = len(all_groups)
+    declared_total = entry.get("independent_source_groups")
+    declared_counts = entry.get("source_groups_by_split")
+    eligible = entry.get("eligible_for_three_way_evaluation")
+    if (
+        isinstance(declared_total, bool)
+        or not isinstance(declared_total, int)
+        or declared_total != total_groups
+        or not isinstance(declared_counts, dict)
+        or declared_counts != actual_counts
+        or not isinstance(eligible, bool)
+        or eligible != (total_groups >= 3)
+    ):
+        raise ValueError(f"Language source-group coverage does not match split manifests for {language!r}")
+    if eligible and any(actual_counts[split] < 1 for split in ("train", "validation", "test")):
+        raise ValueError(f"Eligible language {language!r} is missing a train, validation or test source group")
+
+    return {
+        "independent_source_groups": total_groups,
+        "eligible_for_three_way_evaluation": eligible,
+        "source_groups_by_split": actual_counts
+    }
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--checkpoint", required=True)
@@ -50,6 +110,10 @@ def main():
             metadata = language_files[language]
             if not isinstance(language, str) or not language.strip() or not isinstance(metadata, dict):
                 raise SystemExit("Manifest contains an invalid language entry")
+            try:
+                source_coverage = validate_language_coverage(manifest, language)
+            except ValueError as exc:
+                raise SystemExit(str(exc)) from exc
             language_name = metadata.get("path")
             if not isinstance(language_name, str) or Path(language_name).name != language_name:
                 raise SystemExit(f"Manifest contains an unsafe test path for {language!r}")
@@ -82,6 +146,7 @@ def main():
                     + completed.stdout[-4000:] + completed.stderr[-4000:]
                 )
             reports[language] = json.loads(report_path.read_text(encoding="utf-8"))
+            reports[language]["source_coverage"] = source_coverage
             if reports[language].get("evaluation_parent_test_sha256") != parent_hash:
                 raise SystemExit(f"Evaluation parent hash mismatch for language {language!r}")
 
@@ -92,9 +157,15 @@ def main():
         "parent_test_corpus": str(parent_test_path),
         "parent_test_corpus_sha256": test_split["sha256"],
         "languages_evaluated": sorted(reports),
+        "language_source_coverage": {
+            language: reports[language]["source_coverage"]
+            for language in sorted(reports)
+        },
         "per_language": reports,
         "aggregation": None,
         "limitations": [
+            "A language is eligible for three-way evaluation only when at least three independent source groups are present across train, validation and test.",
+            "Legacy manifests without language source-group coverage metadata cannot establish three-way language evaluation eligibility.",
             "Per-language metrics are reported separately; no aggregate is computed that could hide weak language performance.",
             "Randomly sampled context windows can vary by seed and batch count.",
             "Cross-entropy and bits per byte are not direct measures of language quality, reasoning, instruction following or factual accuracy.",
