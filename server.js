@@ -66,7 +66,7 @@ function validateBrowserRequest(req) {
     try { parsedOrigin = new URL(origin); }
     catch { const error = new Error("Invalid request origin."); error.status = 403; throw error; }
     const requestHost = String(req.headers.host || "").trim().toLowerCase();
-    const isLoopbackHost = /^(localhost|127\\.0\\.0\\.1|\\[::1\\])(?::\\d+)?$/.test(requestHost);
+    const isLoopbackHost = /^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(requestHost);
     const expectedOrigin = process.env.DREAM_PUBLIC_ORIGIN
       ? new URL(process.env.DREAM_PUBLIC_ORIGIN).origin
       : (isLoopbackHost ? "http://" : "https://") + requestHost;
