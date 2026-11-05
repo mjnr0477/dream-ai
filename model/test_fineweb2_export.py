@@ -54,6 +54,25 @@ class FineWeb2ExportTests(unittest.TestCase):
         del source["url"]
         self.assertIsNone(exporter.export_row(source))
 
+    def test_rejects_urls_the_candidate_importer_cannot_accept(self):
+        source = row()
+        source["url"] = "http://example.org/article"
+        self.assertIsNone(exporter.export_row(source))
+        source = row()
+        source["url"] = "https://user:password@example.org/article"
+        self.assertIsNone(exporter.export_row(source))
+        source = row()
+        source["url"] = "https://example.org:invalid/article"
+        self.assertIsNone(exporter.export_row(source))
+
+    def test_rejects_short_text_and_invalid_dates(self):
+        source = row()
+        source["text"] = "Too short."
+        self.assertIsNone(exporter.export_row(source))
+        source = row()
+        source["date"] = "not-a-date"
+        self.assertIsNone(exporter.export_row(source))
+
     def test_rejects_missing_or_invalid_language_score(self):
         source = row()
         source["language_score"] = None
