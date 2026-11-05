@@ -161,6 +161,18 @@ class DreamTransformerTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "one key/value pair per layer"):
                 self.model.forward_cached(torch.tensor([[67]]), cache[:1])
 
+            malformed_dtype = list(cache)
+            key, value = malformed_dtype[0]
+            malformed_dtype[0] = (key.to(torch.float64), value)
+            with self.assertRaisesRegex(ValueError, "dtypes or layouts"):
+                self.model.forward_cached(torch.tensor([[67]]), malformed_dtype)
+
+            empty_cache = list(cache)
+            key, value = empty_cache[0]
+            empty_cache[0] = (key[:, :, :0, :], value[:, :, :0, :])
+            with self.assertRaisesRegex(ValueError, "shapes are invalid"):
+                self.model.forward_cached(torch.tensor([[67]]), empty_cache)
+
     def test_negative_generation_temperature_is_rejected(self):
         prompt = torch.tensor([[65, 66]], dtype=torch.long)
         with self.assertRaises(ValueError):
