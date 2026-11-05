@@ -117,6 +117,8 @@ test("research synthesis explicitly carries evidence and enforces source-verific
   assert.ok(app.includes("const sourceContext = JSON.stringify(transcript)"));
   assert.ok(app.includes("const analysisPrompt = ["));
   assert.ok(app.includes("short article-introduction excerpts"));
+  assert.ok(app.includes("analysisPrompt.length > 7800"));
+  assert.ok(app.includes("Research evidence exceeds the safe analysis size"));
   assert.ok(app.includes("sendMessage(analysisPrompt, false, false)"));
   assert.ok(app.includes('includeHistory ? messages.slice(-12) : [{ role: "user", content }]'));
   assert.ok(app.includes("evidenceBlock.length > 1100"));
