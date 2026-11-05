@@ -15,7 +15,7 @@ _MAX_TEXT = 4000
 
 
 def _text(value: Any, field: str, *, optional: bool = False) -> str:
-    if optional and value is None:
+    if optional and (value is None or value == ""):
         return ""
     if not isinstance(value, str) or not value.strip():
         raise PlanError(f"{field} must be a non-empty string")
