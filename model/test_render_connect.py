@@ -104,6 +104,39 @@ class RenderConnectTests(unittest.TestCase):
                         opener=lambda *_args, **_kwargs: self.fail("network must not be called"),
                     )
 
+    def test_partial_environment_update_is_reported_and_never_deploys(self):
+        requests = []
+
+        def fail_second(request, timeout):
+            requests.append(request)
+            if request.full_url.endswith("/env-vars/DREAM_MODEL_NAME"):
+                raise HTTPError(request.full_url, 403, "Forbidden", None, None)
+            return FakeResponse({})
+
+        with self.assertRaises(RuntimeError) as raised:
+            update_render_model_env(**self.values, opener=fail_second)
+
+        self.assertIn("DREAM_MODEL_URL", str(raised.exception))
+        self.assertIn("No deploy was requested", str(raised.exception))
+        self.assertNotIn(self.api_key, str(raised.exception))
+        self.assertNotIn(self.model_token, str(raised.exception))
+        self.assertEqual(len(requests), 2)
+        self.assertFalse(any(request.full_url.endswith("/deploys") for request in requests))
+
+    def test_deploy_failure_reports_that_all_variables_were_saved(self):
+        requests = []
+
+        def fail_deploy(request, timeout):
+            requests.append(request)
+            if request.full_url.endswith("/deploys"):
+                raise HTTPError(request.full_url, 503, "Unavailable", None, None)
+            return FakeResponse({})
+
+        with self.assertRaisesRegex(RuntimeError, "All three DREAM variables were saved"):
+            update_render_model_env(**self.values, opener=fail_deploy)
+        self.assertEqual(len(requests), 4)
+        self.assertTrue(requests[-1].full_url.endswith("/deploys"))
+
     def test_render_http_errors_do_not_echo_credentials(self):
         def denied(request, timeout):
             raise HTTPError(request.full_url, 403, "Forbidden", None, None)
