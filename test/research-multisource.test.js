@@ -39,6 +39,20 @@ test("queries Crossref and OpenAlex and returns source-attributed scholarly meta
   assert.match(result.limitations[0], /not proof/);
 });
 
+test("keeps distinct non-Latin scholarly titles when DOI metadata is absent", async () => {
+  const result = await searchMultiSourceResearch("African language research", async url => {
+    if (new URL(url).hostname === "api.crossref.org") return jsonResponse(crossref([{
+      title: ["የአየር ሁኔታ ጥናት"], author: [], published: { "date-parts": [[2024]] }
+    }]));
+    return jsonResponse(openalex([{
+      id: "https://openalex.org/W999", doi: null, title: "الصحة العامة والبحث",
+      publication_date: "2023-05-01", authorships: [], primary_location: {}
+    }]));
+  }, now);
+  assert.equal(result.results.length, 2);
+  assert.deepEqual(result.results.map(item => item.title).sort(), ["الصحة العامة والبحث", "የአየር ሁኔታ ጥናት"].sort());
+});
+
 test("preserves partial results when one scholarly provider is unavailable", async () => {
   const result = await searchMultiSourceResearch("public health", async url => {
     if (new URL(url).hostname === "api.crossref.org") return jsonResponse(crossref([]), 503);
