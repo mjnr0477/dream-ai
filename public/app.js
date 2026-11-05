@@ -275,22 +275,28 @@ async function sendResearch(text, isRetry = false) {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Research search failed.");
+    const results = Array.isArray(data.results) ? data.results : [];
     replyNode.replaceChildren();
     const heading = document.createElement("strong");
-    heading.textContent = data.results.length
-      ? `Public-source results · ${data.provider}`
-      : `No results found · ${data.provider}`;
+    heading.textContent = results.length
+      ? `Public-source results · ${data.provider || "public search"}`
+      : `No results found · ${data.provider || "public search"}`;
     replyNode.append(heading);
     const note = document.createElement("p");
     note.className = "research-note";
     note.textContent = "Wikipedia search snippets and article introductions. This is one secondary source, not independent or primary-source verification.";
     replyNode.append(note);
     const transcript = [];
-    for (const result of data.results) {
+    for (const result of results) {
+      let sourceUrl;
+      try {
+        sourceUrl = new URL(result.url);
+        if (sourceUrl.protocol !== "https:" || !/(^|\\.)wikipedia\\.org$/i.test(sourceUrl.hostname)) continue;
+      } catch { continue; }
       const item = document.createElement("article");
       item.className = "research-result";
       const link = document.createElement("a");
-      link.href = result.url;
+      link.href = sourceUrl.href;
       link.target = "_blank";
       link.rel = "noopener noreferrer";
       link.textContent = result.title;
@@ -318,7 +324,7 @@ async function sendResearch(text, isRetry = false) {
       }
       replyNode.append(item);
       const evidenceBlock = [
-        `Source URL: ${result.url}`,
+        `Source URL: ${sourceUrl.href}`,
         `Title: ${result.title}`,
         `Page last modified: ${result.lastModified || "Not supplied"}`,
         `Search snippet: ${result.snippet}`,
@@ -329,7 +335,7 @@ async function sendResearch(text, isRetry = false) {
         ? `${evidenceBlock.slice(0, 1060)}\n[Evidence block truncated; source URL retained]`
         : evidenceBlock);
     }
-    if (!data.results.length) {
+    if (!transcript.length) {
       const empty = document.createElement("p");
       empty.textContent = "Try a different search phrase. This search currently covers Wikipedia only.";
       replyNode.append(empty);
@@ -361,11 +367,11 @@ async function sendResearch(text, isRetry = false) {
     }
     messages.push({ role: "assistant", content: transcript.length ? transcript.join("\n\n") : "No public-source results were found." });
     persistActiveChat();
-    statusText.textContent = `Public research · Wikipedia · ${data.results.length} results`;
+    statusText.textContent = `Public research · Wikipedia · ${transcript.length} verified source links`;
   } catch (error) {
     replyNode.textContent = error.message || "Public research is unavailable. Please try again.";
     statusText.textContent = "Public research unavailable · retry";
-    messages.pop();
+    // Keep the original user prompt in history so retry and reload do not lose it.
     const retry = document.createElement("button");
     retry.type = "button";
     retry.className = "retry-message";
