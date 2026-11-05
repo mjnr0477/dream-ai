@@ -120,7 +120,7 @@ function renderAssistantContent(container, content) {
     if (prose) appendInline(container, prose);
     const language = segments[i + 1];
     const codeText = segments[i + 2];
-    const filePath = prose.match(/\\*\\*([^*\\r\\n]+)\\*\\*\\s*$/)?.[1] || "";
+    const filePath = prose.match(/\*\*([^*\r\n]+)\*\*\s*$/)?.[1] || "";
     if (codeText !== undefined) {
       const block = document.createElement("div");
       block.className = "code-block";
