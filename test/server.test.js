@@ -128,19 +128,19 @@ test("liveness endpoint stays healthy when the native model is unavailable", asy
   }
 });
 
-test("health endpoint identifies the DREAM engine and configured model", async () => {
+test("health endpoint exposes minimal runtime readiness without diagnostics", async () => {
   const response = await fetch(`${base}/api/health`);
   assert.equal(response.status, 200);
   const data = await response.json();
   assert.equal(data.ok, true);
   assert.equal(data.name, "DREAM AI");
-  assert.equal(data.engine, "dream-engine");
   assert.equal(data.modelConfigured, true);
   assert.equal(data.modelReady, true);
-  assert.equal(data.runtimeStatus, "ready");
-  assert.equal(data.modelName, "dream-test-model");
-  assert.equal(data.model.completedTrainingSteps, 12);
-  assert.equal(data.model.checkpointSha256, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+  assert.equal(data.version, "0.3.0");
+  assert.equal(Object.hasOwn(data, "engine"), false);
+  assert.equal(Object.hasOwn(data, "runtimeStatus"), false);
+  assert.equal(Object.hasOwn(data, "modelName"), false);
+  assert.equal(Object.hasOwn(data, "model"), false);
   assert.equal(data.version, "0.3.0");
 });
 
@@ -152,8 +152,8 @@ test("health endpoint refuses readiness without a trained checkpoint identity", 
     assert.equal(response.status, 200);
     assert.equal(data.modelConfigured, true);
     assert.equal(data.modelReady, false);
-    assert.equal(data.runtimeStatus, "unavailable");
-    assert.equal(data.model, null);
+    assert.equal(Object.hasOwn(data, "runtimeStatus"), false);
+    assert.equal(Object.hasOwn(data, "model"), false);
     const chat = await postChat({
       messages: [{ role: "user", content: "Hello DREAM AI" }]
     });
@@ -171,7 +171,7 @@ test("health endpoint refuses a different configured native model", async () => 
     const data = await response.json();
     assert.equal(response.status, 200);
     assert.equal(data.modelReady, false);
-    assert.equal(data.runtimeStatus, "unavailable");
+    assert.equal(Object.hasOwn(data, "runtimeStatus"), false);
     const chat = await postChat({
       messages: [{ role: "user", content: "Hello DREAM AI" }]
     });
@@ -306,7 +306,8 @@ test("capabilities endpoint reports only verified runtime and tool availability"
   assert.equal(data.product, "DREAM AI");
   assert.equal(data.contractVersion, 1);
   assert.equal(data.model.status, "ready");
-  assert.equal(data.model.completedTrainingSteps, 12);
+  assert.equal(Object.hasOwn(data.model, "completedTrainingSteps"), false);
+  assert.equal(Object.hasOwn(data.model, "checkpointSha256"), false);
   assert.deepEqual(data.application.modes, ["general", "coding", "learning", "research"]);
   assert.ok(data.tools.some(tool => tool.id === "public_knowledge_search" && tool.status === "available"));
   assert.equal(data.safety.toolExecutionDefault, "disabled");
@@ -323,8 +324,8 @@ test("capabilities endpoint never reports an unverified model as ready", async (
     assert.equal(response.status, 200);
     const data = await response.json();
     assert.equal(data.model.status, "unavailable");
-    assert.equal(data.model.completedTrainingSteps, null);
-    assert.equal(data.model.checkpointSha256, null);
+    assert.equal(Object.hasOwn(data.model, "completedTrainingSteps"), false);
+    assert.equal(Object.hasOwn(data.model, "checkpointSha256"), false);
   } finally {
     modelHasCheckpoint = true;
   }
