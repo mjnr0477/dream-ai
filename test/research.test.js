@@ -239,3 +239,47 @@ test("falls back safely when article evidence JSON is malformed", async () => {
   assert.equal(result.evidenceLevel, "search-snippet");
   assert.equal(result.results[0].extract, null);
 });
+
+
+test("does not mark markup-only excess as a truncated introduction", async () => {
+  const extractWithMarkup = `<p>${"A".repeat(350)}</p>${" ".repeat(100)}<b></b>`;
+  const result = await searchPublicKnowledge("markup cleanup", async url => {
+    const requested = new URL(url);
+    if (requested.searchParams.get("list") === "search") return {
+      ok: true,
+      json: async () => ({
+        query: { search: [{ pageid: 101, title: "Markup cleanup", snippet: "A snippet." }] }
+      })
+    };
+    return {
+      ok: true,
+      json: async () => ({
+        query: { pages: { 101: { pageid: 101, extract: extractWithMarkup } } }
+      })
+    };
+  });
+
+  assert.equal(result.results[0].extract.length, 350);
+  assert.equal(result.results[0].extractTruncated, false);
+});
+
+test("marks a cleaned introduction truncated only when visible text exceeds the cap", async () => {
+  const result = await searchPublicKnowledge("long introduction", async url => {
+    const requested = new URL(url);
+    if (requested.searchParams.get("list") === "search") return {
+      ok: true,
+      json: async () => ({
+        query: { search: [{ pageid: 102, title: "Long introduction", snippet: "A snippet." }] }
+      })
+    };
+    return {
+      ok: true,
+      json: async () => ({
+        query: { pages: { 102: { pageid: 102, extract: "B".repeat(351) } } }
+      })
+    };
+  });
+
+  assert.equal(result.results[0].extract.length, 350);
+  assert.equal(result.results[0].extractTruncated, true);
+});
