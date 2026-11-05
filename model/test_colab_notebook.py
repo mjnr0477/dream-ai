@@ -136,5 +136,18 @@ class ColabNotebookTests(unittest.TestCase):
 
 
 
+    def test_kaggle_pretraining_and_sft_audits_fail_closed(self):
+        kaggle_path = NOTEBOOK.parents[1] / "training" / "dream_train_kaggle.ipynb"
+        kaggle = json.loads(kaggle_path.read_text(encoding="utf-8"))
+        pretraining = "".join(kaggle["cells"][4]["source"])
+        sft = "".join(kaggle["cells"][11]["source"])
+        self.assertIn("corpus-audit.json').unlink(missing_ok=True)", pretraining)
+        self.assertIn("language-balance.json').unlink(missing_ok=True)", pretraining)
+        self.assertIn("Path(audit_path).unlink(missing_ok=True)", sft)
+        self.assertIn("check=True, capture_output=True, text=True", sft)
+        self.assertNotIn("check=False", sft)
+
+
+
 if __name__ == "__main__":
     unittest.main()
