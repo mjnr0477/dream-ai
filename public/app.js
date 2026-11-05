@@ -7,6 +7,27 @@ const statusText = document.querySelector("#service-status");
 const statusDot = document.querySelector(".status-dot");
 const historyList = document.querySelector("#history-list");
 const STORAGE_KEY = "dream-ai-conversations-v1";
+const MEMORY_KEY = "dream-ai-user-memory-v1";
+const memoryNotes = document.querySelector("#memory-notes");
+const memoryStatus = document.querySelector("#memory-status");
+let userMemory = loadMemory();
+
+function loadMemory() {
+  try {
+    const value = JSON.parse(localStorage.getItem(MEMORY_KEY) || "null");
+    return typeof value === "string" ? value.slice(0, 3000) : "";
+  } catch { return ""; }
+}
+
+function saveMemory() {
+  const value = memoryNotes.value.trim().slice(0, 3000);
+  try {
+    if (!value) { localStorage.removeItem(MEMORY_KEY); userMemory = ""; }
+    else { localStorage.setItem(MEMORY_KEY, JSON.stringify(value)); userMemory = value; }
+    memoryStatus.textContent = userMemory ? "Saved on this device · included in new chats" : "Memory deleted from this device.";
+  } catch { memoryStatus.textContent = "Could not save memory in this browser."; }
+}
+
 const MAX_SAVED_CHATS = 30;
 let chats = loadChats();
 let activeChatId = null;
@@ -238,7 +259,7 @@ async function sendMessage(text, isRetry = false) {
     const response = await fetch("/api/chat", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ messages: messages.slice(-12), mode: activeMode })
+      body: JSON.stringify({ messages: messages.slice(-12), mode: activeMode, memoryContext: userMemory })
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "The request failed.");
@@ -340,5 +361,13 @@ document.querySelector("#export-chat").addEventListener("click", () => {
   URL.revokeObjectURL(url);
 });
 
+if (memoryNotes) memoryNotes.value = userMemory;
+document.querySelector("#save-memory")?.addEventListener("click", saveMemory);
+document.querySelector("#clear-memory")?.addEventListener("click", () => {
+  if (!confirm("Delete DREAM AI memory notes from this device?")) return;
+  memoryNotes.value = "";
+  saveMemory();
+});
+if (userMemory && memoryStatus) memoryStatus.textContent = "Saved on this device · included in new chats";
 renderHistory();
 checkHealth();
