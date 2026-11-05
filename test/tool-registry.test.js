@@ -104,6 +104,27 @@ test("enforces the concurrent execution limit", async () => {
   await pending;
 });
 
+
+
+test("rejects oversized JSON inputs before schema traversal", async () => {
+  const registry = new ToolRegistry();
+  const wide = {
+    ...definition,
+    id: "large_input",
+    inputSchema: {
+      type: "object",
+      properties: { key: { type: "string", maxLength: 16000 } },
+      required: ["key"],
+      additionalProperties: false
+    }
+  };
+  registry.register(wide, async () => ({ ok: true }));
+  await assert.rejects(
+    registry.execute({ toolId: wide.id, input: { key: "x".repeat(17000) }, principal }),
+    /size limit/
+  );
+});
+
 test("does not free concurrency capacity while a timed-out handler is still running", async () => {
   const registry = new ToolRegistry({ maxConcurrent: 1 });
   const short = { ...definition, timeoutMs: 100 };
