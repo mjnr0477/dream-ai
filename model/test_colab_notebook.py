@@ -77,6 +77,21 @@ class ColabNotebookTests(unittest.TestCase):
         self.assertIn("sft-validation-corpus-audit.json", bundle)
         self.assertIn("corpus-audit.json", bundle)
 
+    def test_colab_has_authenticated_temporary_native_runtime_bridge(self):
+        markdown = "".join(self.notebook["cells"][15]["source"])
+        runtime = "".join(self.notebook["cells"][16]["source"])
+        import ast
+        ast.parse(runtime)
+        self.assertIn("not sft_completed", runtime)
+        self.assertIn("DREAM_RUNTIME_TOKEN", runtime)
+        self.assertIn("cloudflared", runtime)
+        self.assertIn("trycloudflare.com", runtime)
+        self.assertIn("DREAM_MODEL_URL=", runtime)
+        self.assertIn("DREAM_MODEL_NAME=", runtime)
+        self.assertIn("DREAM_MODEL_TOKEN=", runtime)
+        self.assertIn("temporary", markdown.lower())
+        self.assertIn("Render service", markdown)
+
     def test_colab_estimates_model_budget_for_selected_tokenizer(self):
         training = "".join(self.notebook["cells"][6]["source"])
         bundle = "".join(self.notebook["cells"][14]["source"])
