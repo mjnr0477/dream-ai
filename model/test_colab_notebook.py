@@ -83,6 +83,7 @@ class ColabNotebookTests(unittest.TestCase):
         import ast
         ast.parse(runtime)
         self.assertIn("not sft_completed", runtime)
+        self.assertIn("dream-bpe-instruct.json", runtime)
         self.assertIn("DREAM_RUNTIME_TOKEN", runtime)
         self.assertIn("cloudflared", runtime)
         self.assertIn("trycloudflare.com", runtime)
