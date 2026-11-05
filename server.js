@@ -65,6 +65,10 @@ async function handleChat(req, res) {
   if (!Array.isArray(body.messages) || body.messages.length === 0) {
     return json(res, 400, { error: "Send a non-empty messages array." });
   }
+  const memoryContext = body.memoryContext === undefined ? "" : body.memoryContext;
+  if (typeof memoryContext !== "string" || memoryContext.length > 3000) {
+    return json(res, 400, { error: "Memory context must be text under 3,000 characters." });
+  }
   const messages = body.messages.slice(-MAX_HISTORY_ITEMS);
   for (const item of messages) {
     if (
@@ -97,7 +101,7 @@ async function handleChat(req, res) {
 
   activeChats += 1;
   try {
-    const result = await generateDreamReply(messages, mode);
+    const result = await generateDreamReply(messages, mode, process.env, memoryContext);
     return json(res, 200, {
       reply: result.reply,
       mode,
