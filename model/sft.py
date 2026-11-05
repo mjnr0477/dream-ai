@@ -8,6 +8,7 @@ import hashlib
 import json
 import math
 import random
+import re
 from datetime import date
 from pathlib import Path
 from urllib.parse import urlparse
@@ -31,11 +32,23 @@ def sha256(path):
     return digest.hexdigest()
 
 
+
+IDENTIFIER_FORMAT = "sha256-domain-separated-v1"
+
+
+def identifier_fingerprint(kind, value):
+    payload = f"dream-{kind}-id-v1\0{value}".encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+
 def source_groups(path):
+    """Return privacy-preserving fingerprints for source-group comparisons."""
     groups = set()
     for line in Path(path).read_text(encoding="utf-8").splitlines():
         if line.strip():
-            groups.add(json.loads(line)["source_group"])
+            group = json.loads(line)["source_group"]
+            groups.add(identifier_fingerprint("source-group", group))
     return groups
 
 
@@ -251,7 +264,25 @@ def main():
         )
         test_split = pretraining_manifest["splits"]["test"]
         pretraining_test_hash = test_split["sha256"]
-        pretraining_test_groups = set(test_split["source_group_ids"])
+        declared_test_groups = set(test_split["source_group_ids"])
+        identifier_format = pretraining_manifest.get("identifier_format")
+        if identifier_format == IDENTIFIER_FORMAT:
+            pretraining_test_groups = declared_test_groups
+            if any(
+                not isinstance(group, str)
+                or not re.fullmatch(r"[0-9a-f]{64}", group)
+                for group in pretraining_test_groups
+            ):
+                raise ValueError("Invalid hashed source-group identifiers")
+        elif identifier_format is None:
+            # Backward compatibility: hash raw identifiers from older manifests
+            # before comparing them with hashed IDs from the SFT JSONL records.
+            pretraining_test_groups = {
+                identifier_fingerprint("source-group", group)
+                for group in declared_test_groups
+            }
+        else:
+            raise ValueError("Unsupported corpus identifier format")
     except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
         raise SystemExit(
             "Invalid pretraining manifest: expected a test split with sha256 and source_group_ids."
