@@ -445,7 +445,7 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
     copy.type = "button";
     copy.textContent = "Copy response";
     copy.addEventListener("click", async () => {
-      try { await navigator.clipboard.writeText(data.reply); copy.textContent = "Copied"; }
+      try { const bundle = data.artifacts?.map(file => `--- DREAM FILE: ${file.path} ---\n${file.content}--- END DREAM FILE ---`).join("\n"); await navigator.clipboard.writeText(bundle || data.reply); copy.textContent = "Copied"; }
       catch { copy.textContent = "Copy unavailable"; }
     });
     tools.append(copy);
