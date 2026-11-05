@@ -144,7 +144,7 @@ class FineWeb2CandidateImporterTests(unittest.TestCase):
                     "text": "A sufficiently long document that should fail due to URL port. " * 2,
                     "url": url, "date": "2024-01-01", "language": "eng"
                 }
-                (root / "fineweb2.jsonl").write_text(json.dumps(row) + "\\n", encoding="utf-8")
+                (root / "fineweb2.jsonl").write_text(json.dumps(row) + "\n", encoding="utf-8")
                 result, output, summary = self.run_import(root)
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn("invalid port", result.stderr)
