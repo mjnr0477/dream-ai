@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { generateDreamReply, getDreamRuntimeStatus } from "./lib/dream-engine.js";
 import { getDreamCapabilities } from "./lib/capabilities.js";
 import { runPublicResearch } from "./lib/dream-tools.js";
+import { ClientConcurrencyLimiter } from "./lib/client-limiter.js";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC_DIR = join(ROOT, "public");
@@ -22,6 +23,7 @@ const RATE_LIMIT_REFILL_PER_MS = RATE_LIMIT_CAPACITY / 60000;
 const RATE_LIMIT_IDLE_MS = 10 * 60 * 1000;
 const MAX_RATE_LIMIT_BUCKETS = 5000;
 const rateLimitBuckets = new Map();
+const clientConcurrencyLimiter = new ClientConcurrencyLimiter(1);
 let activeChats = 0;
 let activeResearch = 0;
 const MODES = ["general", "coding", "learning"];
@@ -95,6 +97,15 @@ function getClientIp(req) {
   if (first && isIP(first)) return first;
   const remote = req.socket?.remoteAddress;
   return remote && isIP(remote) ? remote : "unknown";
+}
+
+function acquireClientRequestSlot(req, res) {
+  const slot = clientConcurrencyLimiter.acquire(getClientIp(req));
+  if (slot.allowed) return slot.release;
+  json(res, 429, { error: "This client already has an active DREAM request. Please retry shortly." }, {
+    "retry-after": "3"
+  });
+  return null;
 }
 
 function consumeApiRateLimit(req) {
@@ -177,6 +188,8 @@ async function handleResearch(req, res) {
     });
     return res.end(JSON.stringify({ error: "DREAM research is busy. Please retry in a few seconds." }));
   }
+  const releaseClientSlot = acquireClientRequestSlot(req, res);
+  if (!releaseClientSlot) return;
   activeResearch += 1;
   try {
     return json(res, 200, await runPublicResearch(body.query));
@@ -185,6 +198,7 @@ async function handleResearch(req, res) {
     return json(res, 502, { error: "Public research is temporarily unavailable. Please try again." });
   } finally {
     activeResearch -= 1;
+    releaseClientSlot();
   }
 }
 
@@ -233,6 +247,8 @@ async function handleChat(req, res) {
     }));
   }
 
+  const releaseClientSlot = acquireClientRequestSlot(req, res);
+  if (!releaseClientSlot) return;
   activeChats += 1;
   try {
     const result = await generateDreamReply(messages, mode, process.env, memoryContext);
@@ -246,6 +262,7 @@ async function handleChat(req, res) {
     return json(res, 502, { error: error.message || "DREAM AI runtime unavailable." });
   } finally {
     activeChats -= 1;
+    releaseClientSlot();
   }
 }
 
