@@ -311,6 +311,7 @@ test("capabilities endpoint reports only verified runtime and tool availability"
   assert.equal(data.safety.toolExecutionDefault, "disabled");
   assert.equal(data.safety.unrestrictedAccess, false);
   assert.ok(data.tools.some(tool => tool.id === "code_execution" && tool.status === "not-implemented"));
+  assert.ok(data.tools.some(tool => tool.id === "web_research" && tool.status === "limited"));
   assert.ok(data.tools.every(tool => tool.status !== "ready"));
 });
 
