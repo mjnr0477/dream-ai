@@ -7,7 +7,7 @@ This module is an application-side execution boundary, not an autonomous compute
 - Only tools explicitly registered by trusted server code can execute.
 - Every call requires an authenticated principal object supplied by a trusted server-side authentication layer and the tool's named permission.
 - Tool inputs are validated against a deliberately small JSON-schema subset. Unknown object properties are rejected by default.
-- Read tools need authorization. Write and destructive tools additionally require a confirmation object whose SHA-256 digest is bound to the exact tool ID and canonical input.
+- Read tools need authorization. Write and destructive tools additionally require a server-side approval verifier. The verifier receives the opaque approval token, principal ID, tool ID and SHA-256 digest of the exact canonical input. The default verifier denies all sensitive actions.
 - Execution has per-tool timeouts, cancellation signals, input/output size limits and a global concurrency limit.
 - Audit events record identifiers, outcome, duration and reason codes; raw input/output values are never logged.
 - Handlers receive only the principal ID, cloned input, an AbortSignal and an execution ID.
