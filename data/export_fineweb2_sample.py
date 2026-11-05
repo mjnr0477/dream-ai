@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 
 DATASET = "HuggingFaceFW/fineweb-2"
+DATASET_REVISION = "v2.1.1"
 
 
 def export_row(row, min_language_score=0.95):
@@ -61,7 +62,8 @@ def main():
         with temporary.open("w", encoding="utf-8") as handle:
             for subset_index, subset in enumerate(subsets):
                 stream = load_dataset(
-                    DATASET, name=subset, split="train", streaming=True
+                    DATASET, name=subset, split="train",
+                    revision=DATASET_REVISION, streaming=True
                 )
                 if hasattr(stream, "shuffle"):
                     stream = stream.shuffle(
@@ -91,6 +93,7 @@ def main():
 
     print(json.dumps({
         "dataset": DATASET,
+        "revision": DATASET_REVISION,
         "subsets": counts,
         "records": total,
         "output": str(output),
