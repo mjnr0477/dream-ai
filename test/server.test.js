@@ -215,6 +215,9 @@ test("chat endpoint uses the DREAM runtime in all supported modes", async () => 
   }
   assert.match(modelRequests[0].body.messages[0].content, /Answer clearly/);
   assert.match(modelRequests[1].body.messages[0].content, /senior software engineer/);
+  assert.equal(modelRequests[0].body.temperature, 0.7);
+  assert.equal(modelRequests[1].body.temperature, 0.2);
+  assert.equal(modelRequests[2].body.temperature, 0.7);
   assert.match(modelRequests[2].body.messages[0].content, /patient expert tutor/);
   for (const request of modelRequests) {
     assert.match(request.body.messages[0].content, /capabilities explicitly available/);
