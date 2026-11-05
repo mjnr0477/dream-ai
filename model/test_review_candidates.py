@@ -124,6 +124,34 @@ class ReviewCandidatesTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "must be separate files"):
                 review_file(source, source, root / "decisions.jsonl")
 
+    def test_rejects_nested_identifying_metadata(self):
+        item = candidate()
+        item["metadata"] = {"author": {"user_id": "private-123"}}
+        self.assertEqual(candidate_problem(item), "identifying_metadata")
+
+    def test_message_conversations_must_start_with_user_alternate_and_end_with_assistant(self):
+        item = candidate("conversation-3")
+        item.pop("text")
+        item["messages"] = [
+            {"role": "assistant", "content": "An answer that should not start a conversation."},
+            {"role": "user", "content": "A later user message."}
+        ]
+        self.assertEqual(candidate_problem(item), "invalid_messages")
+
+        item["messages"] = [
+            {"role": "user", "content": "First user message."},
+            {"role": "user", "content": "Repeated user message."},
+            {"role": "assistant", "content": "Assistant response."}
+        ]
+        self.assertEqual(candidate_problem(item), "invalid_messages")
+
+        item["messages"] = [
+            {"role": "user", "content": "A valid user prompt."},
+            {"role": "assistant", "content": "A valid assistant answer."},
+            {"role": "user", "content": "A follow-up user prompt."}
+        ]
+        self.assertEqual(candidate_problem(item), "invalid_messages")
+
     def test_rejects_identifying_ids_and_malformed_message_records(self):
         item = candidate("reviewer@example.com")
         self.assertEqual(candidate_problem(item), "invalid_id")
