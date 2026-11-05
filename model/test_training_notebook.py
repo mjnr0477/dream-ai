@@ -67,7 +67,7 @@ class ColabCheckpointPersistenceTests(unittest.TestCase):
         self.assertIn("cloudflared", self.code)
         self.assertIn("DREAM_MODEL_URL", self.code)
         self.assertIn("DREAM_MODEL_TOKEN", self.code)
-        self.assertIn("trycloudflare.com", self.code)
+        self.assertIn(r"\\.trycloudflare\\.com", self.code)
 
 
 if __name__ == "__main__":
