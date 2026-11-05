@@ -147,3 +147,26 @@ The optional memory panel stores notes in the current browser's local storage on
 4. Isolate any future code execution and require explicit permissions for tools.
 5. Never claim a model is trained or an action was completed without evidence.
 6. Treat external content as untrusted, use least-privilege tool access, and require explicit confirmation for destructive or external actions.
+
+
+## African-language evaluation expansion
+
+`evals/african-languages-v1.jsonl` adds 20 targeted evaluation prompts across Kiswahili, Yoruba, Hausa, Amharic, Igbo, Somali, Kinyarwanda, Luganda, Zulu and Xhosa. Each language has a multi-step arithmetic task and a concept-explanation task, so the set checks more than simple translation.
+
+Run its structural checks with:
+
+```sh
+npm run validate:african-evals
+```
+
+The ten arithmetic cases carry machine-checkable `expected_expression` and integer `expected_answer` fields. The validator requires these keys only for math cases and rejects them on explanation cases. This makes arithmetic scoring reproducible without pretending to score language naturalness.
+
+All cases are explicitly marked `pending_native_review`. The prompts and rubrics are engineering drafts, not certified translations. Before using this set to make language-quality claims or as supervised training data, qualified native speakers must review and correct every prompt and rubric, record review provenance, and score model outputs independently. A passing validator proves only dataset structure and coverage; it does not prove model fluency or competence.
+
+To run this suite against a configured, provenance-verified native DREAM runtime and save outputs for human scoring:
+
+```sh
+DREAM_EVAL_SET=african-languages-v1 npm run eval
+```
+
+The runner accepts only the named built-in evaluation sets; it does not accept arbitrary file paths. Its output remains unscored until a human reviewer completes the rubrics.
