@@ -125,6 +125,85 @@ class CorpusPreparationTests(unittest.TestCase):
             self.assertFalse(all_groups["train"] & all_groups["test"])
             self.assertFalse(all_groups["validation"] & all_groups["test"])
 
+    def test_stratifies_languages_with_three_independent_groups_across_all_splits(self):
+        rows = self.make_records(count=12)
+        for index in range(3):
+            translated = dict(rows[index])
+            translated["id"] += "-sw"
+            translated["language"] = "sw"
+            translated["text"] = (
+                f"Maandishi ya Kiswahili ya kundi {index} yanaeleza maarifa. "
+                "Huu ni mfano wa kujifunza ulioandikwa kwa lugha ya Kiswahili."
+            )
+            rows.append(translated)
+        for index in range(2):
+            rare = dict(rows[index])
+            rare["id"] += "-yo"
+            rare["language"] = "yo"
+            rare["text"] = (
+                f"Àpẹẹrẹ Yorùbá fún ẹgbẹ́ {index} ṣàlàyé ìmọ̀. "
+                "Ọ̀rọ̀ yìí jẹ́ àkọsílẹ̀ àdáni fún ìdánwò èdè Yorùbá."
+            )
+            rows.append(rare)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            result = self.run_prepare(root, rows)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            manifest = json.loads(
+                (root / "prepared" / "manifest.json").read_text(encoding="utf-8")
+            )
+            coverage = manifest["language_split_coverage"]
+            for language in ("en", "sw"):
+                self.assertTrue(coverage[language]["eligible_for_three_way_evaluation"])
+                self.assertTrue(all(
+                    coverage[language]["source_groups_by_split"][split] >= 1
+                    for split in ("train", "validation", "test")
+                ))
+            self.assertFalse(coverage["yo"]["eligible_for_three_way_evaluation"])
+            split_groups = {
+                split: set(manifest["splits"][split]["source_group_ids"])
+                for split in ("train", "validation", "test")
+            }
+            self.assertFalse(split_groups["train"] & split_groups["validation"])
+            self.assertFalse(split_groups["train"] & split_groups["test"])
+            self.assertFalse(split_groups["validation"] & split_groups["test"])
+
+    def test_language_stratification_is_deterministic_when_input_order_changes(self):
+        rows = self.make_records(count=12)
+        for index in range(4):
+            translated = dict(rows[index])
+            translated["id"] += "-sw"
+            translated["language"] = "sw"
+            translated["text"] = (
+                f"Maandishi ya kundi {index} yanaeleza maarifa kwa Kiswahili. "
+                "Huu ni mfano wa kujifunza ulioandikwa kwa lugha hii."
+            )
+            rows.append(translated)
+
+        with tempfile.TemporaryDirectory() as first_dir, tempfile.TemporaryDirectory() as second_dir:
+            first_root = Path(first_dir)
+            second_root = Path(second_dir)
+            first = self.run_prepare(first_root, rows)
+            second = self.run_prepare(second_root, list(reversed(rows)))
+            self.assertEqual(first.returncode, 0, first.stderr)
+            self.assertEqual(second.returncode, 0, second.stderr)
+            first_manifest = json.loads(
+                (first_root / "prepared" / "manifest.json").read_text(encoding="utf-8")
+            )
+            second_manifest = json.loads(
+                (second_root / "prepared" / "manifest.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(
+                first_manifest["language_split_coverage"],
+                second_manifest["language_split_coverage"]
+            )
+            for split in ("train", "validation", "test"):
+                self.assertEqual(
+                    first_manifest["splits"][split]["source_group_ids"],
+                    second_manifest["splits"][split]["source_group_ids"]
+                )
+
     def test_manifest_counts_removed_exact_duplicate_text(self):
         rows = self.make_records()
         rows[1]["text"] = rows[0]["text"]
