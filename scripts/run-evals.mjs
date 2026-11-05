@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
@@ -12,6 +13,41 @@ while (endpointBase.endsWith("/")) endpointBase = endpointBase.slice(0, -1);
 const endpoint = endpointBase.endsWith("/chat/completions")
   ? endpointBase
   : endpointBase + "/chat/completions";
+
+const healthUrl = new URL(baseUrl);
+healthUrl.pathname = healthUrl.pathname
+  .replace(/\/+$/, "")
+  .replace(/\/v1(?:\/chat\/completions)?$/, "")
+  .replace(/\/chat\/completions$/, "") + "/health";
+healthUrl.search = "";
+healthUrl.hash = "";
+const healthResponse = await fetch(healthUrl, {
+  headers: { accept: "application/json" },
+  signal: AbortSignal.timeout(5000)
+});
+if (!healthResponse.ok) {
+  throw new Error("DREAM native runtime health check failed: HTTP " + healthResponse.status);
+}
+const runtime = await healthResponse.json();
+if (
+  runtime?.ok !== true ||
+  runtime?.engine !== "dream-native-transformer" ||
+  runtime?.model !== modelName ||
+  !/^[a-f0-9]{64}$/.test(runtime?.checkpoint_sha256 || "") ||
+  !Number.isInteger(runtime?.completed_training_steps) ||
+  runtime.completed_training_steps < 1 ||
+  !Number.isInteger(runtime?.parameters) ||
+  runtime.parameters < 1 ||
+  typeof runtime?.tokenizer !== "string" ||
+  !runtime.tokenizer ||
+  !runtime?.architecture ||
+  typeof runtime.architecture !== "object" ||
+  Array.isArray(runtime.architecture)
+) {
+  throw new Error("Runtime identity or checkpoint provenance is missing; refusing to benchmark an unverified model.");
+}
+const runId = randomUUID();
+const runStartedAt = new Date().toISOString();
 const cases = (await readFile(new URL("../evals/core-v1.jsonl", import.meta.url), "utf8"))
   .split(/\r?\n/)
   .filter(Boolean)
@@ -45,12 +81,25 @@ for (const item of selected) {
     throw new Error("Runtime failed on " + item.id + ": HTTP " + response.status);
   }
   const data = await response.json();
+  if (data?.model !== modelName) {
+    throw new Error("Runtime completion model does not match the verified DREAM model for " + item.id);
+  }
   const output = data?.choices?.[0]?.message?.content;
   if (typeof output !== "string" || !output.trim()) {
     throw new Error("Runtime returned no text for " + item.id);
   }
 
   results.push({
+    runId,
+    runStartedAt,
+    evaluationSet: "core-v1",
+    model: modelName,
+    checkpointSha256: runtime.checkpoint_sha256,
+    completedTrainingSteps: runtime.completed_training_steps,
+    runtimeDevice: runtime.device,
+    runtimeParameters: runtime.parameters,
+    tokenizer: runtime.tokenizer,
+    runtimeArchitecture: JSON.stringify(runtime.architecture),
     id: item.id,
     category: item.category,
     language: item.language ?? null,
@@ -67,4 +116,4 @@ for (const item of selected) {
 await mkdir("eval-results", { recursive: true });
 const filename = "dream-eval-" + new Date().toISOString().replace(/[:.]/g, "-") + ".jsonl";
 await writeFile(join("eval-results", filename), results.map(row => JSON.stringify(row)).join("\n") + "\n");
-process.stdout.write("Saved " + results.length + " raw responses to eval-results/" + filename + ". Score the rubric manually; this runner does not pretend to be an objective judge.\n");
+process.stdout.write("Saved " + results.length + " raw responses for checkpoint " + runtime.checkpoint_sha256 + " to eval-results/" + filename + ". Score the rubric manually; this runner does not pretend to be an objective judge.\n");

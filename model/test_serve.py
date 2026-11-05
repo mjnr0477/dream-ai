@@ -1,4 +1,5 @@
 """HTTP integration tests for the independent DREAM inference runtime."""
+import hashlib
 import json
 import os
 import socket
@@ -229,6 +230,14 @@ class DreamServingTests(unittest.TestCase):
         self.assertEqual(body["engine"], "dream-native-transformer")
         self.assertEqual(body["model"], "dream-test")
         self.assertGreater(body["parameters"], 0)
+        self.assertEqual(body["completed_training_steps"], 1)
+        self.assertEqual(
+            body["checkpoint_sha256"],
+            hashlib.sha256(self.checkpoint.read_bytes()).hexdigest()
+        )
+        self.assertIsInstance(body["tokenizer"], str)
+        self.assertTrue(body["tokenizer"])
+        self.assertEqual(body["architecture"]["d_model"], 16)
 
     def test_requires_bearer_token_for_chat(self):
         status, body = self.request(
