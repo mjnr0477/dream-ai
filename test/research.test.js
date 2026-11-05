@@ -5,20 +5,40 @@ import { searchPublicKnowledge } from "../lib/research.js";
 
 test("searches the fixed public knowledge endpoint and returns safe source links", async () => {
   let requestedUrl;
+  const requestedUrls = [];
   const result = await searchPublicKnowledge("Kenya education", async url => {
-    requestedUrl = new URL(url);
+    requestedUrls.push(new URL(url));
+    if (requestedUrls.length === 1) {
+      return {
+        ok: true,
+        json: async () => ({
+          query: {
+            search: [{
+              pageid: 123,
+              title: "Education in Kenya",
+              snippet: "Education <span class=\"searchmatch\">in Kenya</span> &amp; schools"
+            }]
+          }
+        })
+      };
+    }
     return {
       ok: true,
       json: async () => ({
         query: {
-          search: [{
-            title: "Education in Kenya",
-            snippet: "Education <span class=\"searchmatch\">in Kenya</span> &amp; schools"
-          }]
+          pages: {
+            123: {
+              pageid: 123,
+              extract: "Education in Kenya is a system of education.",
+              touched: "2026-10-01T12:00:00Z",
+              fullurl: "https://en.wikipedia.org/wiki/Education_in_Kenya"
+            }
+          }
         }
       })
     };
   });
+  const requestedUrl = requestedUrls[0];
 
   assert.equal(requestedUrl.origin, "https://en.wikipedia.org");
   assert.equal(requestedUrl.searchParams.get("srsearch"), "Kenya education");
@@ -26,6 +46,12 @@ test("searches the fixed public knowledge endpoint and returns safe source links
   assert.equal(result.results.length, 1);
   assert.equal(result.results[0].title, "Education in Kenya");
   assert.equal(result.results[0].snippet, "Education in Kenya & schools");
+  assert.equal(result.results[0].extract, "Education in Kenya is a system of education.");
+  assert.equal(result.results[0].lastModified, "2026-10-01T12:00:00Z");
+  assert.equal(result.evidenceLevel, "encyclopedia-introduction");
+  assert.equal(requestedUrls[1].origin, "https://en.wikipedia.org");
+  assert.equal(requestedUrls[1].searchParams.get("prop"), "extracts|info");
+  assert.equal(requestedUrls[1].searchParams.get("pageids"), "123");
   assert.equal(
     result.results[0].url,
     "https://en.wikipedia.org/wiki/Education_in_Kenya"
@@ -76,6 +102,7 @@ test("caps results and ignores upstream-supplied destinations", async () => {
     json: async () => ({
       query: {
         search: Array.from({ length: 7 }, (_, index) => ({
+          pageid: index + 1,
           title: `Article ${index}`,
           snippet: `Safe <img src=x onerror=alert(1)> snippet ${index}`,
           fullurl: "javascript:alert(1)"
@@ -101,4 +128,26 @@ test("research synthesis explicitly carries evidence and enforces source-verific
   assert.match(app, /cite only URLs included in the supplied evidence/);
   assert.match(app, /Clearly separate supported findings, uncertainty/);
   assert.match(app, /sendMessage\(analysisPrompt\)/);
+});
+
+test("keeps search results usable when article introductions cannot be retrieved", async () => {
+  let calls = 0;
+  const result = await searchPublicKnowledge("climate science", async () => {
+    calls += 1;
+    if (calls === 1) {
+      return {
+        ok: true,
+        json: async () => ({
+          query: { search: [{ pageid: 44, title: "Climate science", snippet: "A search snippet." }] }
+        })
+      };
+    }
+    return { ok: false, json: async () => ({}) };
+  });
+
+  assert.equal(calls, 2);
+  assert.equal(result.results.length, 1);
+  assert.equal(result.results[0].snippet, "A search snippet.");
+  assert.equal(result.results[0].extract, null);
+  assert.equal(result.results[0].lastModified, null);
 });
