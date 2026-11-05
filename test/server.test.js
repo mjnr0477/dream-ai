@@ -249,6 +249,22 @@ test("chat endpoint enforces the request body limit", async () => {
   assert.equal(response.status, 413);
 });
 
+
+test("capabilities endpoint reports only verified runtime and tool availability", async () => {
+  const response = await fetch(`${base}/api/capabilities`);
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.equal(data.product, "DREAM AI");
+  assert.equal(data.contractVersion, 1);
+  assert.equal(data.model.status, "ready");
+  assert.equal(data.model.completedTrainingSteps, 12);
+  assert.deepEqual(data.application.modes, ["general", "coding", "learning"]);
+  assert.equal(data.safety.toolExecutionDefault, "disabled");
+  assert.equal(data.safety.unrestrictedAccess, false);
+  assert.ok(data.tools.some(tool => tool.id === "code_execution" && tool.status === "not-implemented"));
+  assert.ok(data.tools.every(tool => tool.status !== "ready"));
+});
+
 test("root serves the DREAM AI application", async () => {
   const response = await fetch(`${base}/`);
   assert.equal(response.status, 200);
