@@ -149,7 +149,7 @@ def evaluate(checkpoint_path, benchmark_path, max_new_tokens=48):
         "by_category": summarize(results, "category"),
         "by_language": summarize(results, "language"),
         "results": results,
-        "technical_preflight_passed": True,
+        "evaluation_completed": True,
         "production_release_approved": False,
         "warning": (
             "This small, authored exact-match diagnostic is not a comprehensive "
