@@ -30,7 +30,7 @@ def export_row(row, min_language_score=0.95):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--subsets", default="swa_Latn",
+    parser.add_argument("--subsets", default="swh_Latn",
                         help="Comma-separated FineWeb2 language-script subsets, e.g. swa_Latn,ara_Arab")
     parser.add_argument("--max-per-subset", type=int, default=1000)
     parser.add_argument("--scan-per-subset", type=int, default=20000)
