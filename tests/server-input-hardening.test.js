@@ -51,7 +51,8 @@ function postChat(payload, clientIp) {
     headers: {
       "content-type": "application/json",
       origin: baseUrl,
-      "x-forwarded-for": clientIp
+      "cf-connecting-ip": clientIp,
+      "x-forwarded-for": "203.0.113.250"
     },
     body: typeof payload === "string" ? payload : JSON.stringify(payload)
   });
