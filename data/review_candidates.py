@@ -6,6 +6,7 @@ human confirmation of rights, privacy, quality and training approval.
 import argparse
 import json
 import re
+import hashlib
 from datetime import date, datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
@@ -44,7 +45,7 @@ def candidate_problem(record):
     for field in ("id", "source", "source_group", "license", "language"):
         if not isinstance(record.get(field), str) or not record[field].strip():
             return "missing_" + field
-    if not re.fullmatch(r"[A-Za-z0-9._:-]{1,128}", record["id"]):
+    if not re.fullmatch(r"(?=.{1,128}$)(?=.*[A-Za-z])[A-Za-z0-9._:-]+", record["id"]):
         return "invalid_id"
     for field in ("source_url", "license_url"):
         value = record.get(field)
@@ -131,7 +132,14 @@ def review_candidate(record, input_fn=input, output_fn=print):
     return approved, False, []
 
 
+def review_id_hash(record_id):
+    return hashlib.sha256(
+        f"dream-review-id-v1\\0{record_id}".encode("utf-8")
+    ).hexdigest()
+
+
 def load_ids(path):
+    """Load hashed IDs; hash legacy raw-ID entries without returning them."""
     ids = set()
     if not path.exists():
         return ids
@@ -143,8 +151,12 @@ def load_ids(path):
                 item = json.loads(line)
             except json.JSONDecodeError as exc:
                 raise ValueError(f"Invalid JSONL in {path} at line {line_number}") from exc
-            if isinstance(item, dict) and isinstance(item.get("id"), str):
-                ids.add(item["id"])
+            if not isinstance(item, dict):
+                continue
+            if isinstance(item.get("id_hash"), str) and re.fullmatch(r"[a-f0-9]{64}", item["id_hash"]):
+                ids.add(item["id_hash"])
+            elif isinstance(item.get("id"), str):
+                ids.add(review_id_hash(item["id"]))
     return ids
 
 
@@ -183,16 +195,14 @@ def review_file(input_path, output_path, decisions_path, limit=25,
                 record = json.loads(line)
             except json.JSONDecodeError as exc:
                 raise ValueError(f"Invalid candidate JSON at line {line_number}") from exc
-            record_id = record.get("id") if isinstance(record, dict) else None
-            safe_id = record_id if isinstance(record_id, str) and record_id else f"line-{line_number}"
-            if safe_id in reviewed_ids:
-                summary["skipped"] += 1
-                continue
-
             problem = candidate_problem(record)
             if problem:
-                output_fn(f"Skipping {safe_id}: {problem}")
+                output_fn(f"Skipping candidate at line {line_number}: {problem}")
                 summary["rejected"] += 1
+                continue
+            record_key = review_id_hash(record["id"])
+            if record_key in reviewed_ids:
+                summary["skipped"] += 1
                 continue
 
             if summary["presented"] >= limit:
@@ -205,19 +215,19 @@ def review_file(input_path, output_path, decisions_path, limit=25,
             timestamp = datetime.now(timezone.utc).isoformat()
             if approved:
                 append_jsonl(approved_file, approved)
-                approved_ids.add(safe_id)
-                decision = {"id": safe_id, "decision": "approved", "reviewed_at": timestamp}
+                approved_ids.add(record_key)
+                decision = {"id_hash": record_key, "decision": "approved", "reviewed_at": timestamp}
                 summary["approved"] += 1
             else:
                 decision = {
-                    "id": safe_id,
+                    "id_hash": record_key,
                     "decision": "rejected",
                     "missing_review_fields": missing,
                     "reviewed_at": timestamp
                 }
                 summary["rejected"] += 1
             append_jsonl(decisions_file, decision)
-            reviewed_ids.add(safe_id)
+            reviewed_ids.add(record_key)
 
     output_fn(json.dumps(summary, indent=2))
     return summary
