@@ -141,7 +141,7 @@ class RenderConnectTests(unittest.TestCase):
         def denied(request, timeout):
             raise HTTPError(request.full_url, 403, "Forbidden", None, None)
 
-        with self.assertRaisesRegex(RuntimeError, "HTTP 403") as raised:
+        with self.assertRaisesRegex(RuntimeError, "No deploy was requested") as raised:
             update_render_model_env(**self.values, opener=denied)
         self.assertNotIn(self.api_key, str(raised.exception))
         self.assertNotIn(self.model_token, str(raised.exception))
