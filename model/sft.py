@@ -265,6 +265,8 @@ def main():
         test_split = pretraining_manifest["splits"]["test"]
         pretraining_test_hash = test_split["sha256"]
         declared_test_groups = set(test_split["source_group_ids"])
+        if any(not isinstance(group, str) or not group for group in declared_test_groups):
+            raise ValueError("Invalid held-out source-group identifiers")
         identifier_format = pretraining_manifest.get("identifier_format")
         if identifier_format == IDENTIFIER_FORMAT:
             pretraining_test_groups = declared_test_groups
