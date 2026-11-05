@@ -167,6 +167,45 @@ function openChat(id) {
   renderHistory();
 }
 
+const capabilityMenu = document.querySelector("#capability-menu");
+const capabilityModel = document.querySelector("#capability-model");
+const capabilityTools = document.querySelector("#capability-tools");
+
+function readableStatus(status) {
+  return String(status || "unknown").replaceAll("-", " ");
+}
+
+async function loadCapabilities() {
+  if (!capabilityMenu || capabilityMenu.dataset.loaded === "true") return;
+  capabilityModel.textContent = "Checking the native model and connected tools…";
+  capabilityTools.replaceChildren();
+  try {
+    const response = await fetch("/api/capabilities", { headers: { accept: "application/json" } });
+    if (!response.ok) throw new Error("Capability status is unavailable.");
+    const data = await response.json();
+    const model = data.model || {};
+    capabilityModel.textContent = `Native DREAM model: ${readableStatus(model.status)}${Number.isSafeInteger(model.completedTrainingSteps) ? ` · ${model.completedTrainingSteps.toLocaleString()} training steps` : ""}`;
+    for (const tool of Array.isArray(data.tools) ? data.tools : []) {
+      const item = document.createElement("li");
+      const title = document.createElement("strong");
+      title.textContent = tool.label || tool.id || "Unnamed capability";
+      const state = document.createElement("span");
+      state.textContent = readableStatus(tool.status);
+      const description = document.createElement("p");
+      description.textContent = tool.description || "No further details are available.";
+      item.append(title, state, description);
+      capabilityTools.append(item);
+    }
+    capabilityMenu.dataset.loaded = "true";
+  } catch (error) {
+    capabilityModel.textContent = error.message || "Unable to load verified capability status.";
+  }
+}
+
+capabilityMenu?.addEventListener("toggle", () => {
+  if (capabilityMenu.open) loadCapabilities();
+});
+
 async function checkHealth() {
   try {
     const response = await fetch("/api/health");
@@ -187,6 +226,7 @@ async function checkHealth() {
 async function sendResearch(text, isRetry = false) {
   const content = text.trim();
   if (!content || send.disabled) return;
+  if (activeMode === "research") return sendResearch(content, isRetry);
   welcome.hidden = true;
   messages.push({ role: "user", content });
   if (!isRetry) addMessage("user", content);
@@ -240,19 +280,12 @@ async function sendResearch(text, isRetry = false) {
       ask.textContent = "Ask DREAM to analyze these sources";
       ask.addEventListener("click", () => {
         setMode("general");
-        sendMessage(
-          `Using the public-source results above, answer this research question: ${content}. Distinguish source-backed information from uncertainty and include the source URLs.`
-        );
+        sendMessage(`Using the public-source results above, answer this research question: ${content}. Distinguish source-backed information from uncertainty and include the source URLs.`);
       });
       actions.append(ask);
       replyNode.append(actions);
     }
-    messages.push({
-      role: "assistant",
-      content: transcript.length
-        ? transcript.join("\n\n")
-        : "No public-source results were found."
-    });
+    messages.push({ role: "assistant", content: transcript.length ? transcript.join("\n\n") : "No public-source results were found." });
     persistActiveChat();
     statusText.textContent = `Public research · Wikipedia · ${data.results.length} results`;
   } catch (error) {
@@ -268,8 +301,7 @@ async function sendResearch(text, isRetry = false) {
       retry.closest(".message")?.remove();
       sendResearch(content, true);
     });
-    replyNode.append(document.createTextNode(" "));
-    replyNode.append(retry);
+    replyNode.append(document.createTextNode(" "), retry);
   } finally {
     send.disabled = false;
     send.textContent = "↑";
@@ -353,8 +385,7 @@ function resetChat() {
 
 form.addEventListener("submit", event => {
   event.preventDefault();
-  if (activeMode === "research") sendResearch(input.value);
-  else sendMessage(input.value);
+  sendMessage(input.value);
 });
 input.addEventListener("input", () => {
   input.style.height = "auto";
