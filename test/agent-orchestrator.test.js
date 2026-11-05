@@ -123,3 +123,22 @@ test("caps the number of executable steps", async () => {
   assert.equal(report.steps, 1);
   assert.equal(report.reason, "step_limit");
 });
+
+test("preflights every tool and permission before executing the first task", async () => {
+  let calls = 0;
+  const base = registry();
+  const guarded = {
+    list: base.list,
+    execute: async (args) => { calls += 1; return base.execute(args); }
+  };
+  const runner = new AgentOrchestrator({ registry: guarded });
+  await assert.rejects(runner.run([
+    { id: "first", toolId: "read_data", input: {} },
+    { id: "second", toolId: "not_registered", input: {} }
+  ], { principal }), /unregistered tool/);
+  await assert.rejects(runner.run([
+    { id: "first", toolId: "read_data", input: {} },
+    { id: "second", toolId: "write_data", input: {} }
+  ], { principal: { id: "limited", permissions: ["read:data"] } }), /not authorized/);
+  assert.equal(calls, 0);
+});
