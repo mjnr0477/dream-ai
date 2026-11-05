@@ -88,3 +88,20 @@ python data/import_oasst1_sft_candidates.py \
 ```
 
 The output uses the conversation format expected by `model/sft.py`, but it is deliberately **not approved**: rights, privacy, quality and SFT approval flags remain false. Review every candidate and the upstream terms before approval. All conversations from one message tree share the same `source_group`; split by that group so branches and repeated prefixes from a single conversation tree cannot leak across training and validation. The importer omits OASST user IDs and does not itself split or train the data.
+
+
+## Manual candidate review
+
+After creating an unapproved candidate JSONL file, use the interactive reviewer before preparing a training corpus:
+
+```sh
+python data/review_candidates.py \
+  --input data/oasst1-candidates.jsonl \
+  --output data/approved-records.jsonl \
+  --decisions data/candidate-review-decisions.jsonl \
+  --limit 25
+```
+
+The reviewer displays each candidate and requires four separate affirmative human decisions: rights for this exact use, privacy inspection, quality inspection, and explicit training approval. Any negative answer rejects the record. There is no automatic approval. Re-run the command to review the next batch; the decision ledger prevents already-reviewed IDs from being prompted again and stores IDs/decisions without duplicating the record text. Approved records are appended without overwriting prior work. Correct invalid provenance before reviewing again.
+
+The reviewer is an aid, not a legal or privacy classifier. The reviewer must inspect the actual source terms and content. The existing corpus audit, provenance checks, deduplication and held-out split rules remain mandatory after review.
