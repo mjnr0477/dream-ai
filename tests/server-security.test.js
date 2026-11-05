@@ -94,7 +94,9 @@ test("chat and research share a bounded per-client rate limit", async () => {
   const headers = {
     "content-type": "application/json",
     origin: baseUrl,
-    "x-forwarded-for": clientIp + ", 10.0.0.1"
+    "cf-ray": "0123456789abcdef-LHR",
+    "cf-connecting-ip": clientIp,
+    "x-forwarded-for": "192.0.2.99, 10.0.0.1"
   };
   for (let index = 0; index < 20; index += 1) {
     const response = await fetch(baseUrl + "/api/chat", {
@@ -113,9 +115,16 @@ test("chat and research share a bounded per-client rate limit", async () => {
   assert.equal(blockedResearch.status, 429);
   assert.ok(Number(blockedResearch.headers.get("retry-after")) >= 1);
 
-  const otherClient = await fetch(baseUrl + "/api/chat", {
+  const forgedForwarding = await fetch(baseUrl + "/api/chat", {
     method: "POST",
     headers: { ...headers, "x-forwarded-for": "198.51.100.21" },
+    body: JSON.stringify(validPayload)
+  });
+  assert.equal(forgedForwarding.status, 429);
+
+  const otherClient = await fetch(baseUrl + "/api/chat", {
+    method: "POST",
+    headers: { ...headers, "cf-ray": "fedcba9876543210-LHR", "cf-connecting-ip": "198.51.100.21", "x-forwarded-for": "198.51.100.20" },
     body: JSON.stringify(validPayload)
   });
   assert.equal(otherClient.status, 200);
