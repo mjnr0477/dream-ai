@@ -130,3 +130,6 @@ python data/split_sft.py \
 ```
 
 The splitter applies the validation fraction to distinct source groups (not individual rows). It requires every review flag to be true, validates complete alternating user/assistant conversations, rejects duplicate IDs and duplicate dialogue content, and keeps source groups disjoint. Existing outputs are protected unless `--overwrite` is explicitly supplied. The notebook's later corpus audit and SFT held-out checks remain mandatory.
+
+
+**Privacy note:** interactive review prints candidate content for human inspection. Clear the review-cell outputs before sharing or saving a notebook copy that should not retain candidate text. The decision ledger itself stores IDs and decisions, not record text.
