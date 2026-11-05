@@ -233,8 +233,13 @@ async function sendMessage(text, isRetry = false) {
   const content = text.trim();
   if (!content || send.disabled) return;
   welcome.hidden = true;
-  messages.push({ role: "user", content });
-  if (!isRetry) addMessage("user", content);
+  const lastMessage = messages.at(-1);
+  const retryingSameMessage = isRetry && lastMessage?.role === "user" && lastMessage.content === content;
+  if (!retryingSameMessage) messages.push({ role: "user", content });
+  if (!isRetry) {
+    addMessage("user", content);
+    persistActiveChat();
+  }
   input.value = "";
   input.style.height = "auto";
   send.disabled = true;
@@ -273,7 +278,8 @@ async function sendMessage(text, isRetry = false) {
     statusText.textContent = /retry in a few seconds/i.test(error.message || "")
       ? "DREAM AI is busy · please retry shortly"
       : "Model runtime unavailable · check connection";
-    messages.pop();
+    // Keep the user's message in local history so a reload does not lose it.
+    persistActiveChat();
 
     const retry = document.createElement("button");
     retry.type = "button";
