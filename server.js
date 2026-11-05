@@ -97,6 +97,7 @@ function getClientIp(req) {
 function consumeApiRateLimit(req) {
   const now = Date.now();
   const ip = getClientIp(req);
+  if (ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1") return { allowed: true };
   let bucket = rateLimitBuckets.get(ip);
 
   if (!bucket) {
