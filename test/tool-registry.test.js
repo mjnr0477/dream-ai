@@ -53,17 +53,93 @@ test("rejects malformed inputs and unknown properties", async () => {
   await assert.rejects(registry.execute({ toolId: definition.id, input: {}, principal }), /missing key/);
 });
 
-test("requires approval bound to exact inputs for write and destructive tools", async () => {
+test("requires one-time, expiring approval bound to exact inputs and principal", async () => {
   const registry = new ToolRegistry();
   const write = { ...definition, id: "update_setting", risk: "write", permission: "settings:write" };
   registry.register(write, async ({ input }) => ({ saved: input.key }));
   const actor = { id: "u", permissions: ["settings:write"] };
   const input = { key: "safe-value" };
-  await assert.rejects(registry.execute({ toolId: write.id, input, principal: actor }), /requires explicit approval/);
-  const approval = { confirmed: true, inputSha256: registry.approvalDigest(write.id, input) };
-  await assert.rejects(registry.execute({ toolId: write.id, input: { key: "different" }, principal: actor, approval }), /requires explicit approval/);
-  const result = await registry.execute({ toolId: write.id, input, principal: actor, approval });
+
+  await assert.rejects(
+    registry.issueApproval({ toolId: write.id, input, principal: actor }),
+    /confirmation is required/
+  );
+  const approval = registry.issueApproval({ toolId: write.id, input, principal: actor, confirmed: true });
+  assert.equal(typeof approval.token, "string");
+  assert.ok(approval.token.length >= 40);
+
+  await assert.rejects(
+    registry.execute({ toolId: write.id, input: { key: "different" }, principal: actor, approval }),
+    /fresh, explicit approval/
+  );
+  await assert.rejects(
+    registry.execute({ toolId: write.id, input, principal: { id: "other", permissions: ["settings:write"] }, approval }),
+    /fresh, explicit approval/
+  );
+
+  const freshApproval = registry.issueApproval({ toolId: write.id, input, principal: actor, confirmed: true });
+  const result = await registry.execute({ toolId: write.id, input, principal: actor, approval: freshApproval });
   assert.deepEqual(result.result, { saved: "safe-value" });
+  await assert.rejects(
+    registry.execute({ toolId: write.id, input, principal: actor, approval: freshApproval }),
+    /fresh, explicit approval/
+  );
+});
+
+test("expires approval tokens before execution", async () => {
+  let now = 1000;
+  const registry = new ToolRegistry({ now: () => now, approvalTtlMs: 100 });
+  const write = { ...definition, id: "update_setting", risk: "write", permission: "settings:write" };
+  registry.register(write, async () => ({ saved: true }));
+  const actor = { id: "u", permissions: ["settings:write"] };
+  const input = { key: "safe-value" };
+  const approval = registry.issueApproval({ toolId: write.id, input, principal: actor, confirmed: true });
+  now += 101;
+  await assert.rejects(
+    registry.execute({ toolId: write.id, input, principal: actor, approval }),
+    /fresh, explicit approval/
+  );
+});
+
+test("validates nested schemas and rejects malformed or excessively deep schemas", () => {
+  const registry = new ToolRegistry();
+  const nested = {
+    ...definition,
+    id: "nested_lookup",
+    inputSchema: {
+      type: "object",
+      properties: {
+        filters: {
+          type: "array",
+          maxItems: 3,
+          items: {
+            type: "object",
+            properties: { enabled: { type: "boolean" } },
+            required: ["enabled"],
+            additionalProperties: false
+          }
+        }
+      },
+      required: ["filters"],
+      additionalProperties: false
+    }
+  };
+  registry.register(nested, async ({ input }) => ({ count: input.filters.length }));
+  assert.throws(() => registry.register({
+    ...definition,
+    id: "broken_array",
+    inputSchema: { type: "object", properties: { values: { type: "array" } } }
+  }, async () => ({})), /items schema/);
+
+  let deep = { type: "string" };
+  for (let index = 0; index < 10; index += 1) {
+    deep = { type: "array", items: deep };
+  }
+  assert.throws(() => registry.register({
+    ...definition,
+    id: "too_deep",
+    inputSchema: { type: "object", properties: { value: deep } }
+  }, async () => ({})), /nested too deeply/);
 });
 
 test("records outcomes without recording raw inputs or outputs", async () => {
@@ -76,8 +152,8 @@ test("records outcomes without recording raw inputs or outputs", async () => {
   assert.equal(JSON.stringify(events).includes("do-not-log-this"), false);
 });
 
-test("times out a slow handler and signals cancellation", async () => {
-  const registry = new ToolRegistry();
+test("times out a cooperative handler, signals cancellation and releases capacity", async () => {
+  const registry = new ToolRegistry({ maxConcurrent: 1 });
   const short = { ...definition, timeoutMs: 100 };
   let aborted = false;
   registry.register(short, async ({ signal }) => new Promise((resolve) => {
@@ -85,6 +161,35 @@ test("times out a slow handler and signals cancellation", async () => {
   }));
   await assert.rejects(registry.execute({ toolId: short.id, input: { key: "x" }, principal }), /timed out/);
   assert.equal(aborted, true);
+  await new Promise((resolve) => setImmediate(resolve));
+  const next = await registry.execute({ toolId: short.id, input: { key: "next" }, principal });
+  assert.deepEqual(next.result, "late");
+});
+
+test("a non-cooperative timed-out handler retains its slot until it actually settles", async () => {
+  const registry = new ToolRegistry({ maxConcurrent: 1 });
+  const short = { ...definition, timeoutMs: 100 };
+  let release;
+  let signal;
+  registry.register(short, async ({ signal: receivedSignal }) => {
+    signal = receivedSignal;
+    return new Promise((resolve) => { release = resolve; });
+  });
+
+  await assert.rejects(
+    registry.execute({ toolId: short.id, input: { key: "slow" }, principal }),
+    /timed out/
+  );
+  assert.equal(signal.aborted, true);
+  await assert.rejects(
+    registry.execute({ toolId: short.id, input: { key: "blocked" }, principal }),
+    /capacity reached/
+  );
+
+  release("late");
+  await new Promise((resolve) => setImmediate(resolve));
+  const next = await registry.execute({ toolId: short.id, input: { key: "available" }, principal });
+  assert.deepEqual(next.result, "late");
 });
 
 test("enforces the concurrent execution limit", async () => {
