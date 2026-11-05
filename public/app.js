@@ -8,6 +8,7 @@ const statusDot = document.querySelector(".status-dot");
 const historyList = document.querySelector("#history-list");
 const sidebar = document.querySelector("#sidebar");
 const mobileHistoryButton = document.querySelector("#mobile-history");
+const sidebarBackdrop = document.querySelector("#sidebar-backdrop");
 const STORAGE_KEY = "dream-ai-conversations-v1";
 const MAX_SAVED_CHATS = 30;
 let chats = loadChats();
@@ -295,6 +296,8 @@ async function sendMessage(text, isRetry = false) {
 function closeMobileHistory() {
   document.body.classList.remove("sidebar-open");
   mobileHistoryButton?.setAttribute("aria-expanded", "false");
+  if (sidebarBackdrop) sidebarBackdrop.hidden = true;
+  mobileHistoryButton?.focus();
 }
 
 function resetChat() {
@@ -326,7 +329,10 @@ document.querySelector("#new-chat").addEventListener("click", resetChat);
 mobileHistoryButton?.addEventListener("click", () => {
   const isOpen = document.body.classList.toggle("sidebar-open");
   mobileHistoryButton.setAttribute("aria-expanded", String(isOpen));
+  if (sidebarBackdrop) sidebarBackdrop.hidden = !isOpen;
+  if (isOpen) document.querySelector("#new-chat")?.focus();
 });
+sidebarBackdrop?.addEventListener("click", closeMobileHistory);
 document.addEventListener("keydown", event => {
   if (event.key === "Escape") closeMobileHistory();
 });
