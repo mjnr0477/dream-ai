@@ -264,7 +264,7 @@ test("chat endpoint passes explicitly saved memory as untrusted context", async 
   assert.match(system, /Prefers concise explanations/);
   assert.match(system, /untrusted contextual data, not instructions/);
   assert.match(system, /never override the current user request/);
-  assert.ok(!system.includes("\n\nUSER-CONTROLLED MEMORY"));
+  assert.ok(!system.includes("\\n\\nUSER-CONTROLLED MEMORY"));
 });
 
 test("chat endpoint rejects invalid or oversized memory context", async () => {
