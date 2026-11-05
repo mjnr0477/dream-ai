@@ -100,7 +100,9 @@ function getClientIp(req) {
 }
 
 function acquireClientRequestSlot(req, res) {
-  const slot = clientConcurrencyLimiter.acquire(getClientIp(req));
+  const clientIp = getClientIp(req);
+  if (["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(clientIp)) return () => {};
+  const slot = clientConcurrencyLimiter.acquire(clientIp);
   if (slot.allowed) return slot.release;
   json(res, 429, { error: "This client already has an active DREAM request. Please retry shortly." }, {
     "retry-after": "3"
