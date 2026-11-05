@@ -47,10 +47,10 @@ class ColabCheckpointPersistenceTests(unittest.TestCase):
             "".join(cell["source"]) for cell in notebook["cells"]
             if cell["cell_type"] == "markdown"
         )
-        self.assertIn("data/review_candidates.py", all_code)
+        self.assertIn("from data.review_candidates import review_file", all_code)
         self.assertIn("candidate-review-decisions.jsonl", all_code)
         self.assertIn("CHECKPOINT_DIR.parent / 'review'", all_code)
-        self.assertIn("'--limit', '25'", all_code)
+        self.assertIn("limit=25", all_code)
         self.assertIn("never approves automatically", markdown)
         self.assertIn("if not (approved_path.is_file() and approved_path.stat().st_size > 0)", all_code)
 
