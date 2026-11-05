@@ -11,7 +11,7 @@ DREAM has its own decoder-only transformer architecture, byte-tokenizer default,
 ## Current application
 
 - Responsive mobile-first chat workspace.
-- General, coding and learning modes.
+- General, coding, learning and public-source research modes. Research currently searches Wikipedia and returns linked source snippets; it is a limited retrieval tool, not general web browsing or a trained model capability.
 - Browser-local conversation history, export and copy.
 - Node API with bounded request validation, two-request model concurrency protection with retry guidance, and health status.
 - Provider-independent DREAM engine adapter.
