@@ -36,7 +36,7 @@ class ColabNotebookTests(unittest.TestCase):
     def test_colab_imports_json_before_corpus_audit(self):
         setup = self.colab_cell("USE_GOOGLE_DRIVE = True")
         corpus = self.colab_cell("model/audit_corpus.py")
-        self.assertIn("import json", setup)
+        self.assertIn("import os, subprocess, sys, torch, json", setup)
         self.assertIn("json.loads", corpus)
 
     def test_colab_pretraining_audit_fails_closed_before_corpus_preparation(self):
@@ -127,7 +127,7 @@ class ColabNotebookTests(unittest.TestCase):
         preparation = self.colab_cell("data/import_oasst1_candidates.py")
         self.assertIn("rights, privacy, quality and training-approval flags false", guidance)
         self.assertIn("data/import_oasst1_sft_candidates.py", preparation)
-        self.assertIn("human review", preparation)
+        self.assertIn("Candidate data only", preparation)
 
     def test_kaggle_audits_pretraining_corpus_before_preparation(self):
         corpus = self.kaggle_cell("model/audit_corpus.py")
