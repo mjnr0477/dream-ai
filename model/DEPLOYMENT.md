@@ -25,7 +25,7 @@ Create a protected environment file so the secret is not written directly into t
 ```sh
 umask 077
 TOKEN="$(openssl rand -hex 32)"
-printf '%s\\n' \
+printf '%s\n' \
   'DREAM_CHECKPOINT=/models/dream-instruct.pt' \
   'DREAM_MODEL_NAME=dream-native-v1' \
   'DREAM_RUNTIME_HOST=0.0.0.0' \
