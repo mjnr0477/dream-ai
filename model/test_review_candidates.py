@@ -150,6 +150,21 @@ class ReviewCandidatesTests(unittest.TestCase):
         ]
         self.assertIsNone(candidate_problem(item))
 
+    def test_review_display_uses_fingerprint_not_raw_candidate_id(self):
+        captured = []
+        answers = iter(["y", "y", "y", "y"])
+        reviewed, stop, missing = review_candidate(
+            candidate("private-handle-123"),
+            input_fn=lambda _prompt: next(answers),
+            output_fn=captured.append
+        )
+        rendered = "\\n".join(captured)
+        self.assertIsNotNone(reviewed)
+        self.assertFalse(stop)
+        self.assertEqual(missing, [])
+        self.assertIn("Candidate fingerprint:", rendered)
+        self.assertNotIn("private-handle-123", rendered)
+
 
 if __name__ == "__main__":
     unittest.main()
