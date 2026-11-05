@@ -19,6 +19,19 @@ DREAM has its own decoder-only transformer architecture, byte-tokenizer default,
 
 The web interface is not itself a trained model. Until a trained native DREAM checkpoint is available and connected, it must not pretend that it generated intelligent answers.
 
+## Task-level evaluation
+
+After training an instruction checkpoint, run the small authored diagnostic suite:
+
+```sh
+python model/evaluate_tasks.py \
+  --checkpoint checkpoints/dream-bpe-instruct.pt \
+  --benchmark evals/dream-core-v1.jsonl \
+  --out eval-results/dream-core-v1.json
+```
+
+The report includes deterministic exact-match results by category and language, model/checkpoint hashes and every generated answer. This 15-task starter set is a debugging aid, not a comprehensive reasoning, factuality, safety or multilingual benchmark; its score cannot establish production readiness or superiority over other models. Expand it with independently authored and reviewed tests before making capability claims.
+
 ## Native DREAM model
 
 See [model/BASELINE.md](model/BASELINE.md) for the architecture, commands and release gates. For free-tier training, use the [DREAM from-scratch Colab notebook](https://colab.research.google.com/github/mjnr0477/dream-ai/blob/main/training/dream_train_colab.ipynb) or the [Kaggle training notebook](https://github.com/mjnr0477/dream-ai/blob/main/training/dream_train_kaggle.ipynb). Both require a real, reviewed corpus; GPU access is not guaranteed. Download the checkpoint and evaluation report before the session ends.
@@ -38,7 +51,7 @@ See [model/BASELINE.md](model/BASELINE.md) for the architecture, commands and re
 - `scripts/run-evals.mjs`: verifies native runtime identity and checkpoint provenance before running the human-reviewed benchmark, then records a run ID, checkpoint hash, training steps, architecture, tokenizer and latency with every result. The summarizer refuses to combine rows from different runs or checkpoints.
 - `model/test_*.py`: tests cover transformer behavior (including cached-vs-full generation equivalence, context-window fallback and strict UTF-8 output validation), corpus preparation, training/checkpoint resume, SFT masking and provenance, notebook code cells, and the local authenticated HTTP API. CI also runs a full tiny pretraining → held-out evaluation → SFT → held-out evaluation sequence.
 - `data/export_fineweb2_sample.py` and `model/import_fineweb2_candidates.py`: deterministic, confidence-filtered FineWeb2 streaming export with provenance-preserving, unapproved candidate conversion; source-page rights still require review.
-- `data/import_oasst1_candidates.py` and `data/OASST1.md`: optional pinned OASST1 candidate importer; filters deleted, synthetic, unreviewed and flagged records, omits user IDs, and keeps all DREAM approval flags false until human review. OASST1 does not include Swahili and is only one possible seed source.
+- `data/import_oasst1_candidates.py` and `data/OASST1.md`: optional pinned OASST1 pretraining-text candidate importer; filters deleted, synthetic, unreviewed and flagged records, omits user IDs, and keeps all DREAM approval flags false until human review.\n- `data/import_oasst1_sft_candidates.py`: reconstructs complete OASST1 conversation paths for SFT candidates, applies the safety filter to every ancestor, preserves tree-level split groups, omits user IDs and never pre-approves records. OASST1 does not include Swahili and is only one possible seed source.
 - `data/README.md`: strict data provenance, privacy and licensing rules. Corpus manifests expose domain-separated SHA-256 fingerprints instead of raw record/source-group identifiers, and SFT uses those fingerprints for leakage checks while retaining compatibility with legacy manifests. These are pseudonymous identifiers, not anonymization; never place secrets or personal data in ID fields. SFT rejects source groups that appear in the pretraining held-out test split, duplicate record IDs or normalized dialogue content across its train/validation splits; it verifies the manifest against the exact held-out test file, and its evaluator requires that exact test-corpus hash.
 
 Install and run the model locally:

@@ -72,3 +72,19 @@ Use distinct source groups, independently checked answers, and separate training
 ## Important
 
 The files `smoke-test.jsonl`, `sft-smoke-train.jsonl` and `sft-smoke-validation.jsonl` are tiny, synthetic CI fixtures. They exist only to verify that preprocessing, random-initialization pretraining, held-out evaluation, assistant-only SFT and checkpoint loading work end to end. They are not a useful training corpus and must never be presented as model-quality evidence or production intelligence. A capable model requires a much larger, diverse, reviewed corpus and substantial compute.
+
+
+## OASST1 instruction-tuning candidates
+
+The flat OASST1 ready-message export can also be converted into conversation-shaped SFT candidates. The converter reconstructs each assistant reply's full root-to-leaf path through `parent_id`, requires alternating prompter/assistant roles, and rejects a path if any ancestor fails the conservative review, privacy, deletion or synthetic-content filters.
+
+After downloading the same pinned `2023-04-12_oasst_ready.messages.jsonl.gz` file described in [OASST1.md](OASST1.md), run:
+
+```sh
+python data/import_oasst1_sft_candidates.py \
+  --input data/2023-04-12_oasst_ready.messages.jsonl.gz \
+  --output data/oasst1-sft-candidates.jsonl \
+  --report data/oasst1-sft-candidate-report.json
+```
+
+The output uses the conversation format expected by `model/sft.py`, but it is deliberately **not approved**: rights, privacy, quality and SFT approval flags remain false. Review every candidate and the upstream terms before approval. All conversations from one message tree share the same `source_group`; split by that group so branches and repeated prefixes from a single conversation tree cannot leak across training and validation. The importer omits OASST user IDs and does not itself split or train the data.

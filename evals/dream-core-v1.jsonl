@@ -1,0 +1,15 @@
+{"id":"math-001","category":"arithmetic","language":"en","prompt":"What is 19 + 23? Reply with only the number.","reference":"42"}
+{"id":"math-002","category":"arithmetic","language":"en","prompt":"What is 8 times 7? Reply with only the number.","reference":"56"}
+{"id":"math-003","category":"arithmetic","language":"en","prompt":"What is 144 divided by 12? Reply with only the number.","reference":"12"}
+{"id":"math-004","category":"algebra","language":"en","prompt":"Solve x + 7 = 12. Reply with only the value of x.","reference":"5"}
+{"id":"math-005","category":"pattern","language":"en","prompt":"What number comes next: 2, 4, 6, 8? Reply with only the number.","reference":"10"}
+{"id":"logic-001","category":"logic","language":"en","prompt":"All roses are flowers. This is a rose. Is it a flower? Reply yes or no.","reference":"yes"}
+{"id":"logic-002","category":"logic","language":"en","prompt":"Which is larger, 0.9 or 0.11? Reply with only the decimal.","reference":"0.9"}
+{"id":"science-001","category":"science","language":"en","prompt":"At sea level, at what temperature does pure water boil in Celsius? Reply only the number.","reference":"100"}
+{"id":"geo-001","category":"kenya","language":"en","prompt":"What is the capital city of Kenya? Reply with only the city name.","reference":"Nairobi"}
+{"id":"geo-002","category":"kenya","language":"en","prompt":"What is the currency of Kenya? Reply with only the currency name.","reference":"Kenyan shilling"}
+{"id":"code-001","category":"programming","language":"en","prompt":"In Python, what does len('dream') return? Reply with only the number.","reference":"5"}
+{"id":"code-002","category":"programming","language":"en","prompt":"What does the Python expression 3 * (4 + 2) evaluate to? Reply only the number.","reference":"18"}
+{"id":"sw-001","category":"translation","language":"sw","prompt":"Translate 'Good morning' into Kiswahili. Reply with only the translation.","reference":"Habari za asubuhi"}
+{"id":"sw-002","category":"translation","language":"sw","prompt":"Translate 'Asante' into English. Reply with only the translation.","reference":"Thank you"}
+{"id":"sw-003","category":"vocabulary","language":"sw","prompt":"What is the Kiswahili word for water? Reply with only the word.","reference":"Maji"}
