@@ -6,6 +6,21 @@ const allowed = new Set(["sw", "yo", "ha", "am", "ig", "so", "rw", "lg", "zu", "
 const ids = new Set();
 const counts = new Map();
 
+function evaluateIntegerExpression(expression) {
+  const tokens = expression.match(/\d+|[+-]/g) || [];
+  if (tokens.join("") !== expression.replace(/\s+/g, "")) return null;
+  if (tokens.length === 0 || tokens.length % 2 === 0 || !/^\d+$/.test(tokens[0])) return null;
+  let value = Number(tokens[0]);
+  for (let index = 1; index < tokens.length; index += 2) {
+    const operator = tokens[index];
+    const operand = Number(tokens[index + 1]);
+    if (!Number.isSafeInteger(operand)) return null;
+    value = operator === "+" ? value + operand : value - operand;
+    if (!Number.isSafeInteger(value)) return null;
+  }
+  return value;
+}
+
 for (const [index, line] of lines.entries()) {
   let item;
   try {
@@ -30,9 +45,10 @@ for (const [index, line] of lines.entries()) {
     item.rubric.some(point => typeof point !== "string" || !point.trim()) ||
     item.review_status !== "pending_native_review" ||
     (item.category === "multilingual-math" &&
-      (!Number.isInteger(item.expected_answer) ||
+      (!Number.isSafeInteger(item.expected_answer) ||
        typeof item.expected_expression !== "string" ||
-       !item.expected_expression.trim())) ||
+       !item.expected_expression.trim() ||
+       evaluateIntegerExpression(item.expected_expression) !== item.expected_answer)) ||
     (item.category === "multilingual-explanation" &&
       (Object.hasOwn(item, "expected_answer") || Object.hasOwn(item, "expected_expression")))
   ) {
