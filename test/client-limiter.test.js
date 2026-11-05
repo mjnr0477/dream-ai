@@ -32,7 +32,7 @@ test("release is idempotent and unknown identity does not lock all callers", () 
 });
 
 test("limiter rejects invalid capacity configuration", () => {
-  for (const value of (0, -1, 1.5, true)) {
+  for (const value of [0, -1, 1.5, true]) {
     assert.throws(() => new ClientConcurrencyLimiter(value), /positive integer/);
   }
 });
