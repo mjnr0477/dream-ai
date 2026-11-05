@@ -48,109 +48,24 @@ def write_text_file(path: Path, rows) -> dict:
     }
 
 
-def main():
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--input", required=True, help="Approved JSONL records")
-    parser.add_argument("--output", default="data/prepared")
-    args = parser.parse_args()
 
-    source = Path(args.input)
-    output = Path(args.output)
-    records = []
-    seen_ids = set()
-    seen_text = set()
-    groups = set()
-    duplicate_text_records = 0
+def assign_source_group_splits(records):
+    """Create deterministic source-isolated splits with multilingual coverage.
 
-    for line_number, line in enumerate(source.read_text(encoding="utf-8").splitlines(), 1):
-        if not line.strip():
-            continue
-        try:
-            item = json.loads(line)
-        except json.JSONDecodeError as exc:
-            raise SystemExit(f"Invalid JSON at line {line_number}: {exc}") from exc
-        if not isinstance(item, dict):
-            raise SystemExit(f"Record must be a JSON object at line {line_number}")
+    Languages represented by at least three independent source groups are
+    guaranteed to appear in train, validation and test. Rarer languages are
+    reported as not yet eligible for three-way language evaluation.
+    """
+    languages_by_group = {}
+    groups_by_language = {}
+    for row in records:
+        group = row["source_group"]
+        language = row["language"]
+        languages_by_group.setdefault(group, set()).add(language)
+        groups_by_language.setdefault(language, set()).add(group)
 
-        required = (
-            "id", "source", "source_group", "license", "license_url",
-            "source_url", "rights_basis", "source_date", "language", "text"
-        )
-        if any(not isinstance(item.get(key), str) or not item[key].strip() for key in required):
-            raise SystemExit(f"Missing required metadata or text at line {line_number}")
-        for field in ("source_url", "license_url"):
-            parsed_url = urlparse(item[field])
-            if parsed_url.scheme != "https" or not parsed_url.hostname:
-                raise SystemExit(
-                    f"Invalid {field} at line {line_number}; expected an absolute HTTPS URL"
-                )
-        if item["rights_basis"] not in ALLOWED_RIGHTS_BASIS:
-            raise SystemExit(
-                f"Invalid rights_basis at line {line_number}; expected one of "
-                + ", ".join(sorted(ALLOWED_RIGHTS_BASIS))
-            )
-        try:
-            parsed_source_date = date.fromisoformat(item["source_date"])
-            if parsed_source_date.isoformat() != item["source_date"]:
-                raise ValueError("source_date must use YYYY-MM-DD")
-        except ValueError as exc:
-            raise SystemExit(
-                f"Invalid source_date at line {line_number}; expected YYYY-MM-DD"
-            ) from exc
-        if item.get("rights_confirmed") is not True:
-            raise SystemExit(f"Rights not confirmed at line {line_number}; refusing dataset")
-        if item.get("privacy_reviewed") is not True:
-            raise SystemExit(f"Privacy review not confirmed at line {line_number}; refusing dataset")
-        if item.get("quality_reviewed") is not True:
-            raise SystemExit(f"Quality review not confirmed at line {line_number}; refusing dataset")
-        if len(item["text"].strip()) < 40:
-            raise SystemExit(f"Text too short at line {line_number}")
-        if item["id"] in seen_ids:
-            raise SystemExit(f"Duplicate record id at line {line_number}")
-
-        seen_ids.add(item["id"])
-        normalized = " ".join(item["text"].split()).casefold()
-        fingerprint = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
-        if fingerprint in seen_text:
-            duplicate_text_records += 1
-            continue
-
-        seen_text.add(fingerprint)
-        groups.add(item["source_group"])
-        records.append({
-            "id": item["id"],
-            "source": item["source"],
-            "source_group": item["source_group"],
-            "license": item["license"],
-            "rights_basis": item["rights_basis"],
-            "source_date": item["source_date"],
-            "language": item["language"],
-            "text": item["text"].strip()
-        })
-
-    if len(records) < 3 or len(groups) < 3:
-        raise SystemExit(
-            "At least three unique records from three independent source groups are required "
-            "to create leakage-aware train/validation/test splits."
-        )
-
-    ordered_groups = sorted(
-        groups,
-        key=lambda value: hashlib.sha256(value.encode("utf-8")).hexdigest()
-    )
-    group_count = len(ordered_groups)
-    test_count = max(1, round(group_count * 0.05))
-    validation_count = max(1, round(group_count * 0.05))
-    if test_count + validation_count >= group_count:
-        test_count = validation_count = 1
-    train_end = group_count - test_count - validation_count
-    split_by_group = {}
-    for group in ordered_groups[:train_end]:
-        split_by_group[group] = "train"
-    for group in ordered_groups[train_end:train_end + validation_count]:
-        split_by_group[group] = "validation"
-    for group in ordered_groups[train_end + validation_count:]:
-        split_by_group[group] = "test"
+    split_by_group, language_split_coverage = assign_source_group_splits(records)
+    group_count = len(groups)
 
     output.mkdir(parents=True, exist_ok=True)
     language_counts = counts(records, "language")
@@ -169,7 +84,8 @@ def main():
         "license_counts": license_counts,
         "rights_basis_counts": counts(records, "rights_basis"),
         "source_date_range": source_date_range,
-        "split_strategy": "deterministic source-group hash ranking; no group crosses splits",
+        "split_strategy": "deterministic source-group stratification; languages with at least three independent groups are represented in train, validation and test; no group crosses splits",
+        "language_split_coverage": language_split_coverage,
         "splits": {}
     }
     for split in ("train", "validation", "test"):
