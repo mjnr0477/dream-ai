@@ -265,6 +265,21 @@ test("capabilities endpoint reports only verified runtime and tool availability"
   assert.ok(data.tools.every(tool => tool.status !== "ready"));
 });
 
+
+test("capabilities endpoint never reports an unverified model as ready", async () => {
+  modelHasCheckpoint = false;
+  try {
+    const response = await fetch(`${base}/api/capabilities`);
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.model.status, "unavailable");
+    assert.equal(data.model.completedTrainingSteps, null);
+    assert.equal(data.model.checkpointSha256, null);
+  } finally {
+    modelHasCheckpoint = true;
+  }
+});
+
 test("root serves the DREAM AI application", async () => {
   const response = await fetch(`${base}/`);
   assert.equal(response.status, 200);
