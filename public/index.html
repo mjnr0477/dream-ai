@@ -4,21 +4,46 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#080b14">
-  <meta name="description" content="Dream AI — think, build, learn and explore with an independent AI assistant.">
-  <title>Dream AI — Think beyond</title>
+  <meta name="description" content="DREAM AI — chat, coding, learning and public-source research in one workspace.">
+  <title>DREAM AI — Think beyond</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
+  <style>
+    .skip-link{position:fixed;left:12px;top:12px;z-index:20;transform:translateY(-160%);padding:9px 13px;border-radius:8px;background:#eee8ff;color:#111827;font-weight:700}
+    .skip-link:focus{transform:translateY(0)}
+    :where(button,a,summary,textarea):focus-visible{outline:2px solid #b9a8ff;outline-offset:3px}
+    .workspace-nav{display:grid;gap:5px;margin-top:27px}
+    .nav-heading{margin:0 7px 7px;color:#74819a;font-size:10px;letter-spacing:.18em;font-weight:700}
+    .workspace-link{display:flex;align-items:center;gap:10px;width:100%;min-height:38px;padding:8px 10px;border:1px solid transparent;border-radius:9px;background:transparent;text-align:left;color:#aab5c9;font-size:12px;cursor:pointer}
+    .workspace-link>span{width:17px;color:#a994ff;text-align:center}
+    .workspace-link:hover,.workspace-link.active{background:#151d2e;border-color:#28334a;color:#f1f3fb}
+    .workspace-link small{margin-left:auto;color:#8290a8;font-size:9px}
+    .workspace-nav+.history-heading{margin-top:23px}
+    .workspace-note{max-width:560px;margin:16px auto 0;color:#74829a;font-size:10px;line-height:1.55}
+    .suggestion{min-width:0}
+    .suggestion:focus-visible{outline-offset:4px}
+    @media(max-width:680px){.workspace-nav{margin-top:22px}.workspace-link{min-height:42px}.workspace-note{margin-top:12px;padding:0 8px}}
+    @media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}
+  </style>
 </head>
 <body>
+  <a class="skip-link" href="#main-content">Skip to workspace</a>
   <div class="app-shell">
-    <aside class="sidebar" id="sidebar">
-      <a class="brand" href="/" aria-label="Dream AI home">
-        <span class="brand-mark">✳</span><span>DREAM<span class="brand-light"> AI</span></span>
+    <aside class="sidebar" id="sidebar" aria-label="Workspace sidebar">
+      <a class="brand" href="/" aria-label="DREAM AI home">
+        <span class="brand-mark" aria-hidden="true">✳</span><span>DREAM<span class="brand-light"> AI</span></span>
       </a>
-      <button class="new-chat" id="new-chat"><span>＋</span> New chat</button>
-      <div class="history-heading"><span>RECENT</span><button id="clear-history" title="Clear local history">Clear</button></div>
+      <button class="new-chat" id="new-chat" type="button"><span aria-hidden="true">＋</span> New chat</button>
+      <nav class="workspace-nav" aria-label="Workspace modes">
+        <p class="nav-heading">WORKSPACE</p>
+        <button type="button" class="workspace-link active" data-mode-select="general"><span aria-hidden="true">✧</span> AI Chat</button>
+        <button type="button" class="workspace-link" data-mode-select="coding"><span aria-hidden="true">⌘</span> Coding Studio</button>
+        <button type="button" class="workspace-link" data-mode-select="learning"><span aria-hidden="true">◈</span> Learning</button>
+        <button type="button" class="workspace-link" data-mode-select="research"><span aria-hidden="true">⌕</span> Deep Research <small>Public sources</small></button>
+      </nav>
+      <div class="history-heading"><span>RECENT</span><button id="clear-history" type="button" title="Clear local history">Clear</button></div>
       <nav class="history-list" id="history-list" aria-label="Recent conversations">
         <p class="history-empty">Your saved conversations will appear here.</p>
       </nav>
@@ -34,18 +59,17 @@
         <p id="memory-status" role="status" aria-live="polite"></p>
       </details>
       <div class="sidebar-bottom">
-        <div class="service-indicator"><span class="status-dot"></span><span id="service-status">Connecting…</span></div>
-        <div class="profile"><span class="profile-avatar">D</span><span><strong>Dream AI</strong><small>Guest workspace · saved on this device</small></span></div>
+        <div class="service-indicator"><span class="status-dot" aria-hidden="true"></span><span id="service-status" role="status" aria-live="polite">Connecting…</span></div>
+        <div class="profile"><span class="profile-avatar" aria-hidden="true">D</span><span><strong>DREAM AI</strong><small>Guest workspace · saved on this device</small></span></div>
       </div>
     </aside>
     <button class="sidebar-backdrop" id="sidebar-backdrop" type="button" aria-label="Close chat history" hidden></button>
-
-    <main class="main">
+    <main class="main" id="main-content">
       <header class="topbar">
-        <button class="mobile-brand" id="mobile-history" aria-expanded="false" aria-controls="sidebar" aria-label="Open chat history">☰ <span>DREAM AI</span></button>
+        <button class="mobile-brand" id="mobile-history" type="button" aria-expanded="false" aria-controls="sidebar" aria-label="Open chat history">☰ <span>DREAM AI</span></button>
         <div class="topbar-right">
           <details class="capability-menu" id="capability-menu">
-            <summary>Capabilities</summary>
+            <summary>System status</summary>
             <section class="capability-panel" aria-label="DREAM AI capability status">
               <p class="capability-heading">Verified system status</p>
               <p id="capability-model" class="capability-model">Open to load live capability status.</p>
@@ -53,39 +77,38 @@
               <p class="capability-note">Only connected and verified features are shown as ready. Unavailable tools are not executable.</p>
             </section>
           </details>
-          <span class="top-tag"><i></i> GUEST WORKSPACE</span>
-          <button class="icon-button" id="export-chat" title="Export conversation" aria-label="Export conversation">⇩</button>
+          <span class="top-tag"><i aria-hidden="true"></i> GUEST WORKSPACE</span>
+          <button class="icon-button" id="export-chat" type="button" title="Export conversation" aria-label="Export conversation">⇩</button>
         </div>
       </header>
-
-      <section class="welcome" id="welcome">
-        <div class="hero-kicker"><span></span> YOUR IDEAS, IN MOTION</div>
-        <div class="hero-symbol"><span>✳</span><i></i></div>
-        <h1>Make room for<br><em>what's next.</em></h1>
-        <p class="intro">A new space to think clearly, build boldly and learn without limits.</p>
-        <div class="capability-row"><span>✧ Think</span><span>⌘ Create</span><span>◈ Learn</span><span>↗ Explore</span></div>
-        <div class="suggestions">
-          <button class="suggestion" data-mode="coding" data-prompt="Help me design and build a complete modern web application."><span class="suggestion-icon">⌘</span><span><strong>Build with code</strong><small>Turn an idea into a working project</small></span><b>↗</b></button>
-          <button class="suggestion" data-mode="learning" data-prompt="Teach me a difficult concept in a simple, step-by-step way."><span class="suggestion-icon">◈</span><span><strong>Learn something</strong><small>Understand a topic from the ground up</small></span><b>↗</b></button>
-          <button class="suggestion" data-mode="general" data-prompt="Help me think through a big idea and turn it into a practical plan."><span class="suggestion-icon">✧</span><span><strong>Explore an idea</strong><small>Think through possibilities and next steps</small></span><b>↗</b></button>
+      <section class="welcome" id="welcome" aria-labelledby="welcome-title">
+        <div class="hero-kicker"><span aria-hidden="true"></span> YOUR IDEAS, IN MOTION</div>
+        <div class="hero-symbol" aria-hidden="true"><span>✳</span><i></i></div>
+        <h1 id="welcome-title">Make room for<br><em>what's next.</em></h1>
+        <p class="intro">One focused workspace to think clearly, build boldly and learn. Choose a starting point below.</p>
+        <div class="capability-row" aria-label="Core workspace modes"><span>✧ Think</span><span>⌘ Create</span><span>◈ Learn</span><span>↗ Explore</span></div>
+        <div class="suggestions" aria-label="Start a task">
+          <button class="suggestion" type="button" data-mode="general" data-prompt="Help me think through an idea and turn it into a practical plan."><span class="suggestion-icon" aria-hidden="true">✧</span><span><strong>AI Chat</strong><small>Ask questions and work through ideas</small></span><b aria-hidden="true">↗</b></button>
+          <button class="suggestion" type="button" data-mode="coding" data-prompt="Help me design and build a complete modern web application."><span class="suggestion-icon" aria-hidden="true">⌘</span><span><strong>Coding Studio</strong><small>Plan, write and debug software</small></span><b aria-hidden="true">↗</b></button>
+          <button class="suggestion" type="button" data-mode="learning" data-prompt="Teach me a difficult concept in a simple, step-by-step way."><span class="suggestion-icon" aria-hidden="true">◈</span><span><strong>Learning</strong><small>Understand a topic step by step</small></span><b aria-hidden="true">↗</b></button>
         </div>
+        <p class="workspace-note">Deep Research is available in the workspace navigation. Current research retrieval uses Wikipedia public results; verify important claims with primary sources.</p>
       </section>
-
-      <section class="conversation" id="conversation" aria-live="polite" aria-label="Conversation"></section>
+      <section class="conversation" id="conversation" aria-live="polite" aria-relevant="additions text" aria-label="Conversation"></section>
       <form class="composer-wrap" id="chat-form">
         <div class="mode-bar" role="group" aria-label="Assistant mode">
           <button type="button" class="mode active" data-mode-select="general">✧ General</button>
           <button type="button" class="mode" data-mode-select="coding">⌘ Coding</button>
           <button type="button" class="mode" data-mode-select="learning">◈ Learning</button>
           <button type="button" class="mode" data-mode-select="research">⌕ Research</button>
-          <span class="mode-hint">Choose how Dream AI helps</span>
+          <span class="mode-hint">Choose a workspace mode</span>
         </div>
         <div class="composer">
-          <label class="sr-only" for="message">Message Dream AI</label>
-          <textarea id="message" rows="1" maxlength="8000" placeholder="Message Dream AI…" required></textarea>
-          <div class="composer-footer"><span>↵ to send · Shift + ↵ for a new line</span><button id="send" type="submit" aria-label="Send message">↑</button></div>
+          <label class="sr-only" for="message">Message DREAM AI</label>
+          <textarea id="message" rows="1" maxlength="8000" placeholder="Message DREAM AI…" required></textarea>
+          <div class="composer-footer"><span>Enter to send · Shift + Enter for a new line</span><button id="send" type="submit" aria-label="Send message">↑</button></div>
         </div>
-        <p class="disclaimer">Dream AI can make mistakes. Check important information before acting.</p>
+        <p class="disclaimer">DREAM AI can make mistakes. Check important information before acting.</p>
       </form>
     </main>
   </div>
