@@ -8,6 +8,7 @@ It has no network, shell, filesystem or external-action capabilities.
 from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
+import math
 from typing import Iterable, Optional, Sequence
 
 
@@ -35,10 +36,20 @@ class Evidence:
     criterion: Optional[str] = None
 
     def __post_init__(self) -> None:
-        if not self.claim.strip() or not self.source.strip():
-            raise PlanError("Evidence requires a non-empty claim and source")
-        if not 0.0 <= self.reliability <= 1.0:
-            raise PlanError("Evidence reliability must be between 0 and 1")
+        if not isinstance(self.claim, str) or not self.claim.strip():
+            raise PlanError("Evidence claim must be a non-empty string")
+        if not isinstance(self.source, str) or not self.source.strip():
+            raise PlanError("Evidence source must be a non-empty string")
+        if not isinstance(self.supports, bool):
+            raise PlanError("Evidence supports must be a boolean")
+        if isinstance(self.reliability, bool) or not isinstance(self.reliability, (int, float)):
+            raise PlanError("Evidence reliability must be a finite number between 0 and 1")
+        if not math.isfinite(float(self.reliability)) or not 0.0 <= self.reliability <= 1.0:
+            raise PlanError("Evidence reliability must be a finite number between 0 and 1")
+        if self.observed_at is not None and (not isinstance(self.observed_at, str) or not self.observed_at.strip()):
+            raise PlanError("Evidence observed_at must be a non-empty string when supplied")
+        if self.criterion is not None and (not isinstance(self.criterion, str) or not self.criterion.strip()):
+            raise PlanError("Evidence criterion must be a non-empty string when supplied")
 
 
 @dataclass(frozen=True)
@@ -51,8 +62,22 @@ class Task:
     requires_evidence: bool = True
 
     def __post_init__(self) -> None:
-        if not self.id.strip() or not self.title.strip():
-            raise PlanError("Every task needs a non-empty id and title")
+        if not isinstance(self.id, str) or not self.id.strip():
+            raise PlanError("Every task needs a non-empty string id")
+        if not isinstance(self.title, str) or not self.title.strip():
+            raise PlanError("Every task needs a non-empty string title")
+        if not isinstance(self.description, str):
+            raise PlanError("Task description must be a string")
+        if not isinstance(self.depends_on, tuple) or any(
+            not isinstance(item, str) or not item.strip() for item in self.depends_on
+        ):
+            raise PlanError("Task dependencies must be a tuple of non-empty strings")
+        if not isinstance(self.success_criteria, tuple) or any(
+            not isinstance(item, str) or not item.strip() for item in self.success_criteria
+        ):
+            raise PlanError("Task success criteria must be a tuple of non-empty strings")
+        if not isinstance(self.requires_evidence, bool):
+            raise PlanError("Task requires_evidence must be a boolean")
         if self.id in self.depends_on:
             raise PlanError(f"Task {self.id!r} cannot depend on itself")
         if len(set(self.depends_on)) != len(self.depends_on):
@@ -89,14 +114,17 @@ class Plan:
         return self._record(task_id).status
 
     def _record(self, task_id: str) -> TaskRecord:
+        if not isinstance(task_id, str) or not task_id:
+            raise PlanError("Task id must be a non-empty string")
         try:
             return self.records[task_id]
         except KeyError as exc:
             raise PlanError(f"Unknown task: {task_id}") from exc
 
     def ready_tasks(self) -> list[Task]:
-        return [r.task for r in self.records.values()
-                if r.status in (TaskStatus.READY, TaskStatus.IN_PROGRESS)]
+        """Return only tasks that are eligible to be started."""
+        return [record.task for record in self.records.values()
+                if record.status == TaskStatus.READY]
 
     def mark_in_progress(self, task_id: str) -> None:
         record = self._record(task_id)
@@ -111,11 +139,25 @@ class Plan:
         record = self._record(task_id)
         if record.status != TaskStatus.IN_PROGRESS:
             raise PlanError(f"Task {task_id!r} is not in progress")
-        if not outcome.strip():
-            raise PlanError("An outcome is required")
+        if not isinstance(outcome, str) or not outcome.strip():
+            raise PlanError("An outcome must be a non-empty string")
+        try:
+            evidence_items = tuple(evidence)
+        except TypeError as exc:
+            raise PlanError("Evidence must be an iterable of Evidence records") from exc
+        if any(not isinstance(item, Evidence) for item in evidence_items):
+            raise PlanError("Evidence must contain only Evidence records")
+        try:
+            uncertainty_items = tuple(uncertainty)
+        except TypeError as exc:
+            raise PlanError("Uncertainty must be an iterable of non-empty strings") from exc
+        if any(not isinstance(item, str) or not item.strip() for item in uncertainty_items):
+            raise PlanError("Uncertainty must contain only non-empty strings")
+
+        # Validate every supplied value before mutating the task record.
         record.outcome = outcome.strip()
-        record.evidence.extend(evidence)
-        record.uncertainty = [item.strip() for item in uncertainty if item.strip()]
+        record.evidence.extend(evidence_items)
+        record.uncertainty = [item.strip() for item in uncertainty_items]
         report = self.verify(task_id)
         record.status = TaskStatus.COMPLETED if report.verified else TaskStatus.NEEDS_REVIEW
         self._refresh_readiness()
@@ -151,6 +193,8 @@ class Plan:
 
     def retry(self, task_id: str, note: str = "") -> None:
         record = self._record(task_id)
+        if not isinstance(note, str):
+            raise PlanError("Retry note must be a string")
         if record.status not in (TaskStatus.NEEDS_REVIEW, TaskStatus.FAILED):
             raise PlanError("Only a task needing review or marked failed can be retried")
         if note.strip():
@@ -174,8 +218,12 @@ class Planner:
     """Build dependency-safe plans and reject missing references or cycles."""
     @staticmethod
     def build(tasks: Sequence[Task]) -> Plan:
+        if isinstance(tasks, (str, bytes)) or not isinstance(tasks, Sequence):
+            raise PlanError("Tasks must be a sequence of Task records")
         records: dict[str, TaskRecord] = {}
         for task in tasks:
+            if not isinstance(task, Task):
+                raise PlanError("Tasks must contain only Task records")
             if task.id in records:
                 raise PlanError(f"Duplicate task id: {task.id}")
             records[task.id] = TaskRecord(task)
