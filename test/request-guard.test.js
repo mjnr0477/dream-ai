@@ -104,3 +104,25 @@ test("rate-limit windows reset and bucket storage remains bounded", () => {
   assert.equal(limiter.consume(request({}, "10.0.0.1"), 2_001).allowed, true);
   assert.equal(limiter.consume(request({}, "10.0.0.2"), 2_002).allowed, true);
 });
+
+test("per-client concurrency allows only one active request and releases its slot", () => {
+  const limiter = new RequestRateLimiter({
+    limit: 5,
+    maxConcurrentPerClient: 1,
+    salt: Buffer.alloc(32, 4)
+  });
+  const client = request({
+    "cf-ray": "0123456789abcdef-LHR",
+    "cf-connecting-ip": "203.0.113.20"
+  });
+  const first = limiter.acquire(client, 1_000);
+  assert.equal(first.allowed, true);
+  const second = limiter.acquire(client, 1_001);
+  assert.equal(second.allowed, false);
+  assert.equal(second.reason, "concurrency");
+  first.release();
+  const third = limiter.acquire(client, 1_002);
+  assert.equal(third.allowed, true);
+  third.release();
+  third.release();
+});
