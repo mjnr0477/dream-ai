@@ -54,13 +54,19 @@ test("rejects malformed inputs and unknown properties", async () => {
 });
 
 test("requires approval bound to exact inputs for write and destructive tools", async () => {
-  const registry = new ToolRegistry();
+  const registry = new ToolRegistry({
+    approvalVerifier: async ({ approval, toolId, inputSha256, principalId }) =>
+      approval?.token === "trusted-test-token" &&
+      approval?.toolId === toolId &&
+      approval?.inputSha256 === inputSha256 &&
+      approval?.principalId === principalId
+  });
   const write = { ...definition, id: "update_setting", risk: "write", permission: "settings:write" };
   registry.register(write, async ({ input }) => ({ saved: input.key }));
   const actor = { id: "u", permissions: ["settings:write"] };
   const input = { key: "safe-value" };
   await assert.rejects(registry.execute({ toolId: write.id, input, principal: actor }), /requires explicit approval/);
-  const approval = { confirmed: true, inputSha256: registry.approvalDigest(write.id, input) };
+  const approval = { token: "trusted-test-token", toolId: write.id, inputSha256: registry.approvalDigest(write.id, input), principalId: actor.id };
   await assert.rejects(registry.execute({ toolId: write.id, input: { key: "different" }, principal: actor, approval }), /requires explicit approval/);
   const result = await registry.execute({ toolId: write.id, input, principal: actor, approval });
   assert.deepEqual(result.result, { saved: "safe-value" });
@@ -117,4 +123,18 @@ test("does not free concurrency capacity while a timed-out handler is still runn
   assert.equal(releases.length, 2);
   releases[1]("second finished");
   await second;
+});
+
+test("denies sensitive tools by default when no trusted approval verifier is configured", async () => {
+  const registry = new ToolRegistry();
+  const write = { ...definition, id: "delete_record", risk: "destructive", permission: "records:delete" };
+  registry.register(write, async () => ({ deleted: true }));
+  await assert.rejects(
+    registry.execute({
+      toolId: write.id, input: { key: "record-1" },
+      principal: { id: "u", permissions: ["records:delete"] },
+      approval: { confirmed: true, inputSha256: registry.approvalDigest(write.id, { key: "record-1" }) }
+    }),
+    /server-verified user approval/
+  );
 });
