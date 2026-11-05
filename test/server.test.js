@@ -448,6 +448,7 @@ test("per-client concurrency rejects a second active request but allows another 
   const first = postChat(payload("first client request"), undefined, {
     "x-forwarded-for": "198.51.100.201"
   });
+  let otherClient;
   try {
     for (let attempt = 0; attempt < 50 && modelRequests.length < beforeCount + 1; attempt++) {
       await new Promise(resolve => setTimeout(resolve, 20));
@@ -460,7 +461,7 @@ test("per-client concurrency rejects a second active request but allows another 
     assert.equal(duplicate.status, 429, "same client must be rejected while its first request is active");
     assert.equal(duplicate.headers.get("retry-after"), "3");
 
-    const otherClient = postChat(payload("independent client request"), undefined, {
+    otherClient = postChat(payload("independent client request"), undefined, {
       "x-forwarded-for": "198.51.100.202"
     });
     for (let attempt = 0; attempt < 50 && modelRequests.length < beforeCount + 2; attempt++) {
