@@ -133,6 +133,20 @@ Kaggle documents free P100 notebook accelerators, but GPU access can be limited 
 - `GET /api/health` reports application availability separately from model configuration and live native-checkpoint readiness. A ready runtime must identify as the native DREAM transformer and report positive completed training steps plus a 64-character checkpoint SHA-256. This is a runtime/provenance check, not a quality certification.
 - `GET /api/capabilities` returns a versioned, server-owned capability contract. It distinguishes implemented application features from tools that are not configured or not implemented; it never advertises disabled tools as ready. Tool execution is disabled by default and external actions require approval.
 - `POST /api/chat` — supported chat modes: `general`, `coding`, `learning`.
+
+### Multi-file coding responses
+
+In coding mode, DREAM AI can return an optional `artifacts` array when the model emits a complete, delimited project bundle. Each file uses this text format:
+
+```text
+--- DREAM FILE: src/index.js ---
+export const ready = true;
+--- END DREAM FILE ---
+```
+
+The server validates relative POSIX paths, rejects traversal and duplicate paths, and applies bounded file-count and UTF-8 size limits before returning structured artifacts. The frontend displays each file with copy controls and saved chats retain the artifact list.
+
+This is structured text generation and validation, **not** a filesystem writer or code-execution sandbox. DREAM AI does not yet install dependencies, run arbitrary generated commands, build or launch generated projects. Review and run generated files only in a separately isolated environment.
 - `POST /api/research` — a separate public-source search mode that returns up to five linked Wikipedia snippets and, when available, up to 350 characters from each article introduction plus the page's last-modified timestamp. Queries are limited to 200 characters, each upstream request times out after seven seconds, concurrency is capped at two, and no user-supplied URL is fetched. These excerpts are not full articles or independent corroboration; DREAM synthesis requires a connected native checkpoint and is instructed to cite only supplied URLs, distinguish uncertainty and treat retrieved text as untrusted data.
 
 ## User-controlled memory
