@@ -10,6 +10,7 @@ let server;
 let model;
 const modelRequests = [];
 let modelEngine = "dream-native-transformer";
+let modelHasCheckpoint = true;
 let holdModelResponses = false;
 const heldModelResponses = [];
 
@@ -17,7 +18,9 @@ before(async () => {
   model = http.createServer((req, res) => {
     if (req.method === "GET" && req.url === "/health") {
       res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ ok: true, engine: modelEngine, model: "dream-test-model", completed_training_steps: 12, checkpoint_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", device: "cpu", parameters: 1000, tokenizer: "DreamByteTokenizer" }));
+      res.end(JSON.stringify(modelHasCheckpoint
+        ? { ok: true, engine: modelEngine, model: "dream-test-model", completed_training_steps: 12, checkpoint_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", device: "cpu", parameters: 1000, tokenizer: "DreamByteTokenizer" }
+        : { ok: true, engine: modelEngine }));
       return;
     }
     const chunks = [];
@@ -95,6 +98,26 @@ test("health endpoint identifies the DREAM engine and configured model", async (
   assert.equal(data.model.completedTrainingSteps, 12);
   assert.equal(data.model.checkpointSha256, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
   assert.equal(data.version, "0.3.0");
+});
+
+test("health endpoint refuses readiness without a trained checkpoint identity", async () => {
+  modelHasCheckpoint = false;
+  try {
+    const response = await fetch(`${base}/api/health`);
+    const data = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(data.modelConfigured, true);
+    assert.equal(data.modelReady, false);
+    assert.equal(data.runtimeStatus, "unavailable");
+    assert.equal(data.model, null);
+    const chat = await postChat({
+      messages: [{ role: "user", content: "Hello DREAM AI" }]
+    });
+    assert.equal(chat.status, 502);
+    assert.match((await chat.json()).error, /trained-checkpoint identity/i);
+  } finally {
+    modelHasCheckpoint = true;
+  }
 });
 
 test("chat endpoint validates missing messages", async () => {
