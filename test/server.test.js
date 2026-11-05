@@ -16,21 +16,21 @@ let runtimeModelName = "dream-test-model";
 let holdModelResponses = false;
 const heldModelResponses = [];
 
-async function getEphemeralPort() {
-  const probe = net.createServer();
-  await new Promise((resolve, reject) => {
+async function getEphemeralPorts(count) {
+  const probes = Array.from({ length: count }, () => net.createServer());
+  await Promise.all(probes.map(probe => new Promise((resolve, reject) => {
     probe.once("error", reject);
     probe.listen(0, "127.0.0.1", resolve);
-  });
-  const address = probe.address();
-  const selectedPort = address.port;
-  await new Promise((resolve, reject) => probe.close(error => error ? reject(error) : resolve()));
-  return selectedPort;
+  })));
+  const ports = probes.map(probe => probe.address().port);
+  await Promise.all(probes.map(probe => new Promise((resolve, reject) => {
+    probe.close(error => error ? reject(error) : resolve());
+  })));
+  return ports;
 }
 
 before(async () => {
-  port = await getEphemeralPort();
-  modelPort = await getEphemeralPort();
+  [port, modelPort] = await getEphemeralPorts(2);
   base = `http://127.0.0.1:${port}`;
   model = http.createServer((req, res) => {
     if (req.method === "GET" && req.url === "/health") {
