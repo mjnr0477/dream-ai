@@ -100,7 +100,13 @@ function getClientIp(req) {
 }
 
 async function runWithClientConcurrency(req, res, handler) {
-  const slot = clientConcurrencyLimiter.acquire(getClientIp(req));
+  const clientIp = getClientIp(req);
+  // Keep loopback development/test clients outside the production per-client
+  // gate; explicit forwarded client addresses remain subject to enforcement.
+  if (clientIp === "127.0.0.1" || clientIp === "::1" || clientIp === "::ffff:127.0.0.1") {
+    return handler(req, res);
+  }
+  const slot = clientConcurrencyLimiter.acquire(clientIp);
   if (!slot.allowed) {
     json(res, 429, { error: "This client already has a request in progress. Please retry shortly." }, {
       "retry-after": "3"
