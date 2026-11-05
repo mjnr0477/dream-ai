@@ -93,6 +93,88 @@ test("times out a slow handler and signals cancellation", async () => {
   assert.equal(aborted, true);
 });
 
+
+
+test("validates nested object and array schemas and enforces their limits", async () => {
+  const registry = new ToolRegistry();
+  const nested = {
+    ...definition,
+    id: "nested_lookup",
+    inputSchema: {
+      type: "object",
+      properties: {
+        filters: {
+          type: "array",
+          minItems: 1,
+          maxItems: 2,
+          items: {
+            type: "object",
+            properties: { enabled: { type: "boolean" } },
+            required: ["enabled"],
+            additionalProperties: false
+          }
+        }
+      },
+      required: ["filters"],
+      additionalProperties: false
+    }
+  };
+  registry.register(nested, async ({ input }) => ({ count: input.filters.length }));
+  const result = await registry.execute({
+    toolId: nested.id,
+    input: { filters: [{ enabled: true }] },
+    principal
+  });
+  assert.deepEqual(result.result, { count: 1 });
+  await assert.rejects(
+    registry.execute({ toolId: nested.id, input: { filters: [{ enabled: "yes" }] }, principal }),
+    /expected boolean/
+  );
+  await assert.rejects(
+    registry.execute({ toolId: nested.id, input: { filters: [{ enabled: true, extra: 1 }] }, principal }),
+    /unexpected property/
+  );
+  await assert.rejects(
+    registry.execute({ toolId: nested.id, input: { filters: [] }, principal }),
+    /too few items/
+  );
+  await assert.rejects(
+    registry.execute({ toolId: nested.id, input: { filters: [{ enabled: true }, { enabled: false }, { enabled: true }] }, principal }),
+    /too many items/
+  );
+});
+
+test("rejects malformed and excessively deep schemas during registration", () => {
+  const registry = new ToolRegistry();
+  assert.throws(() => registry.register({
+    ...definition,
+    id: "broken_array",
+    inputSchema: { type: "object", properties: { values: { type: "array" } } }
+  }, async () => ({})), /items schema/);
+
+  let deep = { type: "string" };
+  for (let index = 0; index < 10; index += 1) deep = { type: "array", items: deep };
+  assert.throws(() => registry.register({
+    ...definition,
+    id: "too_deep",
+    inputSchema: { type: "object", properties: { value: deep } }
+  }, async () => ({})), /nested too deeply/);
+});
+
+test("timeout remains a timeout when the handler resolves during abort", async () => {
+  const registry = new ToolRegistry({ maxConcurrent: 1 });
+  const short = { ...definition, timeoutMs: 100 };
+  let aborted = false;
+  registry.register(short, async ({ signal }) => new Promise((resolve) => {
+    signal.addEventListener("abort", () => { aborted = true; resolve("late"); }, { once: true });
+  }));
+  await assert.rejects(
+    registry.execute({ toolId: short.id, input: { key: "x" }, principal }),
+    /timed out/
+  );
+  assert.equal(aborted, true);
+});
+
 test("enforces the concurrent execution limit", async () => {
   const registry = new ToolRegistry({ maxConcurrent: 1 });
   let release;
