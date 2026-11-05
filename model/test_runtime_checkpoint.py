@@ -8,6 +8,7 @@ import torch
 from dream_transformer import DreamConfig, DreamTransformer
 from runtime_checkpoint import (
     MAX_CHECKPOINT_BYTES,
+    estimated_parameter_count,
     load_validated_checkpoint,
 )
 
