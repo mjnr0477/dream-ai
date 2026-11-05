@@ -188,3 +188,11 @@ python model/score_task_benchmark.py --input eval-results/native-task-benchmark.
 ```
 
 The runner records checkpoint and benchmark hashes, language metadata and prompt truncation. The scorer validates and aggregates human-entered scores only; it never grades model output. Tiny synthetic CI checkpoints are mechanics tests, not evidence of useful intelligence. Language coverage metadata is not a claim of language proficiency.
+
+For multilingual pretraining, prepare the training text with one `<|language:TAG|>` marker on its own line before each document (for example, `<|language:en|>` and `<|language:sw|>`). Then opt into uniform per-language window sampling:
+
+```sh
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --language-sampling balanced
+```
+
+Balanced mode requires at least `block_size + 2` tokens for every tagged language. Validation loss remains proportional to the held-out validation corpus. The selected sampling mode is recorded in checkpoints and cannot be silently changed when resuming; Python RNG state is saved so balanced sampling can resume reproducibly.
