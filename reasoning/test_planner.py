@@ -65,8 +65,52 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(record.uncertainty, [])
 
     def test_invalid_reliability_is_rejected(self):
+        for value in (1.1, float("nan"), float("inf"), True, "0.5", 10 ** 10000):
+            with self.subTest(value=value), self.assertRaises(PlanError):
+                Evidence("claim", "source", True, value)
+
+    def test_ready_tasks_excludes_work_already_in_progress(self):
+        plan = Planner.build([Task("ready", "Ready"), Task("active", "Active")])
+        plan.mark_in_progress("active")
+        self.assertEqual([task.id for task in plan.ready_tasks()], ["ready"])
+
+    def test_task_and_evidence_reject_malformed_types_with_plan_error(self):
+        invalid_tasks = [
+            lambda: Task(None, "Title"),
+            lambda: Task("id", 12),
+            lambda: Task("id", "Title", description=None),
+            lambda: Task("id", "Title", depends_on=("ok", 7)),
+            lambda: Task("id", "Title", success_criteria=("ok", None)),
+            lambda: Task("id", "Title", requires_evidence=1),
+        ]
+        invalid_evidence = [
+            lambda: Evidence(None, "source", True, 0.5),
+            lambda: Evidence("claim", [], True, 0.5),
+            lambda: Evidence("claim", "source", 1, 0.5),
+            lambda: Evidence("claim", "source", True, 0.5, criterion=4),
+        ]
+        for factory in invalid_tasks + invalid_evidence:
+            with self.subTest(factory=factory), self.assertRaises(PlanError):
+                factory()
+
+    def test_submit_outcome_validates_all_inputs_before_mutation(self):
+        plan = Planner.build([Task("t", "Task")])
+        plan.mark_in_progress("t")
         with self.assertRaises(PlanError):
-            Evidence("claim", "source", True, 1.1)
+            plan.submit_outcome("t", "Done", [Evidence("ok", "test", True, 1.0)], [None])
+        record = plan.records["t"]
+        self.assertEqual(record.outcome, "")
+        self.assertEqual(record.evidence, [])
+        self.assertEqual(record.uncertainty, [])
+
+        with self.assertRaises(PlanError):
+            plan.submit_outcome("t", 123)
+        with self.assertRaises(PlanError):
+            plan.submit_outcome("t", "Done", [object()])
+        with self.assertRaises(PlanError):
+            plan.submit_outcome("t", "Done", uncertainty="not-an-array")
+        with self.assertRaises(PlanError):
+            plan.status([])
 
 
 if __name__ == "__main__":
