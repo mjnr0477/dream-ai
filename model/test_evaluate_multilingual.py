@@ -62,6 +62,16 @@ class MultilingualCoverageTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "does not match"):
             validate_language_coverage(manifest, "sw")
 
+    def test_rejects_boolean_group_counts(self):
+        manifest = manifest_with_coverage({
+            "train": ["train-source"],
+            "validation": ["validation-source"],
+            "test": ["test-source"]
+        })
+        manifest["language_split_coverage"]["sw"]["source_groups_by_split"]["test"] = True
+        with self.assertRaisesRegex(ValueError, "does not match"):
+            validate_language_coverage(manifest, "sw")
+
     def test_rejects_cross_split_source_group_leakage(self):
         manifest = manifest_with_coverage({
             "train": ["shared-source"],
