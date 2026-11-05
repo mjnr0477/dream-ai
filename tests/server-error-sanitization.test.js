@@ -50,7 +50,7 @@ after(() => {
   if (child && child.exitCode === null) child.kill("SIGTERM");
 });
 
-test("chat returns a generic error instead of runtime configuration details", async () => {
+test("chat preserves safe runtime diagnostics without exposing configured URLs", async () => {
   const response = await fetch(baseUrl + "/api/chat", {
     method: "POST",
     headers: {
@@ -66,6 +66,6 @@ test("chat returns a generic error instead of runtime configuration details", as
 
   assert.equal(response.status, 502);
   const body = await response.json();
-  assert.equal(body.error, "DREAM AI is temporarily unavailable. Please try again.");
+  assert.equal(body.error, "DREAM_MODEL_URL must use HTTPS unless it targets loopback for local development.");
   assert.equal(JSON.stringify(body).includes("invalid-runtime.example"), false);
 });
