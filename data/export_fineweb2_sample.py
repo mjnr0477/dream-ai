@@ -5,6 +5,7 @@ Install the optional dependency with: python -m pip install datasets
 """
 import argparse
 import json
+import math
 import os
 from pathlib import Path
 
@@ -21,7 +22,7 @@ def export_row(row, min_language_score=0.95):
         score = float(row.get("language_score"))
     except (TypeError, ValueError):
         return None
-    if score < min_language_score:
+    if not math.isfinite(score) or score < min_language_score:
         return None
     return {key: row[key] for key in (
         "id", "text", "url", "date", "language", "language_script"
