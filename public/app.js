@@ -230,7 +230,10 @@ async function sendMessage(text, isRetry = false) {
     retry.type = "button";
     retry.className = "retry-message";
     retry.textContent = "Retry message";
-    retry.addEventListener("click", () => sendMessage(content, true));
+    retry.addEventListener("click", () => {
+      retry.closest(".message")?.remove();
+      sendMessage(content, true);
+    });
     replyNode.append(document.createTextNode(" "));
     replyNode.append(retry);
   } finally {
