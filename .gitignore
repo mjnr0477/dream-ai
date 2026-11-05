@@ -10,3 +10,11 @@ __pycache__/
 *.py[cod]
 checkpoints/
 .venv/
+# Local reviewed datasets, decision ledgers and generated training splits
+data/approved-*.jsonl
+data/*-candidates.jsonl
+data/*-review-decisions.jsonl
+data/sft-train.jsonl
+data/sft-validation.jsonl
+data/sft-split-manifest.json
+data/prepared/
