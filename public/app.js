@@ -151,7 +151,7 @@ function renderMessages() {
 }
 
 function setMode(mode) {
-  activeMode = ["general", "coding", "learning"].includes(mode) ? mode : "general";
+  activeMode = ["general", "coding", "learning", "research"].includes(mode) ? mode : "general";
   document.querySelectorAll("[data-mode-select]").forEach(button => {
     button.classList.toggle("active", button.dataset.modeSelect === activeMode);
   });
@@ -220,6 +220,91 @@ async function checkHealth() {
   } catch {
     statusText.textContent = "Service connection unavailable";
     statusDot.classList.remove("online");
+  }
+}
+
+async function sendResearch(text, isRetry = false) {
+  const content = text.trim();
+  if (!content || send.disabled) return;
+  welcome.hidden = true;
+  messages.push({ role: "user", content });
+  if (!isRetry) addMessage("user", content);
+  input.value = "";
+  input.style.height = "auto";
+  send.disabled = true;
+  send.textContent = "…";
+  const replyNode = addMessage("assistant", "Searching public knowledge…");
+  try {
+    const response = await fetch("/api/research", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ query: content })
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Research search failed.");
+    replyNode.replaceChildren();
+    const heading = document.createElement("strong");
+    heading.textContent = data.results.length
+      ? `Public-source results · ${data.provider}`
+      : `No results found · ${data.provider}`;
+    replyNode.append(heading);
+    const note = document.createElement("p");
+    note.className = "research-note";
+    note.textContent = "Public Wikipedia search snippets. Open the source pages to verify details and follow their references.";
+    replyNode.append(note);
+    const transcript = [];
+    for (const result of data.results) {
+      const item = document.createElement("article");
+      item.className = "research-result";
+      const link = document.createElement("a");
+      link.href = result.url;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.textContent = result.title;
+      const snippet = document.createElement("p");
+      snippet.textContent = result.snippet;
+      item.append(link, snippet);
+      replyNode.append(item);
+      transcript.push(`${result.title}\n${result.snippet}\n${result.url}`);
+    }
+    if (!data.results.length) {
+      const empty = document.createElement("p");
+      empty.textContent = "Try a different search phrase. This search currently covers Wikipedia only.";
+      replyNode.append(empty);
+    } else {
+      const actions = document.createElement("div");
+      actions.className = "message-tools";
+      const ask = document.createElement("button");
+      ask.type = "button";
+      ask.textContent = "Ask DREAM to analyze these sources";
+      ask.addEventListener("click", () => {
+        setMode("general");
+        sendMessage(`Using the public-source results above, answer this research question: ${content}. Distinguish source-backed information from uncertainty and include the source URLs.`);
+      });
+      actions.append(ask);
+      replyNode.append(actions);
+    }
+    messages.push({ role: "assistant", content: transcript.length ? transcript.join("\n\n") : "No public-source results were found." });
+    persistActiveChat();
+    statusText.textContent = `Public research · Wikipedia · ${data.results.length} results`;
+  } catch (error) {
+    replyNode.textContent = error.message || "Public research is unavailable. Please try again.";
+    statusText.textContent = "Public research unavailable · retry";
+    messages.pop();
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "retry-message";
+    retry.textContent = "Retry search";
+    retry.addEventListener("click", () => {
+      if (send.disabled) return;
+      retry.closest(".message")?.remove();
+      sendResearch(content, true);
+    });
+    replyNode.append(document.createTextNode(" "), retry);
+  } finally {
+    send.disabled = false;
+    send.textContent = "↑";
+    input.focus();
   }
 }
 
@@ -299,7 +384,8 @@ function resetChat() {
 
 form.addEventListener("submit", event => {
   event.preventDefault();
-  sendMessage(input.value);
+  if (activeMode === "research") sendResearch(input.value);
+  else sendMessage(input.value);
 });
 input.addEventListener("input", () => {
   input.style.height = "auto";
