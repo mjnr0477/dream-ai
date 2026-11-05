@@ -16,6 +16,7 @@ import torch
 
 from dream_bpe import DreamBPETokenizer
 from dream_transformer import DreamConfig, DreamTransformer
+import serve
 from serve import load_model
 
 SERVER = Path(__file__).with_name("serve.py")
@@ -261,6 +262,21 @@ class DreamServingTests(unittest.TestCase):
         self.assertEqual(body["model"], "dream-test")
         self.assertEqual(body["choices"][0]["message"]["role"], "assistant")
         self.assertEqual(len(body["choices"][0]["message"]["content"]), 1)
+
+    def test_rejects_excess_inference_instead_of_queueing(self):
+        self.assertTrue(serve.MODEL_LOCK.acquire(blocking=False))
+        try:
+            status, body = self.request(
+                "POST", "/v1/chat/completions",
+                {"model": "dream-test",
+                 "messages": [{"role": "user", "content": "Hello"}],
+                 "max_tokens": 1},
+                token="test-secret-token"
+            )
+        finally:
+            serve.MODEL_LOCK.release()
+        self.assertEqual(status, 503)
+        self.assertIn("busy", body["error"]["message"].lower())
 
     def test_zero_temperature_enables_greedy_decoding(self):
         status, body = self.request(
