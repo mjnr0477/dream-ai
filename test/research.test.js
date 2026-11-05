@@ -184,3 +184,56 @@ test("marks bounded article introductions as truncated instead of implying compl
   assert.equal(result.results[0].extract.length, 350);
   assert.equal(result.results[0].extractTruncated, true);
 });
+
+
+test("reports an upstream search timeout instead of fabricating evidence", async () => {
+  await assert.rejects(
+    searchPublicKnowledge("public health", async () => {
+      const error = new Error("aborted");
+      error.name = "AbortError";
+      throw error;
+    }),
+    /Public research search timed out/
+  );
+});
+
+test("falls back to labeled search snippets when article evidence times out", async () => {
+  let calls = 0;
+  const result = await searchPublicKnowledge("public health", async () => {
+    calls += 1;
+    if (calls === 1) return {
+      ok: true,
+      json: async () => ({
+        query: { search: [{ pageid: 88, title: "Public health", snippet: "Search evidence only." }] }
+      })
+    };
+    const error = new Error("aborted");
+    error.name = "AbortError";
+    throw error;
+  });
+
+  assert.equal(calls, 2);
+  assert.equal(result.evidenceLevel, "search-snippet");
+  assert.equal(result.results[0].extract, null);
+  assert.equal(result.results[0].url, "https://en.wikipedia.org/wiki/Public_health");
+});
+
+test("falls back safely when article evidence JSON is malformed", async () => {
+  let calls = 0;
+  const result = await searchPublicKnowledge("public health", async () => {
+    calls += 1;
+    if (calls === 1) return {
+      ok: true,
+      json: async () => ({
+        query: { search: [{ pageid: 89, title: "Public health", snippet: "Search evidence only." }] }
+      })
+    };
+    return {
+      ok: true,
+      json: async () => { throw new SyntaxError("invalid JSON"); }
+    };
+  });
+
+  assert.equal(result.evidenceLevel, "search-snippet");
+  assert.equal(result.results[0].extract, null);
+});
