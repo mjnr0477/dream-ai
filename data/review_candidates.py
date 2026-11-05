@@ -13,6 +13,26 @@ from urllib.parse import urlparse
 ALLOWED_RIGHTS = {
     "original-authorship", "public-domain", "open-license", "explicit-permission"
 }
+IDENTIFIER_FIELDS = {
+    "user_id", "author_id", "creator_id", "account_id", "profile_id",
+    "username", "user_name", "email", "user_email", "author_email",
+    "ip_address", "phone", "phone_number", "mobile_number"
+}
+
+
+def contains_identifier_metadata(value):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            normalized = re.sub(r"[^a-z0-9]+", "_", str(key).lower()).strip("_")
+            if normalized in IDENTIFIER_FIELDS:
+                return True
+            if contains_identifier_metadata(item):
+                return True
+    elif isinstance(value, list):
+        return any(contains_identifier_metadata(item) for item in value)
+    return False
+
+
 REVIEW_FIELDS = (
     ("rights_confirmed", "I verified the source terms grant rights to use this exact record for DREAM training."),
     ("privacy_reviewed", "I inspected this record and found no personal, confidential or sensitive information."),
@@ -41,6 +61,8 @@ def candidate_problem(record):
     """Return a non-sensitive rejection code, or None when review can begin."""
     if not isinstance(record, dict):
         return "record_not_object"
+    if contains_identifier_metadata(record):
+        return "identifying_metadata"
     for field in ("id", "source", "source_group", "license", "language"):
         if not isinstance(record.get(field), str) or not record[field].strip():
             return "missing_" + field
@@ -67,7 +89,7 @@ def candidate_problem(record):
     if messages is not None:
         if not isinstance(messages, list) or not messages:
             return "invalid_messages"
-        roles = set()
+        roles = []
         for item in messages:
             if (
                 not isinstance(item, dict)
@@ -76,9 +98,17 @@ def candidate_problem(record):
                 or not item["content"].strip()
             ):
                 return "invalid_messages"
-            roles.add(item["role"])
-        if not {"user", "assistant"}.issubset(roles):
-            return "incomplete_messages"
+            roles.append(item["role"])
+        if roles and roles[0] == "system":
+            roles = roles[1:]
+        if (
+            len(roles) < 2
+            or roles[0] != "user"
+            or roles[-1] != "assistant"
+            or any(role != ("user" if index % 2 == 0 else "assistant")
+                   for index, role in enumerate(roles))
+        ):
+            return "invalid_messages"
     elif not isinstance(record.get("text"), str) or not record["text"].strip():
         return "missing_or_invalid_content"
     if len(record_content(record)) < 40:
