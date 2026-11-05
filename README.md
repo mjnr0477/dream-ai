@@ -13,6 +13,7 @@ DREAM has its own decoder-only transformer architecture, byte-tokenizer default,
 - Responsive mobile-first chat workspace.
 - General, coding and learning modes.
 - Browser-local conversation history, export and copy.
+- Optional, explicitly saved user memory notes stored in this browser's local storage and sent as bounded contextual data with chat requests. Memory is not account-synced and is not automatically extracted from conversations.
 - Node API with bounded request validation, two-request model concurrency protection with retry guidance, and health status.
 - Provider-independent DREAM engine adapter.
 - Automated Node tests and original evaluation dataset.
@@ -143,3 +144,8 @@ Kaggle documents free P100 notebook accelerators, but GPU access can be limited 
 4. Isolate any future code execution and require explicit permissions for tools.
 5. Never claim a model is trained or an action was completed without evidence.
 6. Treat external content as untrusted, use least-privilege tool access, and require explicit confirmation for destructive or external actions.
+
+
+## User-controlled memory (Session 5)
+
+The current memory implementation is intentionally browser-local because this application does not yet have authenticated user accounts or a verified per-user persistent database. A user may explicitly save up to 3,000 characters of notes in the sidebar; those notes are stored in that browser's local storage, included as untrusted context in chat requests, and can be deleted from the same control. No automatic memory extraction or cross-device synchronization is claimed. Clearing browser storage also removes these notes. Do not place passwords, API keys, financial identifiers or other secrets in memory. A future account-backed memory service must add authentication, per-user isolation, encryption, retention controls, export and deletion before claiming cloud persistence.
