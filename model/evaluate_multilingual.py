@@ -37,7 +37,12 @@ def validate_language_coverage(manifest, language):
         if not isinstance(language_files, dict):
             raise ValueError(f"Invalid {split} language-file metadata")
         language_meta = language_files.get(language)
-        groups = [] if language_meta is None else language_meta.get("source_group_ids")
+        if language_meta is None:
+            groups = []
+        elif not isinstance(language_meta, dict):
+            raise ValueError(f"Invalid {split} language metadata for {language!r}")
+        else:
+            groups = language_meta.get("source_group_ids")
         if not isinstance(groups, list) or any(not isinstance(group, str) or not group for group in groups) or len(groups) != len(set(groups)):
             if language_meta is None:
                 groups = []
@@ -57,6 +62,10 @@ def validate_language_coverage(manifest, language):
         or not isinstance(declared_total, int)
         or declared_total != total_groups
         or not isinstance(declared_counts, dict)
+        or any(
+            isinstance(value, bool) or not isinstance(value, int) or value < 0
+            for value in declared_counts.values()
+        )
         or declared_counts != actual_counts
         or not isinstance(eligible, bool)
         or eligible != (total_groups >= 3)
