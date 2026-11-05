@@ -6,6 +6,8 @@ const welcome = document.querySelector("#welcome");
 const statusText = document.querySelector("#service-status");
 const statusDot = document.querySelector(".status-dot");
 const historyList = document.querySelector("#history-list");
+const mobileHistoryButton = document.querySelector("#mobile-history");
+const sidebarBackdrop = document.querySelector("#sidebar-backdrop");
 const STORAGE_KEY = "dream-ai-conversations-v1";
 const MAX_SAVED_CHATS = 30;
 let chats = loadChats();
@@ -59,7 +61,10 @@ function renderHistory() {
     button.className = "history-item" + (chat.id === activeChatId ? " selected" : "");
     button.textContent = chat.title || "Conversation";
     button.title = chat.title || "Conversation";
-    button.addEventListener("click", () => openChat(chat.id));
+    button.addEventListener("click", () => {
+      openChat(chat.id);
+      closeMobileHistory();
+    });
     historyList.append(button);
   }
 }
@@ -227,8 +232,13 @@ async function sendResearch(text, isRetry = false) {
   const content = text.trim();
   if (!content || send.disabled) return;
   welcome.hidden = true;
-  messages.push({ role: "user", content });
-  if (!isRetry) addMessage("user", content);
+  const lastMessage = messages.at(-1);
+  const retryingSameMessage = isRetry && lastMessage?.role === "user" && lastMessage.content === content;
+  if (!retryingSameMessage) messages.push({ role: "user", content });
+  if (!isRetry) {
+    addMessage("user", content);
+    persistActiveChat();
+  }
   input.value = "";
   input.style.height = "auto";
   send.disabled = true;
@@ -397,7 +407,8 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
     statusText.textContent = /retry in a few seconds/i.test(error.message || "")
       ? "DREAM AI is busy · please retry shortly"
       : "Model runtime unavailable · check connection";
-    messages.pop();
+    // Keep the user's message in local history so a reload does not lose the prompt.
+    persistActiveChat();
 
     const retry = document.createElement("button");
     retry.type = "button";
@@ -417,6 +428,13 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
   }
 }
 
+function closeMobileHistory() {
+  document.body.classList.remove("sidebar-open");
+  mobileHistoryButton?.setAttribute("aria-expanded", "false");
+  if (sidebarBackdrop) sidebarBackdrop.hidden = true;
+  mobileHistoryButton?.focus();
+}
+
 function resetChat() {
   activeChatId = null;
   messages = [];
@@ -424,6 +442,7 @@ function resetChat() {
   welcome.hidden = false;
   input.value = "";
   renderHistory();
+  closeMobileHistory();
   input.focus();
 }
 
@@ -443,7 +462,16 @@ input.addEventListener("keydown", event => {
   }
 });
 document.querySelector("#new-chat").addEventListener("click", resetChat);
-document.querySelector("#mobile-new").addEventListener("click", resetChat);
+mobileHistoryButton?.addEventListener("click", () => {
+  const isOpen = document.body.classList.toggle("sidebar-open");
+  mobileHistoryButton.setAttribute("aria-expanded", String(isOpen));
+  if (sidebarBackdrop) sidebarBackdrop.hidden = !isOpen;
+  if (isOpen) document.querySelector("#new-chat")?.focus();
+});
+sidebarBackdrop?.addEventListener("click", closeMobileHistory);
+document.addEventListener("keydown", event => {
+  if (event.key === "Escape" && document.body.classList.contains("sidebar-open")) closeMobileHistory();
+});
 document.querySelectorAll("[data-prompt]").forEach(button => {
   button.addEventListener("click", () => {
     setMode(button.dataset.mode || "general");
