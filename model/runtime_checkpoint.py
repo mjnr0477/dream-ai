@@ -7,6 +7,21 @@ from checkpoint_tokenizer import load_tokenizer
 from dream_transformer import DreamConfig, DreamTransformer
 
 
+MAX_CHECKPOINT_BYTES = 128 * 1024 * 1024
+MAX_MODEL_PARAMETERS = 24_000_000
+
+
+def estimated_parameter_count(config):
+    """Compute this architecture's parameter count without allocating tensors."""
+    width = config.d_model
+    return (
+        config.vocab_size * width
+        + config.block_size * width
+        + config.n_layers * (12 * width * width + 9 * width)
+        + 2 * width
+    )
+
+
 def load_validated_checkpoint(checkpoint_path):
     """Load a trained DREAM checkpoint only after validating its full model contract.
 
@@ -15,6 +30,14 @@ def load_validated_checkpoint(checkpoint_path):
     complete finite state-dict check before returning a model.
     """
     path = Path(checkpoint_path)
+    try:
+        checkpoint_size = path.stat().st_size
+    except OSError as exc:
+        raise ValueError(f"Checkpoint file cannot be accessed: {exc}") from exc
+    if checkpoint_size < 1 or checkpoint_size > MAX_CHECKPOINT_BYTES:
+        raise ValueError(
+            f"Checkpoint file size must be between 1 byte and {MAX_CHECKPOINT_BYTES} bytes"
+        )
     try:
         checkpoint = torch.load(path, map_location="cpu", weights_only=True)
     except Exception as exc:
@@ -39,6 +62,12 @@ def load_validated_checkpoint(checkpoint_path):
         ) from exc
     except ValueError as exc:
         raise ValueError(f"Invalid DREAM model config: {exc}") from exc
+
+    parameter_count = estimated_parameter_count(config)
+    if parameter_count > MAX_MODEL_PARAMETERS:
+        raise ValueError(
+            f"DREAM checkpoint architecture exceeds the {MAX_MODEL_PARAMETERS}-parameter runtime limit"
+        )
 
     try:
         tokenizer = load_tokenizer(checkpoint, config)
