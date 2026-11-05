@@ -24,10 +24,13 @@ def validate_language_coverage(manifest, language):
     if not isinstance(entry, dict):
         raise ValueError(f"Invalid language source-group coverage for {language!r}")
 
+    splits = manifest.get("splits")
+    if not isinstance(splits, dict):
+        raise ValueError("Invalid corpus split metadata")
     actual_counts = {}
     all_groups = set()
     for split in ("train", "validation", "test"):
-        split_meta = manifest.get("splits", {}).get(split)
+        split_meta = splits.get(split)
         if not isinstance(split_meta, dict):
             raise ValueError(f"Missing {split} split metadata")
         language_files = split_meta.get("language_files", {})
