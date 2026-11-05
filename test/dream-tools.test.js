@@ -33,9 +33,15 @@ test("registered research tool returns cleaned source-linked results without req
     fetchImpl: async (url, options) => {
       requestedUrl = new URL(url);
       requestOptions = options;
+      if (requestedUrl.searchParams.has("prop")) {
+        return new Response(JSON.stringify({ query: { pages: {
+          "1": { pageid: 1, extract: "DREAM AI article introduction.", touched: "2026-11-05T10:00:00Z", fullurl: "https://en.wikipedia.org/wiki/DREAM_AI" },
+          "2": { pageid: 2, extract: "A second article introduction.", touched: "2026-11-04T10:00:00Z", fullurl: "https://en.wikipedia.org/wiki/Second_source" }
+        } } }), { status: 200, headers: { "content-type": "application/json" } });
+      }
       return responseWith([
-        { title: "DREAM AI", snippet: "<b>Dream</b> AI &amp; public research" },
-        { title: "Second source", snippet: "A second public result." }
+        { pageid: 1, title: "DREAM AI", snippet: "<b>Dream</b> AI &amp; public research" },
+        { pageid: 2, title: "Second source", snippet: "A second public result." }
       ]);
     }
   });
@@ -54,6 +60,9 @@ test("registered research tool returns cleaned source-linked results without req
   assert.equal(execution.result.results.length, 2);
   assert.equal(execution.result.results[0].snippet, "Dream AI & public research");
   assert.equal(execution.result.results[0].url, "https://en.wikipedia.org/wiki/DREAM_AI");
+  assert.equal(execution.result.results[0].extract, "DREAM AI article introduction.");
+  assert.equal(execution.result.results[0].lastModified, "2026-11-05T10:00:00Z");
+  assert.equal(execution.result.evidenceLevel, "encyclopedia-introduction");
   assert.equal(auditEvents.length, 1);
   assert.equal(auditEvents[0].status, "succeeded");
   assert.equal(Object.hasOwn(auditEvents[0], "query"), false);
