@@ -84,6 +84,21 @@ class ColabNotebookTests(unittest.TestCase):
             evaluation.index("model/evaluate.py")
         )
 
+    def test_sft_checkpoint_must_pass_technical_release_gate_before_runtime(self):
+        evaluation = "".join(self.notebook["cells"][12]["source"])
+        bundle = "".join(self.notebook["cells"][14]["source"])
+        runtime = "".join(self.notebook["cells"][16]["source"])
+        self.assertLess(
+            evaluation.index("model/audit_checkpoint.py"),
+            evaluation.index("model/validate_release.py")
+        )
+        self.assertIn("dream-bpe-instruct-audit.json", bundle)
+        self.assertIn("dream-bpe-instruct-release-gate.json", bundle)
+        self.assertIn("production_release_approved", evaluation)
+        self.assertIn("RELEASE_GATE_PATH", runtime)
+        self.assertIn("RELEASE_GATE.get(\"checkpoint_sha256\")", runtime)
+        self.assertIn("not production approval", evaluation.lower())
+
     def test_colab_has_authenticated_temporary_native_runtime_bridge(self):
         markdown = "".join(self.notebook["cells"][15]["source"])
         runtime = "".join(self.notebook["cells"][16]["source"])
