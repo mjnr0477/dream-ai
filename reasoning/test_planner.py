@@ -65,7 +65,7 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(record.uncertainty, [])
 
     def test_invalid_reliability_is_rejected(self):
-        for value in (1.1, float("nan"), float("inf"), True, "0.5"):
+        for value in (1.1, float("nan"), float("inf"), True, "0.5", 10 ** 10000):
             with self.subTest(value=value), self.assertRaises(PlanError):
                 Evidence("claim", "source", True, value)
 
@@ -107,6 +107,10 @@ class PlannerTests(unittest.TestCase):
             plan.submit_outcome("t", 123)
         with self.assertRaises(PlanError):
             plan.submit_outcome("t", "Done", [object()])
+        with self.assertRaises(PlanError):
+            plan.submit_outcome("t", "Done", uncertainty="not-an-array")
+        with self.assertRaises(PlanError):
+            plan.status([])
 
 
 if __name__ == "__main__":
