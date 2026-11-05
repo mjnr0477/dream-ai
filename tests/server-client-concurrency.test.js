@@ -92,7 +92,8 @@ function chat(clientIp) {
     headers: {
       "content-type": "application/json",
       origin: baseUrl,
-      "x-forwarded-for": clientIp
+      "cf-connecting-ip": clientIp,
+      "x-forwarded-for": "203.0.113.250"
     },
     body: JSON.stringify({
       mode: "general",
@@ -114,7 +115,8 @@ test("live chat route enforces one in-flight request per client", async () => {
     headers: {
       "content-type": "application/json",
       origin: baseUrl,
-      "x-forwarded-for": "198.51.100.101"
+      "cf-connecting-ip": "198.51.100.101",
+      "x-forwarded-for": "203.0.113.250"
     },
     body: JSON.stringify({ query: "DREAM security" })
   });
