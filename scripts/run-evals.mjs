@@ -46,9 +46,18 @@ if (
 ) {
   throw new Error("Runtime identity or checkpoint provenance is missing; refusing to benchmark an unverified model.");
 }
+const evaluationSet = process.env.DREAM_EVAL_SET || "core-v1";
+const evaluationFiles = {
+  "core-v1": "../evals/core-v1.jsonl",
+  "african-languages-v1": "../evals/african-languages-v1.jsonl"
+};
+const evaluationFile = evaluationFiles[evaluationSet];
+if (!evaluationFile) {
+  throw new Error("Unsupported DREAM_EVAL_SET. Choose core-v1 or african-languages-v1.");
+}
 const runId = randomUUID();
 const runStartedAt = new Date().toISOString();
-const cases = (await readFile(new URL("../evals/core-v1.jsonl", import.meta.url), "utf8"))
+const cases = (await readFile(new URL(evaluationFile, import.meta.url), "utf8"))
   .split(/\r?\n/)
   .filter(Boolean)
   .map(line => JSON.parse(line));
@@ -92,7 +101,7 @@ for (const item of selected) {
   results.push({
     runId,
     runStartedAt,
-    evaluationSet: "core-v1",
+    evaluationSet,
     model: modelName,
     checkpointSha256: runtime.checkpoint_sha256,
     completedTrainingSteps: runtime.completed_training_steps,
