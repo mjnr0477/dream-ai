@@ -203,6 +203,11 @@ class DreamEvaluationTests(unittest.TestCase):
             self.assertEqual(report["languages_evaluated"], ["en", "sw"])
             self.assertIsNone(report["aggregation"])
             self.assertEqual(
+                report["language_source_coverage"],
+                {"en": None, "sw": None}
+            )
+            self.assertIsNone(report["per_language"]["en"]["source_coverage"])
+            self.assertEqual(
                 set(report["per_language"]),
                 {"en", "sw"}
             )
