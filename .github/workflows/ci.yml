@@ -34,8 +34,24 @@ jobs:
         run: python -m compileall -q model
       - name: Estimate DREAM model parameter and memory budget
         run: python model/estimate_model.py --out /tmp/dream-model-budget.json
-      - name: Validate Colab notebook structure
-        run: python -c "import json; n=json.load(open('training/dream_train_colab.ipynb', encoding='utf-8')); assert n['nbformat']==4 and n['cells'] and all(c['cell_type'] in ('code','markdown') for c in n['cells'])"
+      - name: Validate training notebook structure and Python cells
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          for notebook in (
+              Path("training/dream_train_colab.ipynb"),
+              Path("training/dream_train_kaggle.ipynb"),
+          ):
+              document = json.loads(notebook.read_text(encoding="utf-8"))
+              assert document["nbformat"] == 4 and document["cells"]
+              for index, cell in enumerate(document["cells"]):
+                  assert cell["cell_type"] in ("code", "markdown")
+                  if cell["cell_type"] == "code":
+                      compile("".join(cell["source"]), f"{notebook}:cell-{index}", "exec")
+              print(f"Validated notebook structure and Python syntax: {notebook}")
+          PY
       - name: Test DREAM transformer, runtime and release gate
         run: python -m unittest discover -s model -p 'test_*.py' -v
       - name: Prepare synthetic pretraining smoke corpus
