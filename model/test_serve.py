@@ -408,8 +408,16 @@ class DreamServingTests(unittest.TestCase):
             },
             method="POST"
         )
+        original_forward_cached = model.forward_cached
+
+        def slow_prefill(*args, **kwargs):
+            time.sleep(0.02)
+            return original_forward_cached(*args, **kwargs)
+
         try:
-            with patch.object(serve, "MAX_INFERENCE_SECONDS", 0):
+            with patch.object(serve, "MAX_INFERENCE_SECONDS", 0.001), patch.object(
+                model, "forward_cached", side_effect=slow_prefill
+            ):
                 with self.assertRaises(urllib.error.HTTPError) as raised:
                     urllib.request.urlopen(request, timeout=5)
                 self.assertEqual(raised.exception.code, 504)
