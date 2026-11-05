@@ -46,3 +46,12 @@
   .sidebar-backdrop{display:block;position:fixed;inset:0;width:100%;height:100%;border:0;border-radius:0;background:#02050bd1;z-index:2;cursor:pointer;}
   .sidebar-backdrop[hidden]{display:none;}
 }
+
+/* Explicit, browser-local memory notes. */
+.memory-panel{margin:12px 0;padding:10px;border:1px solid var(--border,#293044);border-radius:12px;color:var(--text,#e8eaf2)}
+.memory-panel summary{cursor:pointer;font-weight:600;font-size:13px}
+.memory-help,#memory-status{color:var(--muted,#9aa3b7);font-size:11px;line-height:1.5}
+.memory-panel label{display:block;margin:8px 0 5px;font-size:12px}
+.memory-panel textarea{box-sizing:border-box;width:100%;resize:vertical;padding:8px;border:1px solid var(--border,#293044);border-radius:8px;background:var(--surface,#101522);color:inherit;font:inherit;font-size:12px}
+.memory-actions{display:flex;gap:8px;margin-top:8px}
+.memory-actions button{border:1px solid var(--border,#293044);border-radius:8px;padding:7px 9px;background:transparent;color:inherit;cursor:pointer;font-size:11px}

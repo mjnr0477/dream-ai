@@ -22,6 +22,17 @@
       <nav class="history-list" id="history-list" aria-label="Recent conversations">
         <p class="history-empty">Your saved conversations will appear here.</p>
       </nav>
+      <details class="memory-panel">
+        <summary>Memory notes</summary>
+        <p class="memory-help">Optional notes you choose to save. Stored in this browser and sent with chat requests. Do not save passwords, keys or sensitive details.</p>
+        <label for="memory-notes">What should DREAM AI remember?</label>
+        <textarea id="memory-notes" maxlength="3000" rows="4" placeholder="Your preferences, goals or ongoing projects…"></textarea>
+        <div class="memory-actions">
+          <button id="save-memory" type="button">Save memory</button>
+          <button id="clear-memory" type="button">Delete</button>
+        </div>
+        <p id="memory-status" role="status" aria-live="polite"></p>
+      </details>
       <div class="sidebar-bottom">
         <div class="service-indicator"><span class="status-dot"></span><span id="service-status">Connecting…</span></div>
         <div class="profile"><span class="profile-avatar">D</span><span><strong>Dream AI</strong><small>Guest workspace · saved on this device</small></span></div>
