@@ -131,6 +131,26 @@ class FineWeb2CandidateImporterTests(unittest.TestCase):
                 self.assertFalse(output.exists())
                 self.assertFalse(summary.exists())
 
+    def test_rejects_invalid_https_ports(self):
+        invalid_urls = (
+            "https://example.org:not-a-port/page",
+            "https://example.org:70000/page",
+        )
+        for url in invalid_urls:
+            with self.subTest(url=url), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                row = {
+                    "id": "bad-port",
+                    "text": "A sufficiently long document that should fail due to URL port. " * 2,
+                    "url": url, "date": "2024-01-01", "language": "eng"
+                }
+                (root / "fineweb2.jsonl").write_text(json.dumps(row) + "\\n", encoding="utf-8")
+                result, output, summary = self.run_import(root)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("invalid port", result.stderr)
+                self.assertFalse(output.exists())
+                self.assertFalse(summary.exists())
+
     def test_refuses_input_output_and_summary_path_collisions(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
