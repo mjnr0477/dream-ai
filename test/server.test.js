@@ -301,7 +301,7 @@ test("capabilities endpoint reports only verified runtime and tool availability"
   assert.equal(data.contractVersion, 1);
   assert.equal(data.model.status, "ready");
   assert.equal(data.model.completedTrainingSteps, 12);
-  assert.deepEqual(data.application.modes, ["general", "coding", "learning"]);
+  assert.deepEqual(data.application.modes, ["general", "coding", "learning", "research"]);
   assert.equal(data.safety.toolExecutionDefault, "disabled");
   assert.equal(data.safety.unrestrictedAccess, false);
   assert.ok(data.tools.some(tool => tool.id === "code_execution" && tool.status === "not-implemented"));
