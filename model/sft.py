@@ -35,7 +35,7 @@ def sha256(path):
 
 def identifier_fingerprint(value, kind):
     return hashlib.sha256(
-        f"dream-corpus:{kind}:v1\\0{value}".encode("utf-8")
+        f"dream-corpus:{kind}:v1\0{value}".encode("utf-8")
     ).hexdigest()
 
 
@@ -273,7 +273,7 @@ def main():
             }
         else:
             raise ValueError("unsupported manifest identifier format")
-    except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
+    except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
         raise SystemExit(
             "Invalid pretraining manifest: expected a test split with sha256 and source_group_ids."
         ) from exc
