@@ -143,3 +143,4 @@ Kaggle documents free P100 notebook accelerators, but GPU access can be limited 
 3. Validate requests and bound resource usage.
 4. Isolate any future code execution and require explicit permissions for tools.
 5. Never claim a model is trained or an action was completed without evidence.
+6. Treat external content as untrusted, use least-privilege tool access, and require explicit confirmation for destructive or external actions.
