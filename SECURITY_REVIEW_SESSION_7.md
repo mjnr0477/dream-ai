@@ -24,6 +24,7 @@ The application has meaningful request-boundary protections, but it is not yet a
 |---|---|---|---|
 | S7-01 | High | PR #167's ClientConcurrencyLimiter helper was unit-tested but not imported or invoked by server.js; real chat/research requests were not receiving the advertised per-client concurrency control. | Fixed in Session 12 integration; awaiting CI and review |
 | S7-07 | Medium | The chat route returned unexpected runtime exception messages directly to clients, potentially disclosing deployment/configuration details. | Fixed in Session 12 integration with generic public error and regression test |
+| S7-08 | Medium | Client identity was taken from the leftmost X-Forwarded-For value, which can be attacker-controlled when a proxy appends rather than replaces it; this can bypass IP-based rate and concurrency limits. | Fixed in latest Session 12 integration by preferring validated CF-Connecting-IP and falling back to the transport peer; X-Forwarded-For is ignored for security decisions |
 | S7-02 | High | No authenticated user/account system or server-side conversation store was found in the inspected application. Per-IP limits do not establish user identity or data ownership. | Open architectural requirement |
 | S7-03 | Medium | The per-IP rate limiter is process-local and is not a shared quota across multiple instances. | Documented limitation |
 | S7-04 | Medium | Native runtime authentication depends on deployment configuration; remote runtime deployment must set a strong token and restrict network exposure. | Deployment verification required |
@@ -31,6 +32,8 @@ The application has meaningful request-boundary protections, but it is not yet a
 | S7-06 | Informational | Conversation history is browser-local; users sharing a browser profile can access that local history. | Privacy disclosure / future account design |
 
 ## Session 12 integration changes
+
+- Use the validated Cloudflare `CF-Connecting-IP` value for client rate/concurrency identity; ignore `X-Forwarded-For` because it may contain a client-forged prefix. If the Cloudflare header is absent or invalid, fall back to the transport peer rather than trusting a caller-controlled forwarded value. Add regression coverage with deliberately forged XFF values.
 
 - Invoke the existing client concurrency limiter for both POST /api/chat and POST /api/research.
 - Acquire the slot before the route handler consumes rate-limit tokens or performs downstream work.
@@ -44,7 +47,7 @@ The application has meaningful request-boundary protections, but it is not yet a
 
 ## Verification status
 
-- Full GitHub Actions CI must pass on the final integration head: Node/application tests, reasoning tests and native-model tests.
+- Full GitHub Actions CI must pass on the final integration head: Node/application tests, reasoning tests and native-model tests. The latest branch commit triggers a fresh run after the trusted-proxy correction.
 - The live HTTP concurrency integration test is included in the integration test suite.
 - Re-check the final PR head and main base before merge; do not merge if required checks are missing, pending or failing.
 
