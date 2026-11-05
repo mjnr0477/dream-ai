@@ -58,6 +58,16 @@ def format_prompt(messages):
     ) + "ASSISTANT:"
 
 
+def clean_assistant_output(text):
+    """Remove accidental continuation into the next serialized conversation turn."""
+    value = text.strip()
+    boundaries = [value.find(marker) for marker in ("\\nUSER:", "\\nASSISTANT:", "\\nSYSTEM:")]
+    boundaries = [position for position in boundaries if position >= 0]
+    if boundaries:
+        value = value[:min(boundaries)].rstrip()
+    return value
+
+
 def create_handler(model, tokenizer, config, model_name, token, device, metadata=None, checkpoint_hash=None):
     class Handler(BaseHTTPRequestHandler):
         server_version = "DREAMNativeRuntime/0.2"
@@ -183,7 +193,7 @@ def create_handler(model, tokenizer, config, model_name, token, device, metadata
                             constrain_utf8=True,
                             token_byte_pieces=getattr(tokenizer, "token_byte_pieces", None)
                         )[0].tolist()
-                answer = tokenizer.decode(generated[len(prompt_ids):]).strip()
+                answer = clean_assistant_output(tokenizer.decode(generated[len(prompt_ids):]))
             except Exception:
                 return self.send_json(500, {"error": {"message": "DREAM inference failed"}})
             finally:
