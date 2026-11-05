@@ -54,7 +54,8 @@ before(async () => {
       DREAM_MODEL_URL: `http://127.0.0.1:${modelPort}/v1`,
       DREAM_MODEL_NAME: "dream-test-model",
       DREAM_MODEL_TOKEN: "",
-      PUBLIC_ORIGIN: base
+      PUBLIC_ORIGIN: base,
+      DREAM_API_RATE_LIMIT: "120"
     },
     stdio: "ignore"
   });
