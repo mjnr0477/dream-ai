@@ -14,7 +14,10 @@ const MAX_BODY_BYTES = 32 * 1024;
 const MAX_MESSAGE_CHARS = 8000;
 const MAX_HISTORY_ITEMS = 12;
 const MAX_ACTIVE_CHATS = 2;
-const RATE_LIMIT_CAPACITY = 12;
+const configuredRateLimit = Number(process.env.DREAM_API_RATE_LIMIT);
+const RATE_LIMIT_CAPACITY = Number.isInteger(configuredRateLimit) && configuredRateLimit > 0
+  ? Math.min(configuredRateLimit, 120)
+  : 20;
 const RATE_LIMIT_REFILL_PER_MS = RATE_LIMIT_CAPACITY / 60000;
 const RATE_LIMIT_IDLE_MS = 10 * 60 * 1000;
 const MAX_RATE_LIMIT_BUCKETS = 5000;
