@@ -85,6 +85,33 @@ async function postChat(payload, rawBody) {
   });
 }
 
+async function postResearch(payload, rawBody) {
+  return fetch(`${base}/api/research`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: rawBody ?? JSON.stringify(payload)
+  });
+}
+
+test("research endpoint rejects malformed and oversized queries before upstream access", async () => {
+  for (const payload of [
+    { query: "" },
+    { query: "   " },
+    { query: "x".repeat(201) },
+    { query: 42 },
+    [],
+    null
+  ]) {
+    const response = await postResearch(payload);
+    assert.equal(response.status, 400);
+    assert.match((await response.json()).error, /research query|JSON object/i);
+  }
+
+  const malformed = await postResearch(null, "{");
+  assert.equal(malformed.status, 400);
+  assert.match((await malformed.json()).error, /valid JSON/i);
+});
+
 test("health endpoint identifies the DREAM engine and configured model", async () => {
   const response = await fetch(`${base}/api/health`);
   assert.equal(response.status, 200);
