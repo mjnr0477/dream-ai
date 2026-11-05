@@ -1,11 +1,12 @@
 import http from "node:http";
-import { isIP } from "node:net";
 import { readFile } from "node:fs/promises";
 import { extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generateDreamReply, getDreamRuntimeStatus } from "./lib/dream-engine.js";
 import { getDreamCapabilities } from "./lib/capabilities.js";
 import { runPublicResearch } from "./lib/dream-tools.js";
+import { ClientConcurrencyLimiter } from "./lib/client-limiter.js";
+import { getClientIp } from "./lib/client-ip.js";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC_DIR = join(ROOT, "public");
@@ -22,9 +23,24 @@ const RATE_LIMIT_REFILL_PER_MS = RATE_LIMIT_CAPACITY / 60000;
 const RATE_LIMIT_IDLE_MS = 10 * 60 * 1000;
 const MAX_RATE_LIMIT_BUCKETS = 5000;
 const rateLimitBuckets = new Map();
+const clientConcurrencyLimiter = new ClientConcurrencyLimiter(1);
 let activeChats = 0;
 let activeResearch = 0;
 const MODES = ["general", "coding", "learning"];
+const SAFE_CHAT_ERRORS = new Set([
+  "DREAM_MODEL_URL must be a valid URL.",
+  "DREAM_MODEL_URL must not contain embedded credentials.",
+  "DREAM_MODEL_URL must use HTTPS unless it targets loopback for local development.",
+  "Model endpoints must use HTTPS unless they target loopback for local development.",
+  "Native runtime health check failed.",
+  "Configured runtime is not the native DREAM transformer. External AI providers are not accepted.",
+  "Native DREAM runtime has no verifiable trained-checkpoint identity.",
+  "Native DREAM runtime model name does not match the configured model.",
+  "Native DREAM runtime identity check timed out.",
+  "DREAM AI's model runtime could not complete the request.",
+  "DREAM AI's model runtime returned an empty response.",
+  "DREAM AI's model runtime took too long to respond. Please try again."
+]);
 const SECURITY_HEADERS = {
   "x-content-type-options": "nosniff",
   "x-frame-options": "DENY",
@@ -87,14 +103,27 @@ function validateBrowserRequest(req) {
 }
 
 
-function getClientIp(req) {
-  // Render documents X-Forwarded-For as the source of the real client IP.
-  // Use only its first address; never trust later proxy-supplied entries.
-  const forwarded = req.headers["x-forwarded-for"];
-  const first = typeof forwarded === "string" ? forwarded.split(",")[0].trim() : "";
-  if (first && isIP(first)) return first;
-  const remote = req.socket?.remoteAddress;
-  return remote && isIP(remote) ? remote : "unknown";
+
+
+async function runWithClientConcurrency(req, res, handler) {
+  const clientIp = getClientIp(req);
+  // Keep loopback development/test clients outside the production per-client
+  // gate; explicit forwarded client addresses remain subject to enforcement.
+  if (clientIp === "127.0.0.1" || clientIp === "::1" || clientIp === "::ffff:127.0.0.1") {
+    return handler(req, res);
+  }
+  const slot = clientConcurrencyLimiter.acquire(clientIp);
+  if (!slot.allowed) {
+    json(res, 429, { error: "This client already has a request in progress. Please retry shortly." }, {
+      "retry-after": "3"
+    });
+    return;
+  }
+  try {
+    return await handler(req, res);
+  } finally {
+    slot.release();
+  }
 }
 
 function consumeApiRateLimit(req) {
@@ -142,15 +171,25 @@ function enforceApiRateLimit(req, res) {
 
 async function readJson(req) {
   let size = 0;
+  let tooLarge = false;
   const chunks = [];
+  // Drain the request after crossing the limit without retaining additional
+  // bytes. Exiting a Node async-iterator early destroys the request stream,
+  // which can prevent the server from returning the intended 413 response.
   for await (const chunk of req) {
+    if (tooLarge) continue;
     size += chunk.length;
     if (size > MAX_BODY_BYTES) {
-      const error = new Error("Request body is too large.");
-      error.status = 413;
-      throw error;
+      tooLarge = true;
+      chunks.length = 0;
+      continue;
     }
     chunks.push(chunk);
+  }
+  if (tooLarge) {
+    const error = new Error("Request body is too large.");
+    error.status = 413;
+    throw error;
   }
   try {
     return JSON.parse(Buffer.concat(chunks).toString("utf8"));
@@ -243,7 +282,8 @@ async function handleChat(req, res) {
     });
   } catch (error) {
     console.error("DREAM AI request failed:", error.message);
-    return json(res, 502, { error: error.message || "DREAM AI runtime unavailable." });
+    const publicError = SAFE_CHAT_ERRORS.has(error.message) ? error.message : "DREAM AI is temporarily unavailable. Please try again.";
+    return json(res, 502, { error: publicError });
   } finally {
     activeChats -= 1;
   }
@@ -310,14 +350,14 @@ const server = http.createServer(async (req, res) => {
   }
   if (req.method === "POST" && url.pathname === "/api/research") {
     try {
-      return await handleResearch(req, res);
+      return await runWithClientConcurrency(req, res, handleResearch);
     } catch (error) {
       return json(res, error.status || 500, { error: error.status ? error.message : "An unexpected server error occurred." });
     }
   }
   if (req.method === "POST" && url.pathname === "/api/chat") {
     try {
-      return await handleChat(req, res);
+      return await runWithClientConcurrency(req, res, handleChat);
     } catch (error) {
       return json(res, error.status || 500, {
         error: error.status ? error.message : "An unexpected server error occurred."
