@@ -31,6 +31,7 @@ const SAFE_CHAT_ERRORS = new Set([
   "DREAM_MODEL_URL must be a valid URL.",
   "DREAM_MODEL_URL must not contain embedded credentials.",
   "DREAM_MODEL_URL must use HTTPS unless it targets loopback for local development.",
+  "Model endpoints must use HTTPS unless they target loopback for local development.",
   "Native runtime health check failed.",
   "Configured runtime is not the native DREAM transformer. External AI providers are not accepted.",
   "Native DREAM runtime has no verifiable trained-checkpoint identity.",
