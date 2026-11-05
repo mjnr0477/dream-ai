@@ -32,6 +32,7 @@ class Evidence:
     supports: bool
     reliability: float
     observed_at: Optional[str] = None
+    criterion: Optional[str] = None
 
     def __post_init__(self) -> None:
         if not self.claim.strip() or not self.source.strip():
@@ -66,6 +67,7 @@ class TaskRecord:
     evidence: list[Evidence] = field(default_factory=list)
     attempts: int = 0
     uncertainty: list[str] = field(default_factory=list)
+    retry_notes: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -133,8 +135,12 @@ class Plan:
             reasons.append("Contradictory evidence requires review")
         if unresolved:
             reasons.append("Unresolved uncertainty remains")
-        if record.task.success_criteria and not support:
-            reasons.append("Success criteria have not been evidenced")
+        if record.task.success_criteria:
+            evidenced = {e.criterion for e in support if e.criterion}
+            missing = [criterion for criterion in record.task.success_criteria
+                       if criterion not in evidenced]
+            if missing:
+                reasons.append("Success criteria lack matching evidence: " + ", ".join(missing))
         mean_support = (sum(e.reliability for e in support) / len(support)) if support else 0.0
         penalty = min(0.75, 0.25 * len(contradictions))
         confidence = max(0.0, min(1.0, mean_support - penalty))
@@ -148,7 +154,7 @@ class Plan:
         if record.status not in (TaskStatus.NEEDS_REVIEW, TaskStatus.FAILED):
             raise PlanError("Only a task needing review or marked failed can be retried")
         if note.strip():
-            record.uncertainty.append(note.strip())
+            record.retry_notes.append(note.strip())
         record.status = TaskStatus.READY
         record.outcome = ""
         record.evidence.clear()
