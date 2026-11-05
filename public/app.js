@@ -1,3 +1,4 @@
+import { appendUserMessage } from "/chat-state.js";
 const form = document.querySelector("#chat-form");
 const input = document.querySelector("#message");
 const send = document.querySelector("#send");
@@ -256,9 +257,7 @@ async function sendResearch(text, isRetry = false) {
   const content = text.trim();
   if (!content || send.disabled) return;
   welcome.hidden = true;
-  const lastMessage = messages.at(-1);
-  const retryingSameMessage = isRetry && lastMessage?.role === "user" && lastMessage.content === content;
-  if (!retryingSameMessage) messages.push({ role: "user", content });
+  appendUserMessage(messages, content, isRetry);
   if (!isRetry) {
     addMessage("user", content);
     persistActiveChat();
@@ -388,8 +387,9 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
   const content = text.trim();
   if (!content || send.disabled) return;
   welcome.hidden = true;
-  messages.push({ role: "user", content });
-  if (!isRetry) addMessage("user", content);
+  const addedUserMessage = appendUserMessage(messages, content, isRetry);
+  if (!isRetry && addedUserMessage) addMessage("user", content);
+  persistActiveChat();
   input.value = "";
   input.style.height = "auto";
   send.disabled = true;
