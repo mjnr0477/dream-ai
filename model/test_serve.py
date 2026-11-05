@@ -272,7 +272,7 @@ class DreamServingTests(unittest.TestCase):
             metadata=metadata,
             checkpoint_hash=hashlib.sha256(self.checkpoint.read_bytes()).hexdigest()
         )
-        server = serve.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        server = serve.BoundedThreadingHTTPServer(("127.0.0.1", 0), handler)
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         base = f"http://127.0.0.1:{server.server_port}"
@@ -298,6 +298,39 @@ class DreamServingTests(unittest.TestCase):
             self.assertIn("busy", body["error"]["message"].lower())
         finally:
             serve.MODEL_LOCK.release()
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
+    def test_http_worker_limit_rejects_excess_connections_and_recovers(self):
+        import threading
+
+        model, tokenizer, config, metadata = load_model(self.checkpoint, "cpu")
+        handler = serve.create_handler(
+            model, tokenizer, config, "dream-test", "test-secret-token", "cpu",
+            metadata=metadata,
+            checkpoint_hash=hashlib.sha256(self.checkpoint.read_bytes()).hexdigest()
+        )
+        server = serve.BoundedThreadingHTTPServer(
+            ("127.0.0.1", 0), handler, max_workers=1
+        )
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        base = f"http://127.0.0.1:{server.server_port}"
+        try:
+            self.assertTrue(server._worker_slots.acquire(blocking=False))
+            try:
+                with self.assertRaises(urllib.error.HTTPError) as raised:
+                    urllib.request.urlopen(base + "/health", timeout=5)
+                self.assertEqual(raised.exception.code, 503)
+                self.assertIn("busy", raised.exception.read().decode("utf-8"))
+            finally:
+                server._worker_slots.release()
+
+            with urllib.request.urlopen(base + "/health", timeout=5) as response:
+                self.assertEqual(response.status, 200)
+                self.assertTrue(json.loads(response.read())["ok"])
+        finally:
             server.shutdown()
             server.server_close()
             thread.join(timeout=5)
