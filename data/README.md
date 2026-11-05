@@ -130,4 +130,4 @@ python data/split_sft.py \
   --validation-fraction 0.2 --seed 42
 ```
 
-The splitter requires every review flag to be true, validates complete alternating user/assistant conversations, rejects duplicate IDs and duplicate dialogue content, and keeps source groups disjoint. Existing outputs are protected unless `--overwrite` is explicitly supplied. The notebook's later corpus audit and SFT held-out checks remain mandatory.
+The splitter applies the validation fraction to distinct source groups (not individual rows). It requires every review flag to be true, validates complete alternating user/assistant conversations, rejects duplicate IDs and duplicate dialogue content, and keeps source groups disjoint. Existing outputs are protected unless `--overwrite` is explicitly supplied. The notebook's later corpus audit and SFT held-out checks remain mandatory.
