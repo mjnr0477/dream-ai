@@ -69,3 +69,25 @@ test("research mode is routed to the research handler without recursive self-dis
   const handler = app.slice(start, end);
   assert.doesNotMatch(handler, /if \(activeMode === "research"\)\s*return\s+sendResearch\(/);
 });
+
+test("caps results and ignores upstream-supplied destinations", async () => {
+  const result = await searchPublicKnowledge("security", async () => ({
+    ok: true,
+    json: async () => ({
+      query: {
+        search: Array.from({ length: 7 }, (_, index) => ({
+          title: `Article ${index}`,
+          snippet: `Safe <img src=x onerror=alert(1)> snippet ${index}`,
+          fullurl: "javascript:alert(1)"
+        }))
+      }
+    })
+  }));
+
+  assert.equal(result.results.length, 5);
+  for (const item of result.results) {
+    assert.equal(new URL(item.url).origin, "https://en.wikipedia.org");
+    assert.equal(item.snippet.includes("<img"), false);
+    assert.equal(item.url.startsWith("javascript:"), false);
+  }
+});
