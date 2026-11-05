@@ -47,7 +47,7 @@ docker run --detach --name dream-native \
   dream-native-runtime:local
 ```
 
-`DREAM_CPU_THREADS` limits PyTorch CPU parallelism (default 2 in the container); set it to the actual CPU capacity of the host to avoid thread oversubscription. The server refuses non-loopback binding without a token of at least 24 characters. Keep the token private and use HTTPS/TLS at the hosting proxy. Do not expose port 8081 directly to the public internet without TLS and access controls.
+`DREAM_CPU_THREADS` limits PyTorch CPU parallelism (default 2 in the container); set it to the actual CPU capacity of the host to avoid thread oversubscription. The current runtime processes one generation at a time; excess simultaneous generation requests receive HTTP 503 (`DREAM is busy`) instead of accumulating an unbounded inference queue. The server refuses non-loopback binding without a token of at least 24 characters. Keep the token private and use HTTPS/TLS at the hosting proxy. Do not expose port 8081 directly to the public internet without TLS and access controls.
 
 ## 4. Verify the native checkpoint
 
