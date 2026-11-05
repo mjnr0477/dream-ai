@@ -159,6 +159,8 @@ Run its structural checks with:
 npm run validate:african-evals
 ```
 
+The validator also checks each language's declared ISO code against its expected writing-system script tag (Amharic `Ethi`, the other nine `Latn`). This validates metadata consistency only; it does not identify the actual language of a prompt or response.
+
 The ten arithmetic cases carry machine-checkable `expected_expression` and integer `expected_answer` fields. The validator requires these keys only for math cases and rejects them on explanation cases. This makes arithmetic scoring reproducible without pretending to score language naturalness.
 
 All cases are explicitly marked `pending_native_review`. The prompts and rubrics are engineering drafts, not certified translations. Before using this set to make language-quality claims or as supervised training data, qualified native speakers must review and correct every prompt and rubric, record review provenance, and score model outputs independently. A passing validator proves only dataset structure and coverage; it does not prove model fluency or competence.
