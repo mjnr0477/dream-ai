@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generateDreamReply, getDreamRuntimeStatus } from "./lib/dream-engine.js";
+import { getDreamCapabilities } from "./lib/capabilities.js";
 import { searchPublicKnowledge } from "./lib/research.js";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
@@ -69,14 +70,11 @@ async function handleResearch(req, res) {
       "cache-control": "no-store",
       "x-content-type-options": "nosniff"
     });
-    return res.end(JSON.stringify({
-      error: "DREAM research is busy. Please retry in a few seconds."
-    }));
+    return res.end(JSON.stringify({ error: "DREAM research is busy. Please retry in a few seconds." }));
   }
   activeResearch += 1;
   try {
-    const result = await searchPublicKnowledge(body.query);
-    return json(res, 200, result);
+    return json(res, 200, await searchPublicKnowledge(body.query));
   } catch (error) {
     console.error("DREAM public research failed:", error.message);
     return json(res, 502, { error: "Public research is temporarily unavailable. Please try again." });
@@ -180,6 +178,9 @@ async function serveStatic(encodedPathname, res) {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+  if (req.method === "GET" && url.pathname === "/api/health/live") {
+    return json(res, 200, { ok: true, name: "DREAM AI", status: "live" });
+  }
   if (req.method === "GET" && url.pathname === "/api/health") {
     const runtime = await getDreamRuntimeStatus();
     return json(res, 200, {
@@ -200,13 +201,15 @@ const server = http.createServer(async (req, res) => {
       } : null
     });
   }
+  if (req.method === "GET" && url.pathname === "/api/capabilities") {
+    const runtime = await getDreamRuntimeStatus();
+    return json(res, 200, getDreamCapabilities(runtime));
+  }
   if (req.method === "POST" && url.pathname === "/api/research") {
     try {
       return await handleResearch(req, res);
     } catch (error) {
-      return json(res, error.status || 500, {
-        error: error.status ? error.message : "An unexpected server error occurred."
-      });
+      return json(res, error.status || 500, { error: error.status ? error.message : "An unexpected server error occurred." });
     }
   }
   if (req.method === "POST" && url.pathname === "/api/chat") {
