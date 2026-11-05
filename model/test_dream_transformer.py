@@ -302,6 +302,18 @@ class DreamTransformerTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             DreamConfig(dropout=1.0)
 
+    def test_forward_cached_rejects_cache_dtype_that_differs_from_model(self):
+        model = self.model.eval()
+        token_ids = torch.tensor([[65]], dtype=torch.long)
+        head_dim = self.config.d_model // self.config.n_heads
+        wrong_dtype = torch.zeros(
+            (1, self.config.n_heads, 1, head_dim),
+            dtype=torch.float64
+        )
+        cache = tuple((wrong_dtype.clone(), wrong_dtype.clone()) for _ in range(self.config.n_layers))
+        with self.assertRaisesRegex(ValueError, "dtypes or layouts"):
+            model.forward_cached(token_ids, cache)
+
     def test_invalid_generation_temperature_is_rejected(self):
         prompt = torch.tensor([[65, 66]], dtype=torch.long)
         for temperature in (float("nan"), float("inf"), True, False):
