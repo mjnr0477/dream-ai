@@ -221,13 +221,14 @@ def create_handler(model, tokenizer, config, model_name, token, device, metadata
                     "error": {"message": "DREAM is busy; retry shortly"}
                 })
             try:
+                inference_deadline = time.monotonic() + MAX_INFERENCE_SECONDS
                 with torch.inference_mode():
                     if float(temperature) == 0:
                         generated = model.generate(
                             input_ids, max_new_tokens=max_tokens, temperature=0,
                             constrain_utf8=True,
                             token_byte_pieces=getattr(tokenizer, "token_byte_pieces", None),
-                            deadline_monotonic=time.monotonic() + MAX_INFERENCE_SECONDS
+                            deadline_monotonic=inference_deadline
                         )[0].tolist()
                     else:
                         torch.manual_seed(secrets.randbits(63))
@@ -238,8 +239,12 @@ def create_handler(model, tokenizer, config, model_name, token, device, metadata
                             top_k=top_k,
                             constrain_utf8=True,
                             token_byte_pieces=getattr(tokenizer, "token_byte_pieces", None),
-                            deadline_monotonic=time.monotonic() + MAX_INFERENCE_SECONDS
+                            deadline_monotonic=inference_deadline
                         )[0].tolist()
+                # Includes device synchronization triggered by converting output to a
+                # Python list, so asynchronous accelerator work cannot evade the budget.
+                if time.monotonic() >= inference_deadline:
+                    raise TimeoutError("DREAM inference exceeded its execution deadline")
                 answer = clean_assistant_output(tokenizer.decode(generated[len(prompt_ids):]))
             except TimeoutError:
                 print("DREAM runtime inference timed out", flush=True)
