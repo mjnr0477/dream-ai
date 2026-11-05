@@ -291,7 +291,7 @@ async function sendResearch(text, isRetry = false) {
       let sourceUrl;
       try {
         sourceUrl = new URL(result.url);
-        if (sourceUrl.protocol !== "https:" || !/(^|\\.)wikipedia\\.org$/i.test(sourceUrl.hostname)) continue;
+        if (sourceUrl.protocol !== "https:" || !/(^|\.)wikipedia\.org$/i.test(sourceUrl.hostname)) continue;
       } catch { continue; }
       const item = document.createElement("article");
       item.className = "research-result";
