@@ -24,6 +24,7 @@ MAX_BODY_BYTES = 64 * 1024
 MAX_MESSAGES = 12
 MAX_MESSAGE_CHARS = 8000
 MAX_OUTPUT_TOKENS = 256
+MAX_INFERENCE_SECONDS = 120
 MODEL_LOCK = threading.Lock()
 MAX_HTTP_WORKERS = 8
 
@@ -225,7 +226,8 @@ def create_handler(model, tokenizer, config, model_name, token, device, metadata
                         generated = model.generate(
                             input_ids, max_new_tokens=max_tokens, temperature=0,
                             constrain_utf8=True,
-                            token_byte_pieces=getattr(tokenizer, "token_byte_pieces", None)
+                            token_byte_pieces=getattr(tokenizer, "token_byte_pieces", None),
+                            deadline_monotonic=time.monotonic() + MAX_INFERENCE_SECONDS
                         )[0].tolist()
                     else:
                         torch.manual_seed(secrets.randbits(63))
@@ -235,9 +237,13 @@ def create_handler(model, tokenizer, config, model_name, token, device, metadata
                             temperature=float(temperature),
                             top_k=top_k,
                             constrain_utf8=True,
-                            token_byte_pieces=getattr(tokenizer, "token_byte_pieces", None)
+                            token_byte_pieces=getattr(tokenizer, "token_byte_pieces", None),
+                            deadline_monotonic=time.monotonic() + MAX_INFERENCE_SECONDS
                         )[0].tolist()
                 answer = clean_assistant_output(tokenizer.decode(generated[len(prompt_ids):]))
+            except TimeoutError:
+                print("DREAM runtime inference timed out", flush=True)
+                return self.send_json(504, {"error": {"message": "DREAM inference timed out"}})
             except Exception as exc:
                 # Log only the exception type; never expose prompts, tokens or payloads.
                 print(
