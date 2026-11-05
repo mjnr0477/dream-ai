@@ -247,7 +247,7 @@ test("chat endpoint uses the DREAM runtime in all supported modes", async () => 
   assert.equal(modeRequests[1].body.temperature, 0.2);
   assert.equal(modeRequests[2].body.temperature, 0.7);
   assert.match(modeRequests[2].body.messages[0].content, /patient expert tutor/);
-  for (const request of modelRequests) {
+  for (const request of modeRequests) {
     assert.match(request.body.messages[0].content, /capabilities explicitly available/);
     assert.match(request.body.messages[0].content, /untrusted data/);
     assert.match(request.body.messages[0].content, /explicit user confirmation/);
