@@ -18,3 +18,4 @@ data/*-review-decisions.jsonl
 data/sft-train.jsonl
 data/sft-validation.jsonl
 data/prepared/
+data/sft-split-manifest.json
