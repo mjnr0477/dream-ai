@@ -71,8 +71,11 @@ def benchmark(model, tokenizer, config, prompt, device, warmup, runs,
 
     for _ in range(warmup):
         with torch.inference_mode():
-            model.generate(input_ids, max_new_tokens=max_new_tokens,
-                           temperature=temperature)
+            model.generate(
+                input_ids, max_new_tokens=max_new_tokens,
+                temperature=temperature,
+                token_byte_pieces=getattr(tokenizer, "token_byte_pieces", None)
+            )
         synchronize()
 
     if str(device).startswith("cuda"):
