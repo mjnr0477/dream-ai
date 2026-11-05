@@ -9,6 +9,11 @@ from dream_transformer import DreamConfig, DreamTransformer
 
 MAX_CHECKPOINT_BYTES = 128 * 1024 * 1024
 MAX_MODEL_PARAMETERS = 24_000_000
+MAX_VOCAB_SIZE = 65_536
+MAX_BLOCK_SIZE = 8_192
+MAX_D_MODEL = 2_048
+MAX_N_HEADS = 32
+MAX_N_LAYERS = 24
 
 
 def estimated_parameter_count(config):
@@ -52,6 +57,17 @@ def load_validated_checkpoint(checkpoint_path):
     expected_config_fields = set(DreamConfig.__dataclass_fields__)
     if set(config_data) != expected_config_fields:
         raise ValueError("Checkpoint config contains unexpected or missing fields")
+    dimension_limits = {
+        "vocab_size": MAX_VOCAB_SIZE,
+        "block_size": MAX_BLOCK_SIZE,
+        "d_model": MAX_D_MODEL,
+        "n_heads": MAX_N_HEADS,
+        "n_layers": MAX_N_LAYERS,
+    }
+    for field, maximum in dimension_limits.items():
+        value = config_data.get(field)
+        if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= maximum:
+            raise ValueError(f"Checkpoint config {field} must be an integer between 1 and {maximum}")
     try:
         config = DreamConfig(**config_data)
     except TypeError as exc:
