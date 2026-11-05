@@ -192,7 +192,7 @@ test("coding endpoint exposes validated multi-file artifacts", async () => {
     "--- DREAM FILE: src/start.js ---",
     "import { ready } from './index.js';",
     "--- END DREAM FILE ---"
-  ].join("\\n");
+  ].join("\n");
   try {
     const response = await postChat({
       mode: "coding",
@@ -203,7 +203,7 @@ test("coding endpoint exposes validated multi-file artifacts", async () => {
     assert.equal(data.mode, "coding");
     assert.equal(data.artifacts.length, 2);
     assert.deepEqual(data.artifacts.map(file => file.path), ["src/index.js", "src/start.js"]);
-    assert.equal(data.artifacts[0].content, "export const ready = true;\\n");
+    assert.equal(data.artifacts[0].content, "export const ready = true;\n");
   } finally {
     modelReply = "Test response from the DREAM model runtime.";
   }
