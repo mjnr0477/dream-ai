@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { generateDreamReply, getDreamRuntimeStatus } from "./lib/dream-engine.js";
 import { getDreamCapabilities } from "./lib/capabilities.js";
 import { runPublicResearch } from "./lib/dream-tools.js";
+import { formatCodeArtifacts, parseCodeArtifacts } from "./lib/code-artifacts.js";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC_DIR = join(ROOT, "public");
@@ -236,8 +237,16 @@ async function handleChat(req, res) {
   activeChats += 1;
   try {
     const result = await generateDreamReply(messages, mode, process.env, memoryContext);
+    let reply = result.reply;
+    if (mode === "coding" && reply.includes("--- DREAM FILE:")) {
+      try {
+        reply = formatCodeArtifacts(parseCodeArtifacts(reply));
+      } catch (error) {
+        console.warn("DREAM coding artifact format was invalid:", error.message);
+      }
+    }
     return json(res, 200, {
-      reply: result.reply,
+      reply,
       mode,
       source: result.source
     });
