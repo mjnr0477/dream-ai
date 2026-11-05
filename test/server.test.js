@@ -6,6 +6,14 @@ import http from "node:http";
 const port = 3197;
 const modelPort = 3198;
 const base = `http://127.0.0.1:${port}`;
+let simulatedClientCount = 0;
+
+function simulatedClientHeaders() {
+  simulatedClientCount += 1;
+  const ray = simulatedClientCount.toString(16).padStart(16, "0");
+  const ip = `203.0.113.${(simulatedClientCount % 254) + 1}`;
+  return { "cf-ray": `${ray}-LHR`, "cf-connecting-ip": ip };
+}
 let server;
 let model;
 const modelRequests = [];
@@ -53,7 +61,9 @@ before(async () => {
       PORT: String(port),
       DREAM_MODEL_URL: `http://127.0.0.1:${modelPort}/v1`,
       DREAM_MODEL_NAME: "dream-test-model",
-      DREAM_MODEL_TOKEN: ""
+      DREAM_MODEL_TOKEN: "",
+      PUBLIC_ORIGIN: base,
+      DREAM_API_RATE_LIMIT: "120"
     },
     stdio: "ignore"
   });
@@ -77,22 +87,57 @@ after(async () => {
   if (model) await new Promise(resolve => model.close(resolve));
 });
 
-async function postResearch(payload, rawBody) {
+async function postResearch(payload, rawBody, extraHeaders = {}) {
   return fetch(`${base}/api/research`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...simulatedClientHeaders(), ...extraHeaders },
     body: rawBody ?? JSON.stringify(payload)
   });
 }
 
-async function postChat(payload, rawBody) {
+async function postChat(payload, rawBody, extraHeaders = {}) {
   return fetch(`${base}/api/chat`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...simulatedClientHeaders(), ...extraHeaders },
     body: rawBody ?? JSON.stringify(payload)
   });
 }
 
+
+test("chat API rejects non-JSON content types and cross-site browser requests", async () => {
+  const textBody = await fetch(`${base}/api/chat`, {
+    method: "POST",
+    headers: { "content-type": "text/plain" },
+    body: "{}"
+  });
+  assert.equal(textBody.status, 415);
+
+  const missingType = await fetch(`${base}/api/chat`, {
+    method: "POST",
+    body: "{}"
+  });
+  assert.equal(missingType.status, 415);
+
+  const hostileOrigin = await postChat({
+    messages: [{ role: "user", content: "hello" }],
+    mode: "general"
+  }, undefined, { origin: "https://evil.example" });
+  assert.equal(hostileOrigin.status, 403);
+
+  const crossSite = await postChat({
+    messages: [{ role: "user", content: "hello" }],
+    mode: "general"
+  }, undefined, { "sec-fetch-site": "cross-site" });
+  assert.equal(crossSite.status, 403);
+});
+
+test("chat API accepts same-origin browser requests", async () => {
+  const response = await postChat({
+    messages: [{ role: "user", content: "same-origin test" }],
+    mode: "general"
+  }, undefined, { origin: base, "sec-fetch-site": "same-origin" });
+  assert.equal(response.status, 200);
+});
 
 test("research endpoint rejects malformed and oversized queries before upstream access", async () => {
   for (const payload of [
