@@ -167,6 +167,45 @@ function openChat(id) {
   renderHistory();
 }
 
+const capabilityMenu = document.querySelector("#capability-menu");
+const capabilityModel = document.querySelector("#capability-model");
+const capabilityTools = document.querySelector("#capability-tools");
+
+function readableStatus(status) {
+  return String(status || "unknown").replaceAll("-", " ");
+}
+
+async function loadCapabilities() {
+  if (!capabilityMenu || capabilityMenu.dataset.loaded === "true") return;
+  capabilityModel.textContent = "Checking the native model and connected tools…";
+  capabilityTools.replaceChildren();
+  try {
+    const response = await fetch("/api/capabilities", { headers: { accept: "application/json" } });
+    if (!response.ok) throw new Error("Capability status is unavailable.");
+    const data = await response.json();
+    const model = data.model || {};
+    capabilityModel.textContent = `Native DREAM model: ${readableStatus(model.status)}${Number.isSafeInteger(model.completedTrainingSteps) ? ` · ${model.completedTrainingSteps.toLocaleString()} training steps` : ""}`;
+    for (const tool of Array.isArray(data.tools) ? data.tools : []) {
+      const item = document.createElement("li");
+      const title = document.createElement("strong");
+      title.textContent = tool.label || tool.id || "Unnamed capability";
+      const state = document.createElement("span");
+      state.textContent = readableStatus(tool.status);
+      const description = document.createElement("p");
+      description.textContent = tool.description || "No further details are available.";
+      item.append(title, state, description);
+      capabilityTools.append(item);
+    }
+    capabilityMenu.dataset.loaded = "true";
+  } catch (error) {
+    capabilityModel.textContent = error.message || "Unable to load verified capability status.";
+  }
+}
+
+capabilityMenu?.addEventListener("toggle", () => {
+  if (capabilityMenu.open) loadCapabilities();
+});
+
 async function checkHealth() {
   try {
     const response = await fetch("/api/health");
