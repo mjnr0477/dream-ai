@@ -14,6 +14,13 @@ function responseWith(entries) {
   });
 }
 
+function responseWithPages(pages) {
+  return new Response(JSON.stringify({ query: { pages } }), {
+    status: 200,
+    headers: { "content-type": "application/json" }
+  });
+}
+
 test("public knowledge search is registered as a bounded read-only tool", () => {
   const registry = createDreamToolRegistry({ fetchImpl: async () => responseWith([]) });
   const [tool] = registry.list();
@@ -25,18 +32,36 @@ test("public knowledge search is registered as a bounded read-only tool", () => 
 });
 
 test("registered research tool returns cleaned source-linked results without requiring approval", async () => {
-  let requestedUrl;
-  let requestOptions;
+  const requestedUrls = [];
+  const requestOptions = [];
   const auditEvents = [];
+  let calls = 0;
   const registry = createDreamToolRegistry({
     audit: event => auditEvents.push(event),
     fetchImpl: async (url, options) => {
-      requestedUrl = new URL(url);
-      requestOptions = options;
-      return responseWith([
-        { title: "DREAM AI", snippet: "<b>Dream</b> AI &amp; public research" },
-        { title: "Second source", snippet: "A second public result." }
-      ]);
+      requestedUrls.push(new URL(url));
+      requestOptions.push(options);
+      calls += 1;
+      if (calls === 1) {
+        return responseWith([
+          { pageid: 1, title: "DREAM AI", snippet: "<b>Dream</b> AI &amp; public research" },
+          { pageid: 2, title: "Second source", snippet: "A second public result." }
+        ]);
+      }
+      return responseWithPages({
+        "1": {
+          pageid: 1,
+          extract: "Dream AI is a public artificial intelligence project.",
+          touched: "2026-11-01T12:00:00Z",
+          fullurl: "https://en.wikipedia.org/wiki/DREAM_AI"
+        },
+        "2": {
+          pageid: 2,
+          extract: "A second public encyclopedia introduction.",
+          touched: "2026-11-02T12:00:00Z",
+          fullurl: "https://en.wikipedia.org/wiki/Second_source"
+        }
+      });
     }
   });
 
@@ -46,13 +71,18 @@ test("registered research tool returns cleaned source-linked results without req
     principal
   });
 
-  assert.equal(requestedUrl.hostname, "en.wikipedia.org");
-  assert.equal(requestedUrl.pathname, "/w/api.php");
-  assert.equal(requestOptions.redirect, "error");
+  assert.equal(calls, 2);
+  assert.equal(requestedUrls[0].hostname, "en.wikipedia.org");
+  assert.equal(requestedUrls[0].pathname, "/w/api.php");
+  assert.equal(requestedUrls[0].searchParams.get("list"), "search");
+  assert.equal(requestedUrls[1].searchParams.get("prop"), "extracts|info");
+  assert.equal(requestOptions.every(options => options.redirect === "error"), true);
   assert.equal(execution.toolId, "public_knowledge_search");
   assert.equal(execution.result.provider, "Wikipedia");
+  assert.equal(execution.result.evidenceLevel, "encyclopedia-introduction");
   assert.equal(execution.result.results.length, 2);
   assert.equal(execution.result.results[0].snippet, "Dream AI & public research");
+  assert.equal(execution.result.results[0].extract, "Dream AI is a public artificial intelligence project.");
   assert.equal(execution.result.results[0].url, "https://en.wikipedia.org/wiki/DREAM_AI");
   assert.equal(auditEvents.length, 1);
   assert.equal(auditEvents[0].status, "succeeded");
