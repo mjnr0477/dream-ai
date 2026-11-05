@@ -52,6 +52,10 @@ def candidate_from_row(row: dict, line_number: int) -> dict:
             f"line {line_number}: url must be an absolute HTTPS URL without embedded credentials"
         )
     try:
+        parsed_url.port  # Force validation of numeric port and its legal range.
+    except ValueError as exc:
+        raise ValueError(f"line {line_number}: url contains an invalid port") from exc
+    try:
         source_date = date.fromisoformat(row["date"][:10]).isoformat()
     except ValueError as exc:
         raise ValueError(f"line {line_number}: date must begin with YYYY-MM-DD") from exc
