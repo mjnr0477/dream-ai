@@ -26,7 +26,16 @@ Each JSONL record must include `source_url`, `license_url`, `rights_basis` and `
 
 The official [HuggingFaceFW/FineWeb-2 dataset card](https://huggingface.co/datasets/HuggingFaceFW/fineweb-2) describes a multilingual Common Crawl-derived collection, its ODC-By 1.0 collection license, source metadata and known limitations. The dataset is very large; do not attempt to download the full corpus to a phone or a small free service. Start with a small, language-balanced local export.
 
-Convert a local JSONL export into review candidates:
+For a small deterministic streaming sample in Colab or another Python environment, first install the optional Hugging Face Datasets dependency and export a few high-confidence Swahili documents (the subset is `swa_Latn`):
+
+```sh
+python -m pip install datasets
+python data/export_fineweb2_sample.py --subsets swa_Latn --max-per-subset 1000 --scan-per-subset 20000 --output data/fineweb2-small-export.jsonl
+```
+
+The exporter streams the dataset, shuffles with a fixed seed, applies a language-confidence threshold, and preserves each document's URL, crawl date, language and script. For a broader multilingual seed, specify verified language-script subsets separated by commas; unavailable subsets fail instead of being silently substituted.
+
+Convert the local JSONL export into review candidates:
 
 ```sh
 python model/import_fineweb2_candidates.py \
