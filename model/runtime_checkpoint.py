@@ -31,7 +31,13 @@ def load_validated_checkpoint(checkpoint_path):
         raise ValueError("Checkpoint config contains unexpected or missing fields")
     try:
         config = DreamConfig(**config_data)
-    except (TypeError, ValueError) as exc:
+    except TypeError as exc:
+        # Keep schema failures explicit even if the dataclass rejects a field
+        # before the exact-field guard can classify it.
+        raise ValueError(
+            f"Checkpoint config contains unexpected or missing fields: {exc}"
+        ) from exc
+    except ValueError as exc:
         raise ValueError(f"Invalid DREAM model config: {exc}") from exc
 
     try:
