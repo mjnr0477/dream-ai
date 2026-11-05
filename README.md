@@ -170,3 +170,29 @@ DREAM_EVAL_SET=african-languages-v1 npm run eval
 ```
 
 The runner accepts only the named built-in evaluation sets; it does not accept arbitrary file paths. Its output remains unscored until a human reviewer completes the rubrics.
+
+## Native task and inference benchmarks
+
+After training a DREAM checkpoint, measure local generation latency without treating speed as model quality:
+
+```sh
+python model/benchmark_inference.py --checkpoint checkpoints/dream-small.pt --runs 5 --tokens 64 --out eval-results/inference-benchmark.json
+```
+
+Generate reproducible answers for the built-in task set, then have a human reviewer score each rubric item:
+
+```sh
+python model/run_task_benchmark.py --checkpoint checkpoints/dream-instruct.pt --benchmark evals/core-v1.jsonl --out eval-results/native-task-benchmark.json
+# Review the responses and enter only human-assigned 0/1 rubric_scores.
+python model/score_task_benchmark.py --input eval-results/native-task-benchmark.json --out eval-results/human-score-summary.json
+```
+
+The runner records checkpoint and benchmark hashes, language metadata and prompt truncation. The scorer validates and aggregates human-entered scores only; it never grades model output. Tiny synthetic CI checkpoints are mechanics tests, not evidence of useful intelligence. Language coverage metadata is not a claim of language proficiency.
+
+For multilingual pretraining, prepare the training text with one `<|language:TAG|>` marker on its own line before each document (for example, `<|language:en|>` and `<|language:sw|>`). Then opt into uniform per-language window sampling:
+
+```sh
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --language-sampling balanced
+```
+
+Balanced mode requires at least `block_size + 2` tokens for every tagged language. Validation loss remains proportional to the held-out validation corpus. The selected sampling mode is recorded in checkpoints and cannot be silently changed when resuming; Python RNG state is saved so balanced sampling can resume reproducibly.
