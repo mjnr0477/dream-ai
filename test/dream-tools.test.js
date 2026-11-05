@@ -34,8 +34,8 @@ test("registered research tool returns cleaned source-linked results without req
       requestedUrl = new URL(url);
       requestOptions = options;
       return responseWith([
-        { title: "DREAM AI", snippet: "<b>Dream</b> AI &amp; public research" },
-        { title: "Second source", snippet: "A second public result." }
+        { pageid: 101, title: "DREAM AI", snippet: "<b>Dream</b> AI &amp; public research" },
+        { pageid: 102, title: "Second source", snippet: "A second public result." }
       ]);
     }
   });
