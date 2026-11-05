@@ -23,13 +23,73 @@ const MIME = {
   ".ico": "image/x-icon"
 };
 
+const SECURITY_HEADERS = {
+  "x-content-type-options": "nosniff",
+  "x-frame-options": "DENY",
+  "referrer-policy": "strict-origin-when-cross-origin",
+  "permissions-policy": "camera=(), microphone=(), geolocation=()"
+};
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'",
+  "base-uri 'self'",
+  "object-src 'none'",
+  "frame-ancestors 'none'",
+  "form-action 'self'",
+  "script-src 'self'",
+  "style-src 'self' https://fonts.googleapis.com",
+  "font-src 'self' https://fonts.gstatic.com",
+  "img-src 'self' data:"
+].join("; ");
+
 function json(res, status, payload) {
   res.writeHead(status, {
+    ...SECURITY_HEADERS,
     "content-type": "application/json; charset=utf-8",
-    "cache-control": "no-store",
-    "x-content-type-options": "nosniff"
+    "cache-control": "no-store"
   });
   res.end(JSON.stringify(payload));
+}
+
+function validateBrowserRequest(req) {
+  const contentType = req.headers["content-type"] || "";
+  if (!/^application\\/json(?:\\s*;|$)/i.test(contentType)) {
+    const error = new Error("Content-Type must be application/json.");
+    error.status = 415;
+    throw error;
+  }
+
+  // Browser metadata is an additional CSRF signal, not an authentication system.
+  const fetchSite = req.headers["sec-fetch-site"];
+  if (fetchSite && !["same-origin", "none"].includes(fetchSite.toLowerCase())) {
+    const error = new Error("Cross-origin chat requests are not allowed.");
+    error.status = 403;
+    throw error;
+  }
+
+  // Origin is optional for non-browser clients, but when supplied it must match
+  // the request Host exactly. Never trust forwarded-host headers for this check.
+  const origin = req.headers.origin;
+  if (origin) {
+    let parsedOrigin;
+    try {
+      parsedOrigin = new URL(origin);
+    } catch {
+      const error = new Error("Invalid request origin.");
+      error.status = 403;
+      throw error;
+    }
+    const requestHost = String(req.headers.host || "").toLowerCase();
+    if (
+      !["http:", "https:"].includes(parsedOrigin.protocol) ||
+      parsedOrigin.host.toLowerCase() !== requestHost ||
+      parsedOrigin.username ||
+      parsedOrigin.password
+    ) {
+      const error = new Error("Cross-origin chat requests are not allowed.");
+      error.status = 403;
+      throw error;
+    }
+  }
 }
 
 async function readJson(req) {
@@ -54,6 +114,7 @@ async function readJson(req) {
 }
 
 async function handleChat(req, res) {
+  validateBrowserRequest(req);
   const body = await readJson(req);
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return json(res, 400, { error: "Request body must be a JSON object." });
@@ -84,15 +145,9 @@ async function handleChat(req, res) {
   }
 
   if (activeChats >= MAX_ACTIVE_CHATS) {
-    res.writeHead(503, {
-      "retry-after": "3",
-      "content-type": "application/json; charset=utf-8",
-      "cache-control": "no-store",
-      "x-content-type-options": "nosniff"
-    });
-    return res.end(JSON.stringify({
+    return json(res, 503, {
       error: "DREAM AI is handling other requests. Please retry in a few seconds."
-    }));
+    });
   }
 
   activeChats += 1;
@@ -116,7 +171,7 @@ async function serveStatic(encodedPathname, res) {
   try {
     pathname = decodeURIComponent(encodedPathname);
   } catch {
-    res.writeHead(400, { "content-type": "text/plain; charset=utf-8" });
+    res.writeHead(400, { ...SECURITY_HEADERS, "content-type": "text/plain; charset=utf-8" });
     res.end("Invalid URL path");
     return;
   }
@@ -128,20 +183,21 @@ async function serveStatic(encodedPathname, res) {
     pathFromPublic.startsWith(".." + sep) ||
     resolve(filePath) === resolve(PUBLIC_DIR)
   ) {
-    res.writeHead(403, { "content-type": "text/plain; charset=utf-8" });
+    res.writeHead(403, { ...SECURITY_HEADERS, "content-type": "text/plain; charset=utf-8" });
     res.end("Forbidden");
     return;
   }
   try {
     const content = await readFile(filePath);
     res.writeHead(200, {
+      ...SECURITY_HEADERS,
       "content-type": MIME[extname(filePath)] || "application/octet-stream",
-      "x-content-type-options": "nosniff",
-      "referrer-policy": "strict-origin-when-cross-origin"
+      "content-security-policy": CONTENT_SECURITY_POLICY,
+      "cache-control": extname(filePath) === ".html" ? "no-cache" : "public, max-age=300"
     });
     res.end(content);
   } catch {
-    res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+    res.writeHead(404, { ...SECURITY_HEADERS, "content-type": "text/plain; charset=utf-8" });
     res.end("Not found");
   }
 }
@@ -153,27 +209,24 @@ const server = http.createServer(async (req, res) => {
   }
   if (req.method === "GET" && url.pathname === "/api/health") {
     const runtime = await getDreamRuntimeStatus();
+    // Public health is deliberately coarse; detailed checkpoint and hardware
+    // diagnostics belong in authenticated operator tooling, not a public route.
     return json(res, 200, {
       ok: true,
       name: "DREAM AI",
       version: "0.3.0",
-      engine: "dream-engine",
       modelConfigured: runtime.configured,
-      modelReady: runtime.ready,
-      runtimeStatus: runtime.status,
-      modelName: runtime.modelName || null,
-      model: runtime.ready ? {
-        completedTrainingSteps: runtime.completedTrainingSteps,
-        checkpointSha256: runtime.checkpointSha256,
-        device: runtime.device,
-        parameters: runtime.parameters,
-        tokenizer: runtime.tokenizer
-      } : null
+      modelReady: runtime.ready
     });
   }
   if (req.method === "GET" && url.pathname === "/api/capabilities") {
     const runtime = await getDreamRuntimeStatus();
-    return json(res, 200, getDreamCapabilities(runtime));
+    const capabilities = getDreamCapabilities(runtime);
+    if (capabilities.model) {
+      delete capabilities.model.completedTrainingSteps;
+      delete capabilities.model.checkpointSha256;
+    }
+    return json(res, 200, capabilities);
   }
   if (req.method === "POST" && url.pathname === "/api/chat") {
     try {
@@ -185,7 +238,7 @@ const server = http.createServer(async (req, res) => {
     }
   }
   if (req.method === "GET") return serveStatic(url.pathname, res);
-  res.writeHead(405, { allow: "GET, POST" }).end("Method not allowed");
+  res.writeHead(405, { ...SECURITY_HEADERS, allow: "GET, POST" }).end("Method not allowed");
 });
 
 server.listen(PORT, "0.0.0.0", () => {
