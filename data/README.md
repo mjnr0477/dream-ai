@@ -33,7 +33,7 @@ python -m pip install datasets
 python data/export_fineweb2_sample.py --subsets swh_Latn --max-per-subset 1000 --scan-per-subset 20000 --output data/fineweb2-small-export.jsonl
 ```
 
-The exporter streams the dataset, shuffles with a fixed seed, applies a language-confidence threshold, and preserves each document's URL, crawl date, language and script. For a broader multilingual seed, specify verified language-script subsets separated by commas; unavailable subsets fail instead of being silently substituted.
+The exporter pins FineWeb2 revision v2.1.1, streams the dataset, shuffles with a fixed seed, applies a language-confidence threshold, and preserves each document's URL, crawl date, language and script. For a broader multilingual seed, specify verified language-script subsets separated by commas; unavailable subsets fail instead of being silently substituted.
 
 Convert the local JSONL export into review candidates:
 
