@@ -25,6 +25,7 @@ class CorpusPreparationTests(unittest.TestCase):
                 "rights_confirmed": rights,
                 "privacy_reviewed": True,
                 "quality_reviewed": True,
+                "approval_granted": True,
                 "language": "en",
                 "text": (
                     f"Record {index} is an independently authored training example. "
@@ -283,6 +284,18 @@ class CorpusPreparationTests(unittest.TestCase):
             result = self.run_prepare(Path(directory), self.make_records(rights=False))
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("Rights not confirmed", result.stderr)
+
+    def test_rejects_missing_or_unapproved_training_approval(self):
+        for value in (False, None):
+            rows = self.make_records()
+            if value is None:
+                del rows[0]["approval_granted"]
+            else:
+                rows[0]["approval_granted"] = value
+            with self.subTest(value=value), tempfile.TemporaryDirectory() as directory:
+                result = self.run_prepare(Path(directory), rows)
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn("Explicit training approval not confirmed", result.stderr)
 
     def test_rejects_unreviewed_privacy_and_quality(self):
         for field, message in (
