@@ -1,0 +1,21 @@
+# DREAM AI tool execution boundary
+
+This module is an application-side execution boundary, not an autonomous computer agent or a sandbox.
+
+## Contract
+
+- Only tools explicitly registered by trusted server code can execute.
+- Every call requires an authenticated principal object supplied by a trusted server-side authentication layer and the tool's named permission.
+- Tool inputs are validated against a deliberately small JSON-schema subset. Unknown object properties are rejected by default.
+- Read tools need authorization. Write and destructive tools additionally require a confirmation object whose SHA-256 digest is bound to the exact tool ID and canonical input.
+- Execution has per-tool timeouts, cancellation signals, input/output size limits and a global concurrency limit.
+- Audit events record identifiers, outcome, duration and reason codes; raw input/output values are never logged.
+- Handlers receive only the principal ID, cloned input, an AbortSignal and an execution ID.
+
+## Critical integration requirements
+
+Do not expose this registry directly to an unauthenticated HTTP route or trust a model-generated `confirmed` flag. The approval object must be issued by a server-side approval flow after a real user confirmation, and the authenticated principal must come from verified session middleware. The model may propose a tool call; it cannot grant itself permissions or approvals.
+
+Register handlers in trusted application startup code only. Do not load arbitrary handler code, accept user-supplied URLs as privileged destinations, or pass credentials to a handler unless its scope explicitly requires them. Network access, filesystem access and process execution are not sandboxed by this module: high-risk handlers must use separately isolated infrastructure with network-deny-by-default controls.
+
+This first increment intentionally does not wire tools into chat or expose an execution endpoint. It establishes and tests the server-side boundary before any tool can be invoked by a model.
