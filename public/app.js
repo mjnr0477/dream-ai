@@ -232,6 +232,20 @@ async function sendResearch(text, isRetry = false) {
       const empty = document.createElement("p");
       empty.textContent = "Try a different search phrase. This search currently covers Wikipedia only.";
       replyNode.append(empty);
+    } else {
+      const actions = document.createElement("div");
+      actions.className = "message-tools";
+      const ask = document.createElement("button");
+      ask.type = "button";
+      ask.textContent = "Ask DREAM to analyze these sources";
+      ask.addEventListener("click", () => {
+        setMode("general");
+        sendMessage(
+          `Using the public-source results above, answer this research question: ${content}. Distinguish source-backed information from uncertainty and include the source URLs.`
+        );
+      });
+      actions.append(ask);
+      replyNode.append(actions);
     }
     messages.push({
       role: "assistant",
