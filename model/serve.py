@@ -159,8 +159,14 @@ def create_handler(model, tokenizer, config, model_name, token, device, metadata
                 return self.send_json(400, {"error": {"message": "Prompt is empty"}})
             prompt_ids = prompt_ids[-config.block_size:]
             input_ids = torch.tensor([prompt_ids], dtype=torch.long, device=device)
+            # The model is currently single-request for predictable CPU/GPU memory.
+            # Reject excess work instead of allowing an unbounded queue of waiting threads.
+            if not MODEL_LOCK.acquire(blocking=False):
+                return self.send_json(503, {
+                    "error": {"message": "DREAM is busy; retry shortly"}
+                })
             try:
-                with MODEL_LOCK, torch.inference_mode():
+                with torch.inference_mode():
                     if float(temperature) == 0:
                         generated = model.generate(
                             input_ids, max_new_tokens=max_tokens, temperature=0,
@@ -180,6 +186,8 @@ def create_handler(model, tokenizer, config, model_name, token, device, metadata
                 answer = tokenizer.decode(generated[len(prompt_ids):]).strip()
             except Exception:
                 return self.send_json(500, {"error": {"message": "DREAM inference failed"}})
+            finally:
+                MODEL_LOCK.release()
             if not answer:
                 return self.send_json(502, {"error": {"message": "DREAM generated an empty answer"}})
 
