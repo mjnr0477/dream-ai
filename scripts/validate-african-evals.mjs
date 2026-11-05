@@ -28,7 +28,13 @@ for (const [index, line] of lines.entries()) {
     !Array.isArray(item.rubric) ||
     item.rubric.length < 2 ||
     item.rubric.some(point => typeof point !== "string" || !point.trim()) ||
-    item.review_status !== "pending_native_review"
+    item.review_status !== "pending_native_review" ||
+    (item.category === "multilingual-math" &&
+      (!Number.isInteger(item.expected_answer) ||
+       typeof item.expected_expression !== "string" ||
+       !item.expected_expression.trim())) ||
+    (item.category === "multilingual-explanation" &&
+      (Object.hasOwn(item, "expected_answer") || Object.hasOwn(item, "expected_expression")))
   ) {
     throw new Error("Invalid or unreviewed African-language evaluation case on line " + (index + 1));
   }
