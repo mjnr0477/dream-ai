@@ -61,7 +61,7 @@ def format_prompt(messages):
 def clean_assistant_output(text):
     """Remove accidental continuation into the next serialized conversation turn."""
     value = text.strip()
-    boundaries = [value.find(marker) for marker in ("\\nUSER:", "\\nASSISTANT:", "\\nSYSTEM:")]
+    boundaries = [value.find(marker) for marker in ("\nUSER:", "\nASSISTANT:", "\nSYSTEM:")]
     boundaries = [position for position in boundaries if position >= 0]
     if boundaries:
         value = value[:min(boundaries)].rstrip()
