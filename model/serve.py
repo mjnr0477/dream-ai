@@ -238,7 +238,12 @@ def create_handler(model, tokenizer, config, model_name, token, device, metadata
                             token_byte_pieces=getattr(tokenizer, "token_byte_pieces", None)
                         )[0].tolist()
                 answer = clean_assistant_output(tokenizer.decode(generated[len(prompt_ids):]))
-            except Exception:
+            except Exception as exc:
+                # Log only the exception type; never expose prompts, tokens or payloads.
+                print(
+                    f"DREAM runtime inference failed: {type(exc).__name__}",
+                    flush=True
+                )
                 return self.send_json(500, {"error": {"message": "DREAM inference failed"}})
             finally:
                 MODEL_LOCK.release()
