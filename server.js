@@ -148,6 +148,9 @@ async function serveStatic(encodedPathname, res) {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+  if (req.method === "GET" && url.pathname === "/api/health/live") {
+    return json(res, 200, { ok: true, name: "DREAM AI", status: "live" });
+  }
   if (req.method === "GET" && url.pathname === "/api/health") {
     const runtime = await getDreamRuntimeStatus();
     return json(res, 200, {
