@@ -11,6 +11,7 @@ let model;
 const modelRequests = [];
 let modelEngine = "dream-native-transformer";
 let modelHasCheckpoint = true;
+let runtimeModelName = "dream-test-model";
 let holdModelResponses = false;
 const heldModelResponses = [];
 
@@ -19,7 +20,7 @@ before(async () => {
     if (req.method === "GET" && req.url === "/health") {
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify(modelHasCheckpoint
-        ? { ok: true, engine: modelEngine, model: "dream-test-model", completed_training_steps: 12, checkpoint_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", device: "cpu", parameters: 1000, tokenizer: "DreamByteTokenizer" }
+        ? { ok: true, engine: modelEngine, model: runtimeModelName, completed_training_steps: 12, checkpoint_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", device: "cpu", parameters: 1000, tokenizer: "DreamByteTokenizer" }
         : { ok: true, engine: modelEngine }));
       return;
     }
@@ -117,6 +118,24 @@ test("health endpoint refuses readiness without a trained checkpoint identity", 
     assert.match((await chat.json()).error, /trained-checkpoint identity/i);
   } finally {
     modelHasCheckpoint = true;
+  }
+});
+
+test("health endpoint refuses a different configured native model", async () => {
+  runtimeModelName = "unexpected-native-model";
+  try {
+    const response = await fetch(`${base}/api/health`);
+    const data = await response.json();
+    assert.equal(response.status, 200);
+    assert.equal(data.modelReady, false);
+    assert.equal(data.runtimeStatus, "unavailable");
+    const chat = await postChat({
+      messages: [{ role: "user", content: "Hello DREAM AI" }]
+    });
+    assert.equal(chat.status, 502);
+    assert.match((await chat.json()).error, /model name does not match/i);
+  } finally {
+    runtimeModelName = "dream-test-model";
   }
 });
 
