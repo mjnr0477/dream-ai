@@ -37,6 +37,23 @@ class ColabCheckpointPersistenceTests(unittest.TestCase):
         self.assertIn("train_command += ['--resume', str(PRETRAIN_CHECKPOINT)]", self.code)
         self.assertIn("sft_command += ['--resume', str(SFT_CHECKPOINT)]", self.code)
 
+    def test_manual_candidate_review_is_optional_persistent_and_never_auto_approves(self):
+        notebook = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
+        all_code = "\\n".join(
+            "".join(cell["source"]) for cell in notebook["cells"]
+            if cell["cell_type"] == "code"
+        )
+        markdown = "\\n".join(
+            "".join(cell["source"]) for cell in notebook["cells"]
+            if cell["cell_type"] == "markdown"
+        )
+        self.assertIn("data/review_candidates.py", all_code)
+        self.assertIn("candidate-review-decisions.jsonl", all_code)
+        self.assertIn("CHECKPOINT_DIR.parent / 'review'", all_code)
+        self.assertIn("'--limit', '25'", all_code)
+        self.assertIn("never approves automatically", markdown)
+        self.assertIn("if not (approved_path.is_file() and approved_path.stat().st_size > 0)", all_code)
+
 
 if __name__ == "__main__":
     unittest.main()
