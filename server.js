@@ -196,6 +196,10 @@ async function handleChat(req, res) {
     return json(res, 400, { error: "Request body must be a JSON object." });
   }
   const mode = body.mode ?? "general";
+  const memoryContext = body.memoryContext ?? "";
+  if (typeof memoryContext !== "string" || memoryContext.length > 3000) {
+    return json(res, 400, { error: "Memory context must be text no longer than 3,000 characters." });
+  }
   if (!MODES.includes(mode)) {
     return json(res, 400, { error: "Mode must be general, coding or learning." });
   }
@@ -231,7 +235,7 @@ async function handleChat(req, res) {
 
   activeChats += 1;
   try {
-    const result = await generateDreamReply(messages, mode);
+    const result = await generateDreamReply(messages, mode, process.env, memoryContext);
     return json(res, 200, {
       reply: result.reply,
       mode,
