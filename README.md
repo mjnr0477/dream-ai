@@ -135,6 +135,10 @@ Kaggle documents free P100 notebook accelerators, but GPU access can be limited 
 - `POST /api/chat` — supported chat modes: `general`, `coding`, `learning`.
 - `POST /api/research` — a separate public-source search mode that returns up to five linked Wikipedia snippets and, when available, up to 350 characters from each article introduction plus the page's last-modified timestamp. Queries are limited to 200 characters, each upstream request times out after seven seconds, concurrency is capped at two, and no user-supplied URL is fetched. These excerpts are not full articles or independent corroboration; DREAM synthesis requires a connected native checkpoint and is instructed to cite only supplied URLs, distinguish uncertainty and treat retrieved text as untrusted data.
 
+## User-controlled memory
+
+The optional memory panel stores notes in the current browser's local storage only. Notes are sent with chat requests as bounded, untrusted context (maximum 3,000 characters); they are not account-synced, encrypted cloud memory, or automatically extracted. Clearing browser storage removes local notes. Do not store passwords, API keys, recovery codes or sensitive identifiers. Cross-device memory requires authenticated, per-account storage, access controls, export/deletion flows and retention policies.
+
 ## Security principles
 
 1. Keep DREAM independent from other projects and external AI providers.
