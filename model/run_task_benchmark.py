@@ -160,7 +160,8 @@ def main():
                 input_ids,
                 max_new_tokens=args.max_new_tokens,
                 temperature=args.temperature,
-                top_k=args.top_k
+                top_k=args.top_k,
+                token_byte_pieces=getattr(tokenizer, "token_byte_pieces", None)
             )[0].tolist()
             response = tokenizer.decode(generated[len(prompt_ids):]).strip()
             results.append({
