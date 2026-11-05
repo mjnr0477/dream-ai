@@ -106,7 +106,7 @@ def review_candidate(record, input_fn=input, output_fn=print):
         return None, False, [problem]
 
     output_fn("=" * 72)
-    output_fn(f"Candidate: {record['id']}")
+    output_fn(f"Candidate fingerprint: {review_id_hash(record['id'])[:12]}")
     output_fn(f"Source: {record['source']}")
     output_fn(f"License: {record['license']} — {record['license_url']}")
     output_fn(f"Source terms: {record['source_url']}")
