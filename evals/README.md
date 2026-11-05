@@ -2,6 +2,8 @@
 
 ## Current built-in sets
 
+Dataset sizes below are verified against the checked-in JSONL files on this branch.
+
 | Dataset | Cases | Coverage | Review status |
 |---|---:|---|---|
 | `core-v1` | 71 | Reasoning, mathematics, coding, teaching, safety, tool honesty, multilingual prompts and other general capabilities | Rubric-based; outputs require human scoring |
