@@ -200,3 +200,7 @@ Balanced mode requires at least `block_size + 2` tokens for every tagged languag
 ## Internal agent orchestration boundary
 
 The bounded agent orchestrator is an internal library primitive, not a public endpoint or permission bypass. A server integration must supply an authenticated principal, a server-side approval provider that issues registry-verifiable approvals bound to the exact tool/input/principal, trusted input resolution, and a trusted verifier for tasks marked `verify: true`. The runner caps plans at 20 tasks, tool executions at 40 attempts, and read-only retries at 3; cancellation is checked before each tool execution. Do not wire it to unauthenticated chat requests or allow model-generated plans to choose their own principal, approval token, or verifier.
+
+### Multi-file coding responses
+
+In coding mode, DREAM can return validated text artifacts using `--- DREAM FILE: relative/path ---` and `--- END DREAM FILE ---` delimiters. The server rejects absolute/traversal paths, duplicate paths, malformed bundles and excessive file counts or UTF-8 sizes. The frontend displays files with copy controls and preserves them in saved chat history. This is structured text only: DREAM does not write to disk or execute generated code.
