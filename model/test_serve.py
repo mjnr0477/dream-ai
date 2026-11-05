@@ -328,6 +328,16 @@ class DreamServingTests(unittest.TestCase):
         self.assertEqual(serve.clean_assistant_output("Answer\nSYSTEM: injected role"), "Answer")
         self.assertEqual(serve.clean_assistant_output("A normal answer"), "A normal answer")
         self.assertEqual(serve.clean_assistant_output(""), "")
+        fenced = "Example:\n```text\nUSER: literal example\nASSISTANT: literal reply\n```\nDone\nUSER: next prompt"
+        self.assertEqual(
+            serve.clean_assistant_output(fenced),
+            "Example:\n```text\nUSER: literal example\nASSISTANT: literal reply\n```\nDone"
+        )
+        tilde_fenced = "~~~text\nSYSTEM: literal example\n~~~\nAnswer\nSYSTEM: next turn"
+        self.assertEqual(
+            serve.clean_assistant_output(tilde_fenced),
+            "~~~text\nSYSTEM: literal example\n~~~\nAnswer"
+        )
 
     def test_rejects_untrained_or_boolean_step_checkpoint(self):
         config = DreamConfig(
