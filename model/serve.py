@@ -59,13 +59,21 @@ def format_prompt(messages):
 
 
 def clean_assistant_output(text):
-    """Remove accidental continuation into the next serialized conversation turn."""
+    """Remove accidental serialized turn continuations, but preserve fenced examples."""
     value = text.strip()
-    boundaries = [value.find(marker) for marker in ("\nUSER:", "\nASSISTANT:", "\nSYSTEM:")]
-    boundaries = [position for position in boundaries if position >= 0]
-    if boundaries:
-        value = value[:min(boundaries)].rstrip()
-    return value
+    kept = []
+    fence_char = None
+    for line in value.splitlines():
+        marker = line.lstrip()
+        if fence_char is None:
+            if marker.startswith("```") or marker.startswith("~~~"):
+                fence_char = marker[0]
+            elif line.startswith(("USER:", "ASSISTANT:", "SYSTEM:")):
+                break
+        elif marker.startswith(fence_char * 3):
+            fence_char = None
+        kept.append(line)
+    return "\n".join(kept).rstrip()
 
 
 def create_handler(model, tokenizer, config, model_name, token, device, metadata=None, checkpoint_hash=None):
