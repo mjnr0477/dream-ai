@@ -17,6 +17,12 @@ class ColabNotebookTests(unittest.TestCase):
         self.assertTrue(all(cell["cell_type"] in ("code", "markdown")
                             for cell in self.notebook["cells"]))
 
+    def test_colab_imports_json_before_the_first_corpus_audit(self):
+        setup = "".join(self.notebook["cells"][1]["source"])
+        corpus = "".join(self.notebook["cells"][4]["source"])
+        self.assertIn("import os, subprocess, sys, torch, json", setup)
+        self.assertLess(setup.index("import os"), corpus.index("json.loads"))
+
     def test_fresh_training_defaults_to_bpe_and_exposes_legacy_byte_mode(self):
         source = "".join(self.notebook["cells"][6]["source"])
         self.assertIn('TOKENIZER = "bpe"', source)
