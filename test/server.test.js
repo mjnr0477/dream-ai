@@ -77,14 +77,6 @@ after(async () => {
   if (model) await new Promise(resolve => model.close(resolve));
 });
 
-async function postResearch(payload, rawBody) {
-  return fetch(`${base}/api/research`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: rawBody ?? JSON.stringify(payload)
-  });
-}
-
 async function postChat(payload, rawBody) {
   return fetch(`${base}/api/chat`, {
     method: "POST",
@@ -93,25 +85,6 @@ async function postChat(payload, rawBody) {
   });
 }
 
-
-test("research endpoint rejects malformed and oversized queries before upstream access", async () => {
-  for (const payload of [
-    { query: "" },
-    { query: "   " },
-    { query: "x".repeat(201) },
-    { query: 42 },
-    [],
-    null
-  ]) {
-    const response = await postResearch(payload);
-    assert.equal(response.status, 400);
-    assert.match((await response.json()).error, /research query|JSON object/i);
-  }
-
-  const malformed = await postResearch(null, "{");
-  assert.equal(malformed.status, 400);
-  assert.match((await malformed.json()).error, /valid JSON/i);
-});
 
 test("liveness endpoint stays healthy when the native model is unavailable", async () => {
   modelHasCheckpoint = false;
@@ -307,7 +280,8 @@ test("capabilities endpoint reports only verified runtime and tool availability"
   assert.equal(data.contractVersion, 1);
   assert.equal(data.model.status, "ready");
   assert.equal(data.model.completedTrainingSteps, 12);
-  assert.deepEqual(data.application.modes, ["general", "coding", "learning"]);
+  assert.deepEqual(data.application.modes, ["general", "coding", "learning", "research"]);
+  assert.ok(data.tools.some(tool => tool.id === "public_knowledge_search" && tool.status === "available"));
   assert.equal(data.safety.toolExecutionDefault, "disabled");
   assert.equal(data.safety.unrestrictedAccess, false);
   assert.ok(data.tools.some(tool => tool.id === "code_execution" && tool.status === "not-implemented"));
