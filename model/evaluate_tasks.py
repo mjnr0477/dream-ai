@@ -6,7 +6,6 @@ benchmark. It does not approve a checkpoint for production.
 import argparse
 import hashlib
 import json
-import re
 import unicodedata
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -90,7 +89,9 @@ def evaluate(checkpoint_path, benchmark_path, max_new_tokens=48):
     checkpoint_path = Path(checkpoint_path)
     benchmark_path = Path(benchmark_path)
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
-    metadata = checkpoint.get("sft_training") or checkpoint.get("training") or {}
+    metadata = checkpoint.get("sft_training")
+    if not isinstance(metadata, dict):
+        raise ValueError("Task evaluation requires a DREAM instruction-tuned checkpoint, not pretraining-only weights")
     completed_steps = metadata.get("completed_steps", 0)
     if not isinstance(completed_steps, int) or isinstance(completed_steps, bool) or completed_steps < 1:
         raise ValueError("Refusing to benchmark a checkpoint without completed DREAM training steps")
@@ -143,6 +144,8 @@ def evaluate(checkpoint_path, benchmark_path, max_new_tokens=48):
         "completed_training_steps": completed_steps,
         "device": device,
         "tokenizer": type(tokenizer).__name__,
+        "architecture": config.__dict__,
+        "parameter_count": sum(parameter.numel() for parameter in model.parameters()),
         "tasks": len(results),
         "correct": correct_count,
         "exact_match_rate": round(correct_count / len(results), 4),
