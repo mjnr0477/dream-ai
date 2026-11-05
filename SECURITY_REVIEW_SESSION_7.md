@@ -22,9 +22,9 @@ The application has meaningful request-boundary protections, but it is not yet a
 
 | ID | Severity | Finding | Status |
 |---|---|---|---|
-| S7-01 | High | PR #167's ClientConcurrencyLimiter helper was unit-tested but not imported or invoked by server.js; real chat/research requests were not receiving the advertised per-client concurrency control. | Fixed in Session 12 integration; awaiting CI and review |
-| S7-07 | Medium | The chat route returned unexpected runtime exception messages directly to clients, potentially disclosing deployment/configuration details. | Fixed in Session 12 integration with generic public error and regression test |
-| S7-08 | Medium | Client identity was taken from the leftmost X-Forwarded-For value, which can be attacker-controlled when a proxy appends rather than replaces it; this can bypass IP-based rate and concurrency limits. | Fixed in latest Session 12 integration by preferring validated CF-Connecting-IP and falling back to the transport peer; X-Forwarded-For is ignored for security decisions |
+| S7-01 | High | PR #167's ClientConcurrencyLimiter helper was unit-tested but not imported or invoked by server.js; real chat/research requests were not receiving the advertised per-client concurrency control. | Fixed and merged in PR #206 after full CI passed |
+| S7-07 | Medium | The chat route returned unexpected runtime exception messages directly to clients, potentially disclosing deployment/configuration details. | Fixed and merged in PR #206 with generic public error and regression test |
+| S7-08 | Medium | Client identity was taken from the leftmost X-Forwarded-For value, which can be attacker-controlled when a proxy appends rather than replaces it; this can bypass IP-based rate and concurrency limits. | Fixed and merged in PR #206 by preferring validated CF-Connecting-IP and falling back to the transport peer; X-Forwarded-For is ignored for security decisions |
 | S7-02 | High | No authenticated user/account system or server-side conversation store was found in the inspected application. Per-IP limits do not establish user identity or data ownership. | Open architectural requirement |
 | S7-03 | Medium | The per-IP rate limiter is process-local and is not a shared quota across multiple instances. | Documented limitation |
 | S7-04 | Medium | Native runtime authentication depends on deployment configuration; remote runtime deployment must set a strong token and restrict network exposure. | Deployment verification required |
@@ -47,9 +47,9 @@ The application has meaningful request-boundary protections, but it is not yet a
 
 ## Verification status
 
-- Full GitHub Actions CI must pass on the final integration head: Node/application tests, reasoning tests and native-model tests. The latest branch commit triggers a fresh run after the trusted-proxy correction.
-- The live HTTP concurrency integration test is included in the integration test suite.
-- Re-check the final PR head and main base before merge; do not merge if required checks are missing, pending or failing.
+- GitHub Actions run #1013 passed on PR #206 head `6996677be4ddebde686363532df44b8034ec0580`: application tests (108/108), reasoning tests, and native-model tests all succeeded.
+- The live HTTP concurrency integration test and forged-XFF rate-limit regressions passed in the application suite.
+- PR #206 was merged into main as `799d55a567fb3c3a1f82d65c93cc52aab50a31f7` after the successful CI run.
 
 ## Scope limitations
 
