@@ -109,6 +109,24 @@ jobs:
           --data /tmp/dream-smoke-data/test.txt
           --batch-size 1 --batches 1 --sample-tokens 8
           --out /tmp/dream-smoke-instruct-eval.json
+      - name: Cross-check native DREAM instruction checkpoint and held-out evaluation
+        run: >-
+          python model/validate_release.py
+          --checkpoint /tmp/dream-smoke-instruct.pt
+          --audit /tmp/dream-smoke-instruct-checkpoint-audit.json
+          --evaluation /tmp/dream-smoke-instruct-eval.json
+          --out /tmp/dream-smoke-instruct-release-gate.json
+      - name: Confirm instruction technical gate never approves production
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(Path("/tmp/dream-smoke-instruct-release-gate.json").read_text())
+          assert report["technical_preflight_passed"] is True
+          assert report["production_release_approved"] is False
+          print("Instruction checkpoint passed technical preflight; production approval remains false.")
+          PY
       - name: Evaluate each language independently on held-out instruction checkpoint
         run: >-
           python model/evaluate_multilingual.py
