@@ -215,6 +215,12 @@ test("chat endpoint uses the DREAM runtime in all supported modes", async () => 
   assert.match(modelRequests[0].body.messages[0].content, /Answer clearly/);
   assert.match(modelRequests[1].body.messages[0].content, /senior software engineer/);
   assert.match(modelRequests[2].body.messages[0].content, /patient expert tutor/);
+  for (const request of modelRequests) {
+    assert.match(request.body.messages[0].content, /capabilities explicitly available/);
+    assert.match(request.body.messages[0].content, /untrusted data/);
+    assert.match(request.body.messages[0].content, /explicit user confirmation/);
+    assert.match(request.body.messages[0].content, /Never ask users to paste passwords/);
+  }
 });
 
 test("chat endpoint bounds concurrent model requests and tells clients when to retry", async () => {
@@ -301,7 +307,7 @@ test("capabilities endpoint reports only verified runtime and tool availability"
   assert.equal(data.contractVersion, 1);
   assert.equal(data.model.status, "ready");
   assert.equal(data.model.completedTrainingSteps, 12);
-  assert.deepEqual(data.application.modes, ["general", "coding", "learning", "research"]);
+  assert.deepEqual(data.application.modes, ["general", "coding", "learning"]);
   assert.equal(data.safety.toolExecutionDefault, "disabled");
   assert.equal(data.safety.unrestrictedAccess, false);
   assert.ok(data.tools.some(tool => tool.id === "code_execution" && tool.status === "not-implemented"));
