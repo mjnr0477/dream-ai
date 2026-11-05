@@ -425,6 +425,38 @@ class DreamServingTests(unittest.TestCase):
                 self.assertIn("timed out", body["error"]["message"])
             self.assertTrue(serve.MODEL_LOCK.acquire(blocking=False))
             serve.MODEL_LOCK.release()
+
+            # Exercise the uncached sliding-window branch with an overlong
+            # model forward pass, not just the cached prompt-prefill branch.
+            sliding_request = urllib.request.Request(
+                f"http://127.0.0.1:{server.server_port}/v1/chat/completions",
+                data=json.dumps({
+                    "model": "dream-test",
+                    "messages": [{"role": "user", "content": "x" * 100}],
+                    "max_tokens": 1
+                }).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer test-secret-token"
+                },
+                method="POST"
+            )
+            original_forward = model.forward
+
+            def slow_forward(*args, **kwargs):
+                time.sleep(0.02)
+                return original_forward(*args, **kwargs)
+
+            with patch.object(serve, "MAX_INFERENCE_SECONDS", 0.001), patch.object(
+                model, "forward", side_effect=slow_forward
+            ):
+                with self.assertRaises(urllib.error.HTTPError) as raised:
+                    urllib.request.urlopen(sliding_request, timeout=5)
+                self.assertEqual(raised.exception.code, 504)
+                body = json.loads(raised.exception.read().decode("utf-8"))
+                self.assertIn("timed out", body["error"]["message"])
+            self.assertTrue(serve.MODEL_LOCK.acquire(blocking=False))
+            serve.MODEL_LOCK.release()
         finally:
             server.shutdown()
             server.server_close()
