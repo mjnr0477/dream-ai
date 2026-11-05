@@ -264,19 +264,43 @@ class DreamServingTests(unittest.TestCase):
         self.assertEqual(len(body["choices"][0]["message"]["content"]), 1)
 
     def test_rejects_excess_inference_instead_of_queueing(self):
+        import threading
+
+        model, tokenizer, config, metadata = load_model(self.checkpoint, "cpu")
+        handler = serve.create_handler(
+            model, tokenizer, config, "dream-test", "test-secret-token", "cpu",
+            metadata=metadata,
+            checkpoint_hash=hashlib.sha256(self.checkpoint.read_bytes()).hexdigest()
+        )
+        server = serve.ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        base = f"http://127.0.0.1:{server.server_port}"
+        request = urllib.request.Request(
+            base + "/v1/chat/completions",
+            data=json.dumps({
+                "model": "dream-test",
+                "messages": [{"role": "user", "content": "Hello"}],
+                "max_tokens": 1
+            }).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer test-secret-token"
+            },
+            method="POST"
+        )
         self.assertTrue(serve.MODEL_LOCK.acquire(blocking=False))
         try:
-            status, body = self.request(
-                "POST", "/v1/chat/completions",
-                {"model": "dream-test",
-                 "messages": [{"role": "user", "content": "Hello"}],
-                 "max_tokens": 1},
-                token="test-secret-token"
-            )
+            with self.assertRaises(urllib.error.HTTPError) as raised:
+                urllib.request.urlopen(request, timeout=5)
+            self.assertEqual(raised.exception.code, 503)
+            body = json.loads(raised.exception.read())
+            self.assertIn("busy", body["error"]["message"].lower())
         finally:
             serve.MODEL_LOCK.release()
-        self.assertEqual(status, 503)
-        self.assertIn("busy", body["error"]["message"].lower())
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
 
     def test_zero_temperature_enables_greedy_decoding(self):
         status, body = self.request(
