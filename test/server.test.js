@@ -134,13 +134,12 @@ test("health endpoint identifies the DREAM engine and configured model", async (
   const data = await response.json();
   assert.equal(data.ok, true);
   assert.equal(data.name, "DREAM AI");
-  assert.equal(data.engine, "dream-engine");
   assert.equal(data.modelConfigured, true);
   assert.equal(data.modelReady, true);
-  assert.equal(data.runtimeStatus, "ready");
-  assert.equal(data.modelName, "dream-test-model");
-  assert.equal(data.model.completedTrainingSteps, 12);
-  assert.equal(data.model.checkpointSha256, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+  assert.equal("engine" in data, false);
+  assert.equal("runtimeStatus" in data, false);
+  assert.equal("modelName" in data, false);
+  assert.equal("model" in data, false);
   assert.equal(data.version, "0.3.0");
 });
 
@@ -152,8 +151,8 @@ test("health endpoint refuses readiness without a trained checkpoint identity", 
     assert.equal(response.status, 200);
     assert.equal(data.modelConfigured, true);
     assert.equal(data.modelReady, false);
-    assert.equal(data.runtimeStatus, "unavailable");
-    assert.equal(data.model, null);
+    assert.equal("runtimeStatus" in data, false);
+    assert.equal("model" in data, false);
     const chat = await postChat({
       messages: [{ role: "user", content: "Hello DREAM AI" }]
     });
@@ -171,7 +170,7 @@ test("health endpoint refuses a different configured native model", async () => 
     const data = await response.json();
     assert.equal(response.status, 200);
     assert.equal(data.modelReady, false);
-    assert.equal(data.runtimeStatus, "unavailable");
+    assert.equal("runtimeStatus" in data, false);
     const chat = await postChat({
       messages: [{ role: "user", content: "Hello DREAM AI" }]
     });
@@ -306,7 +305,8 @@ test("capabilities endpoint reports only verified runtime and tool availability"
   assert.equal(data.product, "DREAM AI");
   assert.equal(data.contractVersion, 1);
   assert.equal(data.model.status, "ready");
-  assert.equal(data.model.completedTrainingSteps, 12);
+  assert.equal("completedTrainingSteps" in data.model, false);
+  assert.equal("checkpointSha256" in data.model, false);
   assert.deepEqual(data.application.modes, ["general", "coding", "learning", "research"]);
   assert.ok(data.tools.some(tool => tool.id === "public_knowledge_search" && tool.status === "available"));
   assert.equal(data.safety.toolExecutionDefault, "disabled");
@@ -323,8 +323,8 @@ test("capabilities endpoint never reports an unverified model as ready", async (
     assert.equal(response.status, 200);
     const data = await response.json();
     assert.equal(data.model.status, "unavailable");
-    assert.equal(data.model.completedTrainingSteps, null);
-    assert.equal(data.model.checkpointSha256, null);
+    assert.equal("completedTrainingSteps" in data.model, false);
+    assert.equal("checkpointSha256" in data.model, false);
   } finally {
     modelHasCheckpoint = true;
   }
