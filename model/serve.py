@@ -88,6 +88,7 @@ def create_handler(model, tokenizer, config, model_name, token, device, metadata
                 "engine": "dream-native-transformer",
                 "model": model_name,
                 "device": device,
+                "cpu_threads": torch.get_num_threads(),
                 "parameters": sum(parameter.numel() for parameter in model.parameters()),
                 "completed_training_steps": (metadata or {}).get("completed_steps"),
                 "checkpoint_sha256": checkpoint_hash,
@@ -212,12 +213,21 @@ def main():
     parser.add_argument("--port", type=int, default=int(os.environ.get("DREAM_RUNTIME_PORT", "8081")))
     parser.add_argument("--model-name", default=os.environ.get("DREAM_MODEL_NAME", "dream-native"))
     parser.add_argument("--token", default=os.environ.get("DREAM_RUNTIME_TOKEN", ""))
+    parser.add_argument(
+        "--cpu-threads", type=int,
+        default=int(os.environ.get("DREAM_CPU_THREADS", str(min(4, os.cpu_count() or 1))))
+    )
     args = parser.parse_args()
 
     if not 1 <= args.port <= 65535:
         raise SystemExit("Port must be between 1 and 65535.")
     if not args.model_name.strip():
         raise SystemExit("Model name must not be empty.")
+    if not 1 <= args.cpu_threads <= 64:
+        raise SystemExit("CPU threads must be between 1 and 64.")
+    # Keep small CPU hosts from oversubscribing their cores during inference.
+    torch.set_num_threads(args.cpu_threads)
+    torch.set_num_interop_threads(min(args.cpu_threads, 4))
     if args.host not in ("127.0.0.1", "localhost", "::1") and len(args.token) < 24:
         raise SystemExit("A runtime token of at least 24 characters is required for non-loopback binding.")
 
@@ -239,6 +249,7 @@ def main():
         "completed_training_steps": metadata.get("completed_steps"),
         "parameters": sum(parameter.numel() for parameter in model.parameters()),
         "device": device,
+        "cpu_threads": torch.get_num_threads(),
         "host": args.host,
         "port": args.port,
         "authenticated": bool(args.token)
