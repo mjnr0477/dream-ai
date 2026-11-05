@@ -165,15 +165,25 @@ function enforceApiRateLimit(req, res) {
 
 async function readJson(req) {
   let size = 0;
+  let tooLarge = false;
   const chunks = [];
+  // Drain the request after crossing the limit without retaining additional
+  // bytes. Exiting a Node async-iterator early destroys the request stream,
+  // which can prevent the server from returning the intended 413 response.
   for await (const chunk of req) {
+    if (tooLarge) continue;
     size += chunk.length;
     if (size > MAX_BODY_BYTES) {
-      const error = new Error("Request body is too large.");
-      error.status = 413;
-      throw error;
+      tooLarge = true;
+      chunks.length = 0;
+      continue;
     }
     chunks.push(chunk);
+  }
+  if (tooLarge) {
+    const error = new Error("Request body is too large.");
+    error.status = 413;
+    throw error;
   }
   try {
     return JSON.parse(Buffer.concat(chunks).toString("utf8"));
