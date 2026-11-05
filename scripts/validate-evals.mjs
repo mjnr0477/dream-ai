@@ -33,9 +33,19 @@ const multilingual = rows.map(line => JSON.parse(line)).filter(item => item.cate
 if (multilingual.length < 10 || multilingual.some(item => !item.language)) {
   throw new Error("Multilingual evaluation requires at least 10 cases with language tags.");
 }
-const languageTags = new Set(multilingual.map(item => item.language));
-if (languageTags.size !== multilingual.length) {
-  throw new Error("Multilingual evaluation language tags must be unique.");
+const languageCounts = new Map();
+for (const item of multilingual) {
+  languageCounts.set(item.language, (languageCounts.get(item.language) || 0) + 1);
+}
+const languageTags = new Set(languageCounts.keys());
+if (languageTags.size < 10) {
+  throw new Error("Multilingual evaluation requires at least 10 distinct languages.");
+}
+const underCovered = [...languageCounts.entries()]
+  .filter(([, count]) => count < 2)
+  .map(([language]) => language);
+if (underCovered.length) {
+  throw new Error("Each multilingual language requires at least two independent cases: " + underCovered.join(", "));
 }
 if (rows.length < 10) throw new Error("Core evaluation set must contain at least 10 cases.");
-process.stdout.write("Validated " + rows.length + " DREAM evaluation cases, including " + languageTags.size + " multilingual cases.\n");
+process.stdout.write("Validated " + rows.length + " DREAM evaluation cases across " + languageTags.size + " languages, with at least two cases per language.\\n");
