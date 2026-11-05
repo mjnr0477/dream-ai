@@ -44,7 +44,11 @@ class Evidence:
             raise PlanError("Evidence supports must be a boolean")
         if isinstance(self.reliability, bool) or not isinstance(self.reliability, (int, float)):
             raise PlanError("Evidence reliability must be a finite number between 0 and 1")
-        if not math.isfinite(float(self.reliability)) or not 0.0 <= self.reliability <= 1.0:
+        try:
+            reliability = float(self.reliability)
+        except (OverflowError, ValueError) as exc:
+            raise PlanError("Evidence reliability must be a finite number between 0 and 1") from exc
+        if not math.isfinite(reliability) or not 0.0 <= reliability <= 1.0:
             raise PlanError("Evidence reliability must be a finite number between 0 and 1")
         if self.observed_at is not None and (not isinstance(self.observed_at, str) or not self.observed_at.strip()):
             raise PlanError("Evidence observed_at must be a non-empty string when supplied")
@@ -147,6 +151,8 @@ class Plan:
             raise PlanError("Evidence must be an iterable of Evidence records") from exc
         if any(not isinstance(item, Evidence) for item in evidence_items):
             raise PlanError("Evidence must contain only Evidence records")
+        if isinstance(uncertainty, (str, bytes)):
+            raise PlanError("Uncertainty must be an iterable of non-empty strings")
         try:
             uncertainty_items = tuple(uncertainty)
         except TypeError as exc:
