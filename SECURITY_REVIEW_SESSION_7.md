@@ -39,6 +39,7 @@ The application has meaningful request-boundary protections, but it is not yet a
 - Preserve global caps, per-IP rate limits, origin checks and loopback development behavior.
 - Add a live HTTP test using a local mock native runtime. It checks same-client chat/research exclusion, independent-client progress and slot recovery.
 - Replace unexpected chat runtime exception details with a generic public 502 response; add a route-level regression test using an intentionally invalid runtime URL.
+- Add API input regression tests for invalid message roles/shapes and request bodies exceeding the 32 KiB limit.
 
 ## Verification still required
 
