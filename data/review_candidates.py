@@ -22,11 +22,8 @@ REVIEW_FIELDS = (
 
 
 def record_content(record):
-    text = record.get("text")
-    if isinstance(text, str) and text.strip():
-        return text.strip()
     messages = record.get("messages")
-    if isinstance(messages, list):
+    if isinstance(messages, list) and messages:
         parts = [
             f"{item['role'].upper()}: {item['content'].strip()}"
             for item in messages
@@ -36,7 +33,8 @@ def record_content(record):
             and item.get("content", "").strip()
         ]
         return "\n\n".join(parts).strip()
-    return ""
+    text = record.get("text")
+    return text.strip() if isinstance(text, str) else ""
 
 
 def candidate_problem(record):
@@ -65,11 +63,10 @@ def candidate_problem(record):
         parsed_date = None
     if not parsed_date or parsed_date.isoformat() != source_date:
         return "invalid_source_date"
-    text = record.get("text")
-    if not (isinstance(text, str) and text.strip()):
-        messages = record.get("messages")
+    messages = record.get("messages")
+    if messages is not None:
         if not isinstance(messages, list) or not messages:
-            return "missing_or_invalid_content"
+            return "invalid_messages"
         roles = set()
         for item in messages:
             if (
@@ -82,6 +79,8 @@ def candidate_problem(record):
             roles.add(item["role"])
         if not {"user", "assistant"}.issubset(roles):
             return "incomplete_messages"
+    elif not isinstance(record.get("text"), str) or not record["text"].strip():
+        return "missing_or_invalid_content"
     if len(record_content(record)) < 40:
         return "missing_or_short_content"
     return None
