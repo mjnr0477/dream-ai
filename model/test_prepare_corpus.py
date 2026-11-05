@@ -228,6 +228,17 @@ class CorpusPreparationTests(unittest.TestCase):
             self.assertEqual(manifest["records"], 5)
             self.assertEqual(manifest["duplicate_text_records_removed"], 1)
 
+    def test_manifest_counts_unicode_compatibility_duplicates(self):
+        rows = self.make_records()
+        rows[1]["text"] = rows[0]["text"].replace("Record", "Ｒｅｃｏｒｄ", 1)
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            result = self.run_prepare(root, rows)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            manifest = json.loads((root / "prepared" / "manifest.json").read_text())
+            self.assertEqual(manifest["records"], 5)
+            self.assertEqual(manifest["duplicate_text_records_removed"], 1)
+
     def test_rejects_duplicate_id_even_after_duplicate_text_was_skipped(self):
         rows = self.make_records()
         rows[1]["text"] = rows[0]["text"]
