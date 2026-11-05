@@ -37,6 +37,10 @@ class FineWeb2ExportTests(unittest.TestCase):
         source["language_score"] = 0.80
         self.assertIsNone(exporter.export_row(source))
 
+    def test_exporter_pins_a_dataset_revision(self):
+        self.assertEqual(exporter.DATASET, "HuggingFaceFW/fineweb-2")
+        self.assertEqual(exporter.DATASET_REVISION, "v2.1.1")
+
     def test_rejects_non_finite_language_scores(self):
         source = row()
         source["language_score"] = float("nan")
