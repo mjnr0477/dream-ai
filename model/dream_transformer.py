@@ -6,6 +6,7 @@ are deterministic and use no borrowed vocabulary.
 """
 from dataclasses import dataclass
 import math
+import time
 
 import torch
 from torch import nn
@@ -449,7 +450,8 @@ class DreamTransformer(nn.Module):
 
     @torch.no_grad()
     def generate(self, token_ids, max_new_tokens=100, temperature=0.8,
-                 top_k=40, constrain_utf8=True, token_byte_pieces=None):
+                 top_k=40, constrain_utf8=True, token_byte_pieces=None,
+                 deadline_monotonic=None):
         if (not isinstance(max_new_tokens, int) or
                 isinstance(max_new_tokens, bool) or max_new_tokens < 0):
             raise ValueError("max_new_tokens must be a non-negative integer")
@@ -474,6 +476,18 @@ class DreamTransformer(nn.Module):
                     or any(not isinstance(piece, bytes) or not piece
                            for piece in token_byte_pieces)):
                 raise ValueError("token_byte_pieces must contain one non-empty bytes value per vocabulary ID")
+        if deadline_monotonic is not None and (
+            isinstance(deadline_monotonic, bool)
+            or not isinstance(deadline_monotonic, (int, float))
+            or not math.isfinite(deadline_monotonic)
+        ):
+            raise ValueError("deadline_monotonic must be a finite monotonic timestamp or None")
+
+        def check_deadline():
+            if deadline_monotonic is not None and time.monotonic() >= deadline_monotonic:
+                raise TimeoutError("DREAM generation exceeded its execution deadline")
+
+        check_deadline()
         self.eval()
         if max_new_tokens == 0:
             return token_ids
@@ -485,13 +499,16 @@ class DreamTransformer(nn.Module):
         # absolute-position window. Once it would overflow, use the original
         # sliding-window path so positions are re-based exactly as before.
         if token_ids.shape[1] + max_new_tokens <= self.config.block_size:
+            check_deadline()
             logits, past_key_values = self.forward_cached(token_ids)
+            check_deadline()
             utf8_state = (
                 torch.zeros(token_ids.shape[0], dtype=torch.long, device=token_ids.device),
                 torch.full((token_ids.shape[0],), 0x80, dtype=torch.long, device=token_ids.device),
                 torch.full((token_ids.shape[0],), 0xBF, dtype=torch.long, device=token_ids.device),
             )
             for step in range(max_new_tokens):
+                check_deadline()
                 logits = logits[:, -1, :]
                 if constrain_utf8 and token_byte_pieces is not None:
                     next_token, bpe_utf8_states = self._sample_next_bpe_token(
@@ -510,6 +527,8 @@ class DreamTransformer(nn.Module):
                     logits, past_key_values = self.forward_cached(
                         next_token, past_key_values
                     )
+                    check_deadline()
+            check_deadline()
             return token_ids
 
         utf8_state = (
@@ -518,8 +537,10 @@ class DreamTransformer(nn.Module):
             torch.full((token_ids.shape[0],), 0xBF, dtype=torch.long, device=token_ids.device),
         )
         for step in range(max_new_tokens):
+            check_deadline()
             context = token_ids[:, -self.config.block_size:]
             logits, _ = self(context)
+            check_deadline()
             logits = logits[:, -1, :]
             if constrain_utf8 and token_byte_pieces is not None:
                 next_token, bpe_utf8_states = self._sample_next_bpe_token(
@@ -534,6 +555,7 @@ class DreamTransformer(nn.Module):
             else:
                 next_token = self._sample_next_token(logits, temperature, top_k)
             token_ids = torch.cat((token_ids, next_token), dim=1)
+        check_deadline()
         return token_ids
 
 

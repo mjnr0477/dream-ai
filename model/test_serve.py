@@ -382,6 +382,86 @@ class DreamServingTests(unittest.TestCase):
             server.server_close()
             thread.join(timeout=5)
 
+    def test_inference_deadline_returns_504_and_releases_model_lock(self):
+        import threading
+        from unittest.mock import patch
+
+        model, tokenizer, config, metadata = load_model(self.checkpoint, "cpu")
+        handler = serve.create_handler(
+            model, tokenizer, config, "dream-test", "test-secret-token", "cpu",
+            metadata=metadata,
+            checkpoint_hash=hashlib.sha256(self.checkpoint.read_bytes()).hexdigest()
+        )
+        server = serve.BoundedThreadingHTTPServer(("127.0.0.1", 0), handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        request = urllib.request.Request(
+            f"http://127.0.0.1:{server.server_port}/v1/chat/completions",
+            data=json.dumps({
+                "model": "dream-test",
+                "messages": [{"role": "user", "content": "Deadline test"}],
+                "max_tokens": 1
+            }).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer test-secret-token"
+            },
+            method="POST"
+        )
+        original_forward_cached = model.forward_cached
+
+        def slow_prefill(*args, **kwargs):
+            time.sleep(0.02)
+            return original_forward_cached(*args, **kwargs)
+
+        try:
+            with patch.object(serve, "MAX_INFERENCE_SECONDS", 0.001), patch.object(
+                model, "forward_cached", side_effect=slow_prefill
+            ):
+                with self.assertRaises(urllib.error.HTTPError) as raised:
+                    urllib.request.urlopen(request, timeout=5)
+                self.assertEqual(raised.exception.code, 504)
+                body = json.loads(raised.exception.read().decode("utf-8"))
+                self.assertIn("timed out", body["error"]["message"])
+            self.assertTrue(serve.MODEL_LOCK.acquire(blocking=False))
+            serve.MODEL_LOCK.release()
+
+            # Exercise the uncached sliding-window branch with an overlong
+            # model forward pass, not just the cached prompt-prefill branch.
+            sliding_request = urllib.request.Request(
+                f"http://127.0.0.1:{server.server_port}/v1/chat/completions",
+                data=json.dumps({
+                    "model": "dream-test",
+                    "messages": [{"role": "user", "content": "x" * 100}],
+                    "max_tokens": 1
+                }).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": "Bearer test-secret-token"
+                },
+                method="POST"
+            )
+            original_forward = model.forward
+
+            def slow_forward(*args, **kwargs):
+                time.sleep(0.02)
+                return original_forward(*args, **kwargs)
+
+            with patch.object(serve, "MAX_INFERENCE_SECONDS", 0.001), patch.object(
+                model, "forward", side_effect=slow_forward
+            ):
+                with self.assertRaises(urllib.error.HTTPError) as raised:
+                    urllib.request.urlopen(sliding_request, timeout=5)
+                self.assertEqual(raised.exception.code, 504)
+                body = json.loads(raised.exception.read().decode("utf-8"))
+                self.assertIn("timed out", body["error"]["message"])
+            self.assertTrue(serve.MODEL_LOCK.acquire(blocking=False))
+            serve.MODEL_LOCK.release()
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=5)
+
     def test_zero_temperature_enables_greedy_decoding(self):
         status, body = self.request(
             "POST", "/v1/chat/completions",
