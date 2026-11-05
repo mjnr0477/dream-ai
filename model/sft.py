@@ -8,6 +8,7 @@ import hashlib
 import json
 import math
 import random
+import re
 from datetime import date
 from pathlib import Path
 from urllib.parse import urlparse
@@ -16,6 +17,7 @@ from urllib.parse import urlparse
 ALLOWED_RIGHTS_BASIS = {
     "original-authorship", "public-domain", "open-license", "explicit-permission"
 }
+IDENTIFIER_FORMAT = "sha256-domain-separated-v1"
 
 import torch
 
@@ -31,11 +33,17 @@ def sha256(path):
     return digest.hexdigest()
 
 
+def identifier_fingerprint(value, kind):
+    return hashlib.sha256(
+        f"dream-corpus:{kind}:v1\\0{value}".encode("utf-8")
+    ).hexdigest()
+
+
 def source_groups(path):
     groups = set()
     for line in Path(path).read_text(encoding="utf-8").splitlines():
         if line.strip():
-            groups.add(json.loads(line)["source_group"])
+            groups.add(identifier_fingerprint(json.loads(line)["source_group"], "source-group"))
     return groups
 
 
@@ -54,7 +62,7 @@ def record_signatures(path):
             raise SystemExit(f"Invalid JSON at line {line_number}: {exc}") from exc
         record_id = item.get("id")
         if isinstance(record_id, str) and record_id:
-            record_ids.add(record_id)
+            record_ids.add(identifier_fingerprint(record_id, "record"))
         messages = item.get("messages")
         if isinstance(messages, list):
             normalized = []
@@ -253,7 +261,18 @@ def main():
         )
         test_split = pretraining_manifest["splits"]["test"]
         pretraining_test_hash = test_split["sha256"]
-        pretraining_test_groups = set(test_split["source_group_ids"])
+        manifest_identifier_format = pretraining_manifest.get("identifier_format")
+        manifest_test_groups = set(test_split["source_group_ids"])
+        if manifest_identifier_format == IDENTIFIER_FORMAT:
+            pretraining_test_groups = manifest_test_groups
+        elif manifest_identifier_format is None:
+            # Backward compatibility: older manifests stored raw source-group IDs.
+            pretraining_test_groups = {
+                identifier_fingerprint(group, "source-group")
+                for group in manifest_test_groups
+            }
+        else:
+            raise ValueError("unsupported manifest identifier format")
     except (OSError, json.JSONDecodeError, KeyError, TypeError) as exc:
         raise SystemExit(
             "Invalid pretraining manifest: expected a test split with sha256 and source_group_ids."
@@ -263,7 +282,11 @@ def main():
         or not isinstance(pretraining_test_hash, str)
         or len(pretraining_test_hash) != 64
         or not pretraining_test_groups
-        or any(not isinstance(group, str) or not group for group in pretraining_test_groups)
+        or any(
+            not isinstance(group, str)
+            or not re.fullmatch(r"[a-f0-9]{64}", group)
+            for group in pretraining_test_groups
+        )
     ):
         raise SystemExit("Pretraining manifest has invalid held-out test provenance.")
     pretraining_test_path = Path(args.pretraining_test_data)
