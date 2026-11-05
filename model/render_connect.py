@@ -76,7 +76,6 @@ def update_render_model_env(
         raise ValueError("DREAM_MODEL_NAME contains unsupported characters.")
     if not isinstance(model_token, str) or not 16 <= len(model_token) <= 512 or any(c.isspace() for c in model_token):
         raise ValueError("DREAM_MODEL_TOKEN must be a non-empty generated secret.")
-    
     send = opener or urlopen
     base = f"https://api.render.com/v1/services/{service_id}"
     values = (
@@ -84,22 +83,41 @@ def update_render_model_env(
         ("DREAM_MODEL_NAME", model_name),
         ("DREAM_MODEL_TOKEN", model_token),
     )
+    updated_keys = []
     for key, value in values:
-        _request_json(
-            f"{base}/env-vars/{key}",
-            "PUT",
+        try:
+            _request_json(
+                f"{base}/env-vars/{key}",
+                "PUT",
+                api_key,
+                {"value": value},
+                send,
+            )
+        except Exception:
+            if updated_keys:
+                changed = ", ".join(updated_keys)
+                raise RuntimeError(
+                    f"Render update stopped after saving {changed}. No deploy was requested; "
+                    "review all three DREAM variables before any future deploy."
+                ) from None
+            raise RuntimeError(
+                "Render could not save the first DREAM variable. No deploy was requested."
+            ) from None
+        updated_keys.append(key)
+
+    try:
+        deploy = _request_json(
+            f"{base}/deploys",
+            "POST",
             api_key,
-            {"value": value},
+            {"clearCache": "do_not_clear"},
             send,
         )
-
-    deploy = _request_json(
-        f"{base}/deploys",
-        "POST",
-        api_key,
-        {"clearCache": "do_not_clear"},
-        send,
-    )
+    except Exception:
+        raise RuntimeError(
+            "All three DREAM variables were saved, but Render did not confirm a deploy. "
+            "Check the service deploy status before retrying."
+        ) from None
     deploy_id = deploy.get("id") if isinstance(deploy, dict) else None
     if not isinstance(deploy_id, str) or not deploy_id:
         raise RuntimeError("Render accepted the environment updates but did not return a deploy ID.")
