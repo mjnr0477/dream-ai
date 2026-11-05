@@ -120,6 +120,7 @@ test("research synthesis explicitly carries evidence and enforces source-verific
   assert.ok(app.includes("analysisPrompt.length > 7800"));
   assert.ok(app.includes("Research evidence exceeds the safe analysis size"));
   assert.ok(app.includes("sendMessage(analysisPrompt, false, false)"));
+  assert.ok(app.includes("sendMessage(content, true, includeHistory)"));
   assert.ok(app.includes('includeHistory ? messages.slice(-12) : [{ role: "user", content }]'));
   assert.ok(app.includes("evidenceBlock.length > 1100"));
   assert.ok(app.includes("Evidence block truncated; source URL retained"));
