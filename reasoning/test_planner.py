@@ -46,6 +46,24 @@ class PlannerTests(unittest.TestCase):
         self.assertEqual(plan.records["t"].outcome, "")
         self.assertEqual(plan.records["t"].attempts, 1)
 
+    def test_each_success_criterion_needs_matching_evidence(self):
+        plan = Planner.build([Task("t", "Task", success_criteria=("unit tests pass", "API contract holds"))])
+        plan.mark_in_progress("t")
+        report = plan.submit_outcome("t", "Tests passed", [
+            Evidence("Unit suite passed", "CI", True, 0.99, criterion="unit tests pass")
+        ])
+        self.assertFalse(report.verified)
+        self.assertTrue(any("API contract holds" in reason for reason in report.reasons))
+
+    def test_retry_note_is_preserved_as_audit_history(self):
+        plan = Planner.build([Task("t", "Task")])
+        plan.mark_in_progress("t")
+        plan.submit_outcome("t", "Unverified")
+        plan.retry("t", "Add an integration test")
+        record = plan.records["t"]
+        self.assertEqual(record.retry_notes, ["Add an integration test"])
+        self.assertEqual(record.uncertainty, [])
+
     def test_invalid_reliability_is_rejected(self):
         with self.assertRaises(PlanError):
             Evidence("claim", "source", True, 1.1)
