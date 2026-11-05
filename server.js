@@ -13,6 +13,19 @@ const PORT = Number(process.env.PORT || 3000);
 const MAX_BODY_BYTES = 32 * 1024;
 const MAX_MESSAGE_CHARS = 8000;
 const MAX_HISTORY_ITEMS = 12;
+const SECURITY_HEADERS = {
+  "x-content-type-options": "nosniff",
+  "x-frame-options": "DENY",
+  "referrer-policy": "strict-origin-when-cross-origin",
+  "permissions-policy": "camera=(), microphone=(), geolocation=()"
+};
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'", "base-uri 'self'", "object-src 'none'",
+  "frame-ancestors 'none'", "form-action 'self'", "script-src 'self'",
+  "style-src 'self' https://fonts.googleapis.com", "style-src-attr 'unsafe-inline'",
+  "font-src 'self' https://fonts.gstatic.com", "img-src 'self' data:"
+].join("; ");
+
 const MAX_ACTIVE_CHATS = 2;
 const configuredRateLimit = Number(process.env.DREAM_API_RATE_LIMIT);
 const apiRateLimiter = new RequestRateLimiter({
@@ -34,9 +47,9 @@ const MIME = {
 
 function json(res, status, payload, extraHeaders = {}) {
   res.writeHead(status, {
+    ...SECURITY_HEADERS,
     "content-type": "application/json; charset=utf-8",
     "cache-control": "no-store",
-    "x-content-type-options": "nosniff",
     ...extraHeaders
   });
   res.end(JSON.stringify(payload));
@@ -89,6 +102,7 @@ async function handleResearch(req, res) {
   }
   if (activeResearch >= 2) {
     res.writeHead(503, {
+      ...SECURITY_HEADERS,
       "retry-after": "3",
       "content-type": "application/json; charset=utf-8",
       "cache-control": "no-store",
@@ -170,7 +184,7 @@ async function serveStatic(encodedPathname, res) {
   try {
     pathname = decodeURIComponent(encodedPathname);
   } catch {
-    res.writeHead(400, { "content-type": "text/plain; charset=utf-8" });
+    res.writeHead(400, { ...SECURITY_HEADERS, "content-type": "text/plain; charset=utf-8" });
     res.end("Invalid URL path");
     return;
   }
@@ -182,20 +196,21 @@ async function serveStatic(encodedPathname, res) {
     pathFromPublic.startsWith(".." + sep) ||
     resolve(filePath) === resolve(PUBLIC_DIR)
   ) {
-    res.writeHead(403, { "content-type": "text/plain; charset=utf-8" });
+    res.writeHead(403, { ...SECURITY_HEADERS, "content-type": "text/plain; charset=utf-8" });
     res.end("Forbidden");
     return;
   }
   try {
     const content = await readFile(filePath);
     res.writeHead(200, {
+      ...SECURITY_HEADERS,
       "content-type": MIME[extname(filePath)] || "application/octet-stream",
-      "x-content-type-options": "nosniff",
-      "referrer-policy": "strict-origin-when-cross-origin"
+      "content-security-policy": CONTENT_SECURITY_POLICY,
+      "cache-control": extname(filePath) === ".html" ? "no-cache" : "public, max-age=300"
     });
     res.end(content);
   } catch {
-    res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+    res.writeHead(404, { ...SECURITY_HEADERS, "content-type": "text/plain; charset=utf-8" });
     res.end("Not found");
   }
 }
@@ -211,23 +226,22 @@ const server = http.createServer(async (req, res) => {
       ok: true,
       name: "DREAM AI",
       version: "0.3.0",
-      engine: "dream-engine",
       modelConfigured: runtime.configured,
-      modelReady: runtime.ready,
-      runtimeStatus: runtime.status,
-      modelName: runtime.modelName || null,
-      model: runtime.ready ? {
-        completedTrainingSteps: runtime.completedTrainingSteps,
-        checkpointSha256: runtime.checkpointSha256,
-        device: runtime.device,
-        parameters: runtime.parameters,
-        tokenizer: runtime.tokenizer
-      } : null
+      modelReady: runtime.ready
     });
   }
   if (req.method === "GET" && url.pathname === "/api/capabilities") {
     const runtime = await getDreamRuntimeStatus();
-    return json(res, 200, getDreamCapabilities(runtime));
+    const capabilities = getDreamCapabilities(runtime);
+    if (capabilities.model) {
+      delete capabilities.model.completedTrainingSteps;
+      delete capabilities.model.checkpointSha256;
+      delete capabilities.model.device;
+      delete capabilities.model.parameters;
+      delete capabilities.model.tokenizer;
+      delete capabilities.model.name;
+    }
+    return json(res, 200, capabilities);
   }
   if (req.method === "POST" && url.pathname === "/api/research") {
     const release = guardApiRequest(req, res);
@@ -254,7 +268,7 @@ const server = http.createServer(async (req, res) => {
     }
   }
   if (req.method === "GET") return serveStatic(url.pathname, res);
-  res.writeHead(405, { allow: "GET, POST" }).end("Method not allowed");
+  res.writeHead(405, { ...SECURITY_HEADERS, allow: "GET, POST" }).end("Method not allowed");
 });
 
 server.listen(PORT, "0.0.0.0", () => {
