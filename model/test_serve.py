@@ -472,6 +472,43 @@ class DreamServingTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(body["choices"][0]["message"]["content"], "A")
 
+    def test_rejects_ambiguous_http_body_framing(self):
+        requests = {
+            "transfer-encoding": (
+                b"POST /v1/chat/completions HTTP/1.0\r\n"
+                b"Host: 127.0.0.1\r\n"
+                b"Authorization: Bearer test-secret-token\r\n"
+                b"Content-Type: application/json\r\n"
+                b"Content-Length: 5\r\n"
+                b"Transfer-Encoding: chunked\r\n\r\n"
+                b"0\r\n\r\n"
+            ),
+            "duplicate-content-length": (
+                b"POST /v1/chat/completions HTTP/1.0\r\n"
+                b"Host: 127.0.0.1\r\n"
+                b"Authorization: Bearer test-secret-token\r\n"
+                b"Content-Type: application/json\r\n"
+                b"Content-Length: 2\r\n"
+                b"Content-Length: 2\r\n\r\n{}"
+            ),
+        }
+        for name, request in requests.items():
+            with self.subTest(name=name):
+                with socket.create_connection(("127.0.0.1", self.port), timeout=5) as conn:
+                    conn.settimeout(5)
+                    conn.sendall(request)
+                    response = bytearray()
+                    while True:
+                        try:
+                            chunk = conn.recv(4096)
+                        except socket.timeout:
+                            break
+                        if not chunk:
+                            break
+                        response.extend(chunk)
+                self.assertTrue(response.startswith(b"HTTP/1.0 400"), response[:200])
+                self.assertIn(b"application/json", response.lower())
+
     def test_rejects_invalid_temperature(self):
         status, body = self.request(
             "POST", "/v1/chat/completions",

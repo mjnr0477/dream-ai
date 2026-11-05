@@ -160,8 +160,21 @@ def create_handler(model, tokenizer, config, model_name, token, device, metadata
                     return self.send_json(401, {"error": {"message": "Unauthorized"}})
             if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "application/json":
                 return self.send_json(415, {"error": {"message": "application/json required"}})
+            # This server deliberately supports fixed-length JSON bodies only.
+            # Reject ambiguous framing before reading bytes so a proxy/client cannot
+            # disagree with the runtime about where this request ends.
+            if self.headers.get_all("Transfer-Encoding", []):
+                return self.send_json(400, {"error": {"message": "Transfer encoding is not supported"}})
+            content_lengths = self.headers.get_all("Content-Length", [])
+            if not content_lengths:
+                return self.send_json(411, {"error": {"message": "Content length is required"}})
+            if len(content_lengths) != 1:
+                return self.send_json(400, {"error": {"message": "Invalid content length"}})
+            raw_length = content_lengths[0]
+            if not raw_length.isascii() or not raw_length.isdecimal():
+                return self.send_json(400, {"error": {"message": "Invalid content length"}})
             try:
-                length = int(self.headers.get("Content-Length", "0"))
+                length = int(raw_length)
             except ValueError:
                 return self.send_json(400, {"error": {"message": "Invalid content length"}})
             if length < 1 or length > MAX_BODY_BYTES:
