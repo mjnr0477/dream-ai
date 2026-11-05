@@ -74,6 +74,14 @@ class OASST1CandidateImporterTests(unittest.TestCase):
             "pii_label_missing_or_positive",
         )
 
+    def test_rejects_non_finite_safety_scores(self):
+        row = good_row()
+        row["labels"]["pii"]["value"] = float("nan")
+        self.assertEqual(
+            oasst1.candidate_rejection(row),
+            "pii_label_missing_or_positive",
+        )
+
     def test_rejects_flagged_content(self):
         row = good_row()
         row["labels"]["spam"]["value"] = 0.01
