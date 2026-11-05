@@ -137,8 +137,13 @@ def review_file(input_path, output_path, decisions_path, limit=25,
         raise ValueError("limit must be a positive integer")
     if not input_path.is_file():
         raise FileNotFoundError(f"Candidate file does not exist: {input_path}")
-    if output_path.resolve() == decisions_path.resolve():
+    resolved_input = input_path.resolve()
+    resolved_output = output_path.resolve()
+    resolved_decisions = decisions_path.resolve()
+    if resolved_output == resolved_decisions:
         raise ValueError("Approved output and decision ledger must be different files")
+    if resolved_input in {resolved_output, resolved_decisions}:
+        raise ValueError("Candidate input, approved output and decision ledger must be separate files")
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     decisions_path.parent.mkdir(parents=True, exist_ok=True)
