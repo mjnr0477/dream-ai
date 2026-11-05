@@ -14,7 +14,7 @@ This module is an application-side execution boundary, not an autonomous compute
 
 ## Critical integration requirements
 
-Do not expose this registry directly to an unauthenticated HTTP route or trust a model-generated `confirmed` flag. The approval object must be issued by a server-side approval flow after a real user confirmation, and the authenticated principal must come from verified session middleware. The model may propose a tool call; it cannot grant itself permissions or approvals.
+Do not expose this registry directly to an unauthenticated HTTP route or trust a model-generated `confirmed` flag. The approval verifier must validate an opaque, server-issued approval token against a real user confirmation and bind it to the authenticated principal, tool ID and exact input digest. Do not use a client-provided boolean or a plain digest as proof of approval. The authenticated principal must come from verified session middleware. The model may propose a tool call; it cannot grant itself permissions or approvals.
 
 Register handlers in trusted application startup code only. Do not load arbitrary handler code, accept user-supplied URLs as privileged destinations, or pass credentials to a handler unless its scope explicitly requires them. Network access, filesystem access and process execution are not sandboxed by this module: high-risk handlers must use separately isolated infrastructure with network-deny-by-default controls.
 
