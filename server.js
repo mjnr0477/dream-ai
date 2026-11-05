@@ -52,7 +52,7 @@ function json(res, status, payload) {
 
 function validateBrowserRequest(req) {
   const contentType = req.headers["content-type"] || "";
-  if (!/^application\\/json(?:\\s*;|$)/i.test(contentType)) {
+  if (!/^application\/json(?:\s*;|$)/i.test(contentType)) {
     const error = new Error("Content-Type must be application/json.");
     error.status = 415;
     throw error;
