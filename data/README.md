@@ -15,12 +15,12 @@ Every dataset release must include:
 - human-confirmed rights, privacy and quality review for each record;
 - personal-data review and redaction record;
 - deduplication and quality-review report;
-- train/validation/test split with no cross-split leakage;
+- deterministic source-group-stratified train/validation/test splits with no cross-split leakage; languages need at least three independent source groups to be represented in all three splits;
 - dataset version and SHA-256 manifest.
 
 Before preparation, run `python model/audit_corpus.py --input data/approved-records.jsonl --out eval-results/corpus-audit.json`; inspect its metadata, duplicate-content and possible-PII findings. The Colab workflow blocks on provenance errors, possible PII and incomplete human reviews. Run the same audit separately on both SFT splits. This is heuristic triage, not legal or privacy approval.
 
-Each JSONL record must include `source_url`, `license_url`, `rights_basis` and `source_date` in strict `YYYY-MM-DD` form, and set `rights_confirmed`, `privacy_reviewed` and `quality_reviewed` to `true`. The preparation gate requires absolute HTTPS source and license URLs and rejects an unverified rights basis. The generated manifest reports record counts by language and license plus the source-date range; inspect these before training. These flags record a human review; the script cannot independently verify legal rights or detect all personal information.
+Each JSONL record must include `source_url`, `license_url`, `rights_basis` and `source_date` in strict `YYYY-MM-DD` form, and set `rights_confirmed`, `privacy_reviewed` and `quality_reviewed` to `true`. The preparation gate requires absolute HTTPS source and license URLs and rejects an unverified rights basis. The generated manifest reports record counts by language and license plus the source-date range; inspect these before training. It also reports each language's independent source-group count and split coverage. Languages with at least three independent groups are assigned at least one group to each split; rarer languages are marked as not yet eligible for three-way held-out evaluation. These flags record a human review; the script cannot independently verify legal rights or detect all personal information.
 
 ## FineWeb2 multilingual candidate import
 

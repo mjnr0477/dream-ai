@@ -48,6 +48,119 @@ def write_text_file(path: Path, rows) -> dict:
     }
 
 
+
+def assign_source_group_splits(records):
+    """Create deterministic source-isolated splits with multilingual coverage.
+
+    Languages represented by at least three independent source groups are
+    guaranteed to appear in train, validation and test. Rarer languages are
+    reported as not yet eligible for three-way language evaluation.
+    """
+    languages_by_group = {}
+    groups_by_language = {}
+    for row in records:
+        group = row["source_group"]
+        language = row["language"]
+        languages_by_group.setdefault(group, set()).add(language)
+        groups_by_language.setdefault(language, set()).add(group)
+
+    ordered_groups = sorted(
+        languages_by_group,
+        key=lambda value: hashlib.sha256(value.encode("utf-8")).hexdigest()
+    )
+    group_count = len(ordered_groups)
+    test_target = max(1, round(group_count * 0.05))
+    validation_target = max(1, round(group_count * 0.05))
+    if test_target + validation_target >= group_count:
+        test_target = validation_target = 1
+
+    eligible_languages = {
+        language for language, groups in groups_by_language.items()
+        if len(groups) >= 3
+    }
+    remaining_counts = {
+        language: len(groups) for language, groups in groups_by_language.items()
+    }
+    available = set(ordered_groups)
+    selected = {"test": [], "validation": []}
+    group_rank = {
+        group: hashlib.sha256(group.encode("utf-8")).hexdigest()
+        for group in ordered_groups
+    }
+
+    def choose_coverage(split, minimum_remaining):
+        uncovered = set(eligible_languages)
+        while uncovered:
+            candidates = []
+            for group in available:
+                group_languages = languages_by_group[group] & eligible_languages
+                newly_covered = group_languages & uncovered
+                if not newly_covered:
+                    continue
+                if any(
+                    remaining_counts[language] <= minimum_remaining
+                    for language in group_languages
+                ):
+                    continue
+                candidates.append((
+                    -len(newly_covered), group_rank[group], group,
+                    newly_covered, group_languages
+                ))
+            if not candidates:
+                raise RuntimeError(
+                    "Unable to preserve train/validation/test coverage for "
+                    + ", ".join(sorted(uncovered))
+                )
+            _, _, group, newly_covered, group_languages = min(candidates)
+            selected[split].append(group)
+            available.remove(group)
+            for language in group_languages:
+                remaining_counts[language] -= 1
+            uncovered -= newly_covered
+
+    def fill_target(split, target, minimum_remaining):
+        for group in ordered_groups:
+            if len(selected[split]) >= target:
+                break
+            if group not in available:
+                continue
+            group_languages = languages_by_group[group] & eligible_languages
+            if any(
+                remaining_counts[language] <= minimum_remaining
+                for language in group_languages
+            ):
+                continue
+            selected[split].append(group)
+            available.remove(group)
+            for language in group_languages:
+                remaining_counts[language] -= 1
+
+    choose_coverage("test", minimum_remaining=2)
+    fill_target("test", test_target, minimum_remaining=2)
+    choose_coverage("validation", minimum_remaining=1)
+    fill_target("validation", validation_target, minimum_remaining=1)
+
+    split_by_group = {group: "train" for group in available}
+    for split, split_groups in selected.items():
+        for group in split_groups:
+            split_by_group[group] = split
+
+    language_coverage = {}
+    for language, language_groups in sorted(groups_by_language.items()):
+        language_coverage[language] = {
+            "independent_source_groups": len(language_groups),
+            "eligible_for_three_way_evaluation": language in eligible_languages,
+            "source_groups_by_split": {
+                split: sum(
+                    1 for group in language_groups
+                    if split_by_group[group] == split
+                )
+                for split in ("train", "validation", "test")
+            }
+        }
+    return split_by_group, language_coverage
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", required=True, help="Approved JSONL records")
@@ -134,23 +247,8 @@ def main():
             "to create leakage-aware train/validation/test splits."
         )
 
-    ordered_groups = sorted(
-        groups,
-        key=lambda value: hashlib.sha256(value.encode("utf-8")).hexdigest()
-    )
-    group_count = len(ordered_groups)
-    test_count = max(1, round(group_count * 0.05))
-    validation_count = max(1, round(group_count * 0.05))
-    if test_count + validation_count >= group_count:
-        test_count = validation_count = 1
-    train_end = group_count - test_count - validation_count
-    split_by_group = {}
-    for group in ordered_groups[:train_end]:
-        split_by_group[group] = "train"
-    for group in ordered_groups[train_end:train_end + validation_count]:
-        split_by_group[group] = "validation"
-    for group in ordered_groups[train_end + validation_count:]:
-        split_by_group[group] = "test"
+    split_by_group, language_split_coverage = assign_source_group_splits(records)
+    group_count = len(groups)
 
     output.mkdir(parents=True, exist_ok=True)
     language_counts = counts(records, "language")
@@ -169,7 +267,8 @@ def main():
         "license_counts": license_counts,
         "rights_basis_counts": counts(records, "rights_basis"),
         "source_date_range": source_date_range,
-        "split_strategy": "deterministic source-group hash ranking; no group crosses splits",
+        "split_strategy": "deterministic source-group stratification; languages with at least three independent groups are represented in train, validation and test; no group crosses splits",
+        "language_split_coverage": language_split_coverage,
         "splits": {}
     }
     for split in ("train", "validation", "test"):
