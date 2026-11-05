@@ -385,7 +385,8 @@ function resetChat() {
 
 form.addEventListener("submit", event => {
   event.preventDefault();
-  sendMessage(input.value);
+  if (activeMode === "research") sendResearch(input.value);
+  else sendMessage(input.value);
 });
 input.addEventListener("input", () => {
   input.style.height = "auto";
