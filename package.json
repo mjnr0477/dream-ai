@@ -10,8 +10,9 @@
     "dev": "node --env-file-if-exists=.env --watch server.js",
     "validate:evals": "node scripts/validate-evals.mjs",
     "eval": "node scripts/run-evals.mjs",
-    "test": "node --check server.js && node --check lib/dream-engine.js && node --check lib/research.js && node --check public/app.js && node --check scripts/validate-evals.mjs && node --check scripts/run-evals.mjs && node --check scripts/summarize-evals.mjs && npm run validate:evals && node --test",
-    "summarize:evals": "node scripts/summarize-evals.mjs"
+    "test": "node --check server.js && node --check lib/dream-engine.js && node --check lib/research.js && node --check public/app.js && node --check scripts/validate-evals.mjs && node --check scripts/validate-african-evals.mjs && node --check scripts/run-evals.mjs && node --check scripts/summarize-evals.mjs && npm run validate:evals && npm run validate:african-evals && node --test",
+    "summarize:evals": "node scripts/summarize-evals.mjs",
+    "validate:african-evals": "node scripts/validate-african-evals.mjs"
   },
   "engines": {
     "node": ">=20.12"
