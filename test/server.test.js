@@ -10,6 +10,7 @@ let base;
 let server;
 let model;
 const modelRequests = [];
+let modelReply = "Test response from the DREAM model runtime.";
 let modelEngine = "dream-native-transformer";
 let modelHasCheckpoint = true;
 let runtimeModelName = "dream-test-model";
@@ -51,7 +52,7 @@ before(async () => {
       const respond = () => {
         res.writeHead(200, { "content-type": "application/json" });
         res.end(JSON.stringify({
-          choices: [{ message: { content: "Test response from the DREAM model runtime." } }]
+          choices: [{ message: { content: modelReply } }]
         }));
       };
       if (holdModelResponses) heldModelResponses.push(respond);
@@ -209,7 +210,44 @@ test("chat endpoint rejects malformed JSON", async () => {
   assert.equal(response.status, 400);
 });
 
+test("coding endpoint returns validated multi-file artifacts without changing ordinary replies", async () => {
+  modelReply = [
+    "--- DREAM FILE: src/index.js ---",
+    "export const ready = true;",
+    "--- END DREAM FILE ---",
+    "--- DREAM FILE: src/start.js ---",
+    "import { ready } from \"./index.js\";",
+    "--- END DREAM FILE ---"
+  ].join("\n");
+  try {
+    const response = await postChat({ mode: "coding", messages: [{ role: "user", content: "Create a two-file JavaScript project." }] });
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.mode, "coding");
+    assert.equal(data.artifacts.length, 2);
+    assert.deepEqual(data.artifacts.map(file => file.path), ["src/index.js", "src/start.js"]);
+    assert.equal(data.artifacts[0].content, "export const ready = true;\n");
+    const ordinary = await postChat({ mode: "general", messages: [{ role: "user", content: "Explain this code." }] });
+    assert.equal(ordinary.status, 200);
+    const ordinaryData = await ordinary.json();
+    assert.equal(ordinaryData.reply, modelReply);
+    assert.equal(Object.hasOwn(ordinaryData, "artifacts"), false);
+  } finally { modelReply = "Test response from the DREAM model runtime."; }
+});
+
+test("coding endpoint ignores malformed artifact metadata without losing the model reply", async () => {
+  modelReply = "--- DREAM FILE: ../unsafe.js ---\nalert(0);\n--- END DREAM FILE ---";
+  try {
+    const response = await postChat({ mode: "coding", messages: [{ role: "user", content: "Generate a file." }] });
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.reply, modelReply);
+    assert.equal(Object.hasOwn(data, "artifacts"), false);
+  } finally { modelReply = "Test response from the DREAM model runtime."; }
+});
+
 test("chat endpoint uses the DREAM runtime in all supported modes", async () => {
+  const beforeCount = modelRequests.length;
   for (const mode of ["general", "coding", "learning"]) {
     const response = await postChat({
       mode,
@@ -222,19 +260,20 @@ test("chat endpoint uses the DREAM runtime in all supported modes", async () => 
     assert.equal(data.reply, "Test response from the DREAM model runtime.");
   }
 
-  assert.equal(modelRequests.length, 3);
-  for (const request of modelRequests) {
+  const modeRequests = modelRequests.slice(beforeCount);
+  assert.equal(modeRequests.length, 3);
+  for (const request of modeRequests) {
     assert.equal(request.url, "/v1/chat/completions");
     assert.equal(request.body.model, "dream-test-model");
     assert.equal(request.body.messages.at(-1).content, "Hello DREAM AI");
     assert.equal(request.headers.authorization, undefined);
   }
-  assert.match(modelRequests[0].body.messages[0].content, /Answer clearly/);
-  assert.match(modelRequests[1].body.messages[0].content, /senior software engineer/);
-  assert.equal(modelRequests[0].body.temperature, 0.7);
-  assert.equal(modelRequests[1].body.temperature, 0.2);
-  assert.equal(modelRequests[2].body.temperature, 0.7);
-  assert.match(modelRequests[2].body.messages[0].content, /patient expert tutor/);
+  assert.match(modeRequests[0].body.messages[0].content, /Answer clearly/);
+  assert.match(modeRequests[1].body.messages[0].content, /senior software engineer/);
+  assert.equal(modeRequests[0].body.temperature, 0.7);
+  assert.equal(modeRequests[1].body.temperature, 0.2);
+  assert.equal(modeRequests[2].body.temperature, 0.7);
+  assert.match(modeRequests[2].body.messages[0].content, /patient expert tutor/);
   for (const request of modelRequests) {
     assert.match(request.body.messages[0].content, /capabilities explicitly available/);
     assert.match(request.body.messages[0].content, /untrusted data/);
