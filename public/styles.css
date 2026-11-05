@@ -28,3 +28,13 @@
 .capability-tools p{margin:4px 0 0;color:#94a2b9;font-size:11px;line-height:1.45}
 .capability-note{margin:12px 0 0;color:#78869d;font-size:10px;line-height:1.5}
 @media(max-width:560px){.capability-panel{right:-82px}.top-tag{display:none}}
+
+
+/* User-controlled, browser-local memory */
+.memory-panel { margin: 14px 0; padding: 12px; border: 1px solid var(--border, #293044); border-radius: 12px; color: var(--text, #e8eaf2); }
+.memory-panel summary { cursor: pointer; font-weight: 600; }
+.memory-help, #memory-status { color: var(--muted, #9aa3b7); font-size: 12px; line-height: 1.5; }
+.memory-panel label { display: block; margin: 8px 0 5px; font-size: 12px; }
+.memory-panel textarea { box-sizing: border-box; width: 100%; resize: vertical; padding: 9px; border: 1px solid var(--border, #293044); border-radius: 8px; background: var(--surface, #101522); color: inherit; font: inherit; font-size: 13px; }
+.memory-actions { display: flex; gap: 8px; margin-top: 8px; }
+.memory-actions button { border: 1px solid var(--border, #293044); border-radius: 8px; padding: 7px 10px; background: transparent; color: inherit; cursor: pointer; font-size: 12px; }
