@@ -154,6 +154,8 @@ Run its structural checks with:
 npm run validate:african-evals
 ```
 
+The ten arithmetic cases also carry machine-checkable `expected_expression` and integer `expected_answer` fields; the validator requires these keys only for math cases and rejects them on explanation cases. This makes arithmetic scoring reproducible without pretending to score language naturalness.
+
 All cases are explicitly marked `pending_native_review`. The prompts and rubrics are engineering drafts, not certified translations. Before using this set to make language-quality claims or as supervised training data, have qualified native speakers review and correct every prompt and rubric, record the review provenance, and score model outputs independently. A passing validator proves only dataset structure and coverage; it does not prove model fluency or competence.
 
 To run this suite against a configured, provenance-verified native DREAM runtime and save outputs for human scoring:
