@@ -266,7 +266,7 @@ async function handleChat(req, res) {
     });
   } catch (error) {
     console.error("DREAM AI request failed:", error.message);
-    return json(res, 502, { error: error.message || "DREAM AI runtime unavailable." });
+    return json(res, 502, { error: "DREAM AI is temporarily unavailable. Please try again." });
   } finally {
     activeChats -= 1;
   }
