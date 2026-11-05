@@ -261,6 +261,7 @@ test("coding endpoint ignores malformed artifact metadata without losing the mod
 });
 
 test("chat endpoint uses the DREAM runtime in all supported modes", async () => {
+  const beforeCount = modelRequests.length;
   for (const mode of ["general", "coding", "learning"]) {
     const response = await postChat({
       mode,
@@ -273,20 +274,21 @@ test("chat endpoint uses the DREAM runtime in all supported modes", async () => 
     assert.equal(data.reply, "Test response from the DREAM model runtime.");
   }
 
-  assert.equal(modelRequests.length, 3);
-  for (const request of modelRequests) {
+  const modeRequests = modelRequests.slice(beforeCount);
+  assert.equal(modeRequests.length, 3);
+  for (const request of modeRequests) {
     assert.equal(request.url, "/v1/chat/completions");
     assert.equal(request.body.model, "dream-test-model");
     assert.equal(request.body.messages.at(-1).content, "Hello DREAM AI");
     assert.equal(request.headers.authorization, undefined);
   }
-  assert.match(modelRequests[0].body.messages[0].content, /Answer clearly/);
-  assert.match(modelRequests[1].body.messages[0].content, /senior software engineer/);
-  assert.equal(modelRequests[0].body.temperature, 0.7);
-  assert.equal(modelRequests[1].body.temperature, 0.2);
-  assert.equal(modelRequests[2].body.temperature, 0.7);
-  assert.match(modelRequests[2].body.messages[0].content, /patient expert tutor/);
-  for (const request of modelRequests) {
+  assert.match(modeRequests[0].body.messages[0].content, /Answer clearly/);
+  assert.match(modeRequests[1].body.messages[0].content, /senior software engineer/);
+  assert.equal(modeRequests[0].body.temperature, 0.7);
+  assert.equal(modeRequests[1].body.temperature, 0.2);
+  assert.equal(modeRequests[2].body.temperature, 0.7);
+  assert.match(modeRequests[2].body.messages[0].content, /patient expert tutor/);
+  for (const request of modeRequests) {
     assert.match(request.body.messages[0].content, /capabilities explicitly available/);
     assert.match(request.body.messages[0].content, /untrusted data/);
     assert.match(request.body.messages[0].content, /explicit user confirmation/);
