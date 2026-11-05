@@ -94,7 +94,7 @@ class ColabNotebookTests(unittest.TestCase):
         self.assertIn("DREAM_RUNTIME_TOKEN", runtime)
         self.assertIn("previous_process.terminate()", runtime)
         self.assertIn("cloudflared", runtime)
-        self.assertIn("trycloudflare.com", runtime)
+        self.assertIn(r"\.trycloudflare\.com", runtime)
         self.assertIn("DREAM_MODEL_URL=", runtime)
         self.assertIn("DREAM_MODEL_NAME=", runtime)
         self.assertIn("DREAM_MODEL_TOKEN=", runtime)
