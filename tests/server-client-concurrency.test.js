@@ -102,7 +102,7 @@ function chat(clientIp) {
   });
 }
 
-test("live chat route enforces one in-flight request per client", async () => {
+test("live chat route enforces one in-flight request per client", { timeout: 15000 }, async () => {
   const firstRequest = chat("198.51.100.101");
   await firstCompletionStarted;
 
