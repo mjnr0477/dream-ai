@@ -54,6 +54,6 @@ Do not describe DREAM AI as having completed account isolation or robust public 
 ## Additional controls added in the rate-limit branch
 
 - Chat and public research share a per-IP token bucket with a 12-request burst and 12-request/minute refill; rejected requests receive HTTP 429 and a Retry-After header.
-- Render's first X-Forwarded-For address is used as the client IP; invalid/missing values fall back to the socket address. The in-memory map is capped at 5,000 buckets and prunes idle entries when full.
+- Render's first X-Forwarded-For address is used as the client IP; invalid/missing values fall back to the socket address. The in-memory map is capped at 5,000 buckets and prunes idle entries when full. Loopback development requests are exempt so local tests and development remain usable.
 - Origin checks compare scheme as well as host. Non-loopback hosts default to HTTPS because Render terminates TLS before forwarding HTTP to the app; local loopback development defaults to HTTP. DREAM_PUBLIC_ORIGIN can explicitly override the expected public origin.
 - This limiter is process-local. It is appropriate only for the current single-instance free service; use a shared store and authenticated user quotas if the service scales.
