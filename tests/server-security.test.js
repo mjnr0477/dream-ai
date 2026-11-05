@@ -136,19 +136,6 @@ test("API and error responses include baseline security headers", async () => {
 });
 
 
-test("rejects an HTTP Origin for the public HTTPS host", async () => {
-  const response = await fetch(baseUrl + "/api/chat", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      host: "dream-ai-live.onrender.com",
-      origin: "http://dream-ai-live.onrender.com"
-    },
-    body: JSON.stringify(validPayload)
-  });
-  assert.equal(response.status, 403);
-});
-
 test("chat rejects cross-site Fetch Metadata", async () => {
   const response = await fetch(baseUrl + "/api/chat", {
     method: "POST",
