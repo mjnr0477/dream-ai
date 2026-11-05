@@ -136,6 +136,15 @@ class ReviewCandidatesTests(unittest.TestCase):
         ]
         self.assertEqual(candidate_problem(item), "invalid_messages")
 
+    def test_valid_user_assistant_conversation_can_be_reviewed(self):
+        item = candidate("conversation-2")
+        item.pop("text")
+        item["messages"] = [
+            {"role": "user", "content": "Explain how rain forms in the atmosphere."},
+            {"role": "assistant", "content": "Water evaporates, cools and condenses into droplets that form clouds and precipitation."}
+        ]
+        self.assertIsNone(candidate_problem(item))
+
 
 if __name__ == "__main__":
     unittest.main()
