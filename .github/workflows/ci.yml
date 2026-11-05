@@ -38,7 +38,7 @@ jobs:
       - name: Compile Python sources
         run: python -m compileall -q model reasoning
       - name: Test reasoning planner and evidence verification
-        run: python -m unittest reasoning.test_planner -v
+        run: python -m unittest discover -s reasoning -p 'test_*.py' -v
       - name: Compile corpus importers
         run: >-
           python -m py_compile
