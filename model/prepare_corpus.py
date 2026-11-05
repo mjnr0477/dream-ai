@@ -14,6 +14,14 @@ from urllib.parse import urlparse
 ALLOWED_RIGHTS_BASIS = {
     "original-authorship", "public-domain", "open-license", "explicit-permission"
 }
+IDENTIFIER_FORMAT = "sha256-domain-separated-v1"
+
+
+def identifier_fingerprint(value: str, kind: str) -> str:
+    """Fingerprint caller-controlled identifiers before writing public manifests."""
+    return hashlib.sha256(
+        f"dream-corpus:{kind}:v1\\0{value}".encode("utf-8")
+    ).hexdigest()
 
 
 def sha256(path: Path) -> str:
@@ -42,8 +50,10 @@ def write_text_file(path: Path, rows) -> dict:
         "path": path.name,
         "records": len(rows),
         "utf8_bytes": path.stat().st_size,
-        "record_ids": sorted(row["id"] for row in rows),
-        "source_group_ids": sorted({row["source_group"] for row in rows}),
+        "record_ids": sorted(identifier_fingerprint(row["id"], "record") for row in rows),
+        "source_group_ids": sorted({
+            identifier_fingerprint(row["source_group"], "source-group") for row in rows
+        }),
         "sha256": sha256(path)
     }
 
@@ -261,6 +271,7 @@ def main():
     }
     manifest = {
         "schema": "dream-corpus-v1",
+        "identifier_format": IDENTIFIER_FORMAT,
         "input_sha256": sha256(source),
         "records": len(records),
         "duplicate_text_records_removed": duplicate_text_records,
