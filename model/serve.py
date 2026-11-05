@@ -59,8 +59,11 @@ class BoundedThreadingHTTPServer(ThreadingHTTPServer):
             return
         try:
             super().process_request(request, client_address)
-        except BaseException:
-            self._worker_slots.release()
+        except Exception:
+            try:
+                self.shutdown_request(request)
+            finally:
+                self._worker_slots.release()
             raise
 
     def process_request_thread(self, request, client_address):
