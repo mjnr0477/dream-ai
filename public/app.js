@@ -187,6 +187,7 @@ async function checkHealth() {
 async function sendResearch(text, isRetry = false) {
   const content = text.trim();
   if (!content || send.disabled) return;
+  if (activeMode === "research") return sendResearch(content, isRetry);
   welcome.hidden = true;
   messages.push({ role: "user", content });
   if (!isRetry) addMessage("user", content);
