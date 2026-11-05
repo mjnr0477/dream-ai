@@ -89,7 +89,11 @@ test("health endpoint identifies the DREAM engine and configured model", async (
   assert.equal(data.name, "DREAM AI");
   assert.equal(data.engine, "dream-engine");
   assert.equal(data.modelConfigured, true);
+  assert.equal(data.modelReady, true);
+  assert.equal(data.runtimeStatus, "ready");
   assert.equal(data.modelName, "dream-test-model");
+  assert.equal(data.model.completedTrainingSteps, 12);
+  assert.equal(data.model.checkpointSha256, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
   assert.equal(data.version, "0.3.0");
 });
 
