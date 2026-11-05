@@ -75,6 +75,66 @@ test("chat rejects a hostile Origin header", async () => {
   assert.equal(response.status, 403);
 });
 
+
+
+test("chat rejects a same-host Origin with the wrong scheme", async () => {
+  const response = await fetch(baseUrl + "/api/chat", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      origin: baseUrl.replace(/^http:/, "https:")
+    },
+    body: JSON.stringify(validPayload)
+  });
+  assert.equal(response.status, 403);
+});
+
+test("chat and research share a bounded per-client rate limit", async () => {
+  const clientIp = "198.51.100.20";
+  const headers = {
+    "content-type": "application/json",
+    origin: baseUrl,
+    "x-forwarded-for": clientIp + ", 10.0.0.1"
+  };
+  for (let index = 0; index < 12; index += 1) {
+    const response = await fetch(baseUrl + "/api/chat", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(validPayload)
+    });
+    assert.equal(response.status, 200);
+  }
+
+  const blockedResearch = await fetch(baseUrl + "/api/research", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ query: "DREAM AI" })
+  });
+  assert.equal(blockedResearch.status, 429);
+  assert.ok(Number(blockedResearch.headers.get("retry-after")) >= 1);
+
+  const otherClient = await fetch(baseUrl + "/api/chat", {
+    method: "POST",
+    headers: { ...headers, "x-forwarded-for": "198.51.100.21" },
+    body: JSON.stringify(validPayload)
+  });
+  assert.equal(otherClient.status, 200);
+});
+
+test("API and error responses include baseline security headers", async () => {
+  const health = await fetch(baseUrl + "/api/health");
+  assert.equal(health.headers.get("x-frame-options"), "DENY");
+  assert.equal(health.headers.get("x-content-type-options"), "nosniff");
+
+  const missing = await fetch(baseUrl + "/does-not-exist");
+  assert.equal(missing.status, 404);
+  assert.equal(missing.headers.get("x-frame-options"), "DENY");
+
+  const method = await fetch(baseUrl + "/api/health/live", { method: "PUT" });
+  assert.equal(method.status, 405);
+  assert.equal(method.headers.get("x-content-type-options"), "nosniff");
+});
+
 test("chat rejects cross-site Fetch Metadata", async () => {
   const response = await fetch(baseUrl + "/api/chat", {
     method: "POST",
