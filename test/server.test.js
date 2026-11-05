@@ -17,7 +17,7 @@ before(async () => {
   model = http.createServer((req, res) => {
     if (req.method === "GET" && req.url === "/health") {
       res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({ ok: true, engine: modelEngine }));
+      res.end(JSON.stringify({ ok: true, engine: modelEngine, model: "dream-test-model", completed_training_steps: 12, checkpoint_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", device: "cpu", parameters: 1000, tokenizer: "DreamByteTokenizer" }));
       return;
     }
     const chunks = [];
