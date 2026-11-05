@@ -27,6 +27,19 @@ const clientConcurrencyLimiter = new ClientConcurrencyLimiter(1);
 let activeChats = 0;
 let activeResearch = 0;
 const MODES = ["general", "coding", "learning"];
+const SAFE_CHAT_ERRORS = new Set([
+  "DREAM_MODEL_URL must be a valid URL.",
+  "DREAM_MODEL_URL must not contain embedded credentials.",
+  "DREAM_MODEL_URL must use HTTPS unless it targets loopback for local development.",
+  "Native runtime health check failed.",
+  "Configured runtime is not the native DREAM transformer. External AI providers are not accepted.",
+  "Native DREAM runtime has no verifiable trained-checkpoint identity.",
+  "Native DREAM runtime model name does not match the configured model.",
+  "Native DREAM runtime identity check timed out.",
+  "DREAM AI's model runtime could not complete the request.",
+  "DREAM AI's model runtime returned an empty response.",
+  "DREAM AI's model runtime took too long to respond. Please try again."
+]);
 const SECURITY_HEADERS = {
   "x-content-type-options": "nosniff",
   "x-frame-options": "DENY",
@@ -276,7 +289,8 @@ async function handleChat(req, res) {
     });
   } catch (error) {
     console.error("DREAM AI request failed:", error.message);
-    return json(res, 502, { error: "DREAM AI is temporarily unavailable. Please try again." });
+    const publicError = SAFE_CHAT_ERRORS.has(error.message) ? error.message : "DREAM AI is temporarily unavailable. Please try again.";
+    return json(res, 502, { error: publicError });
   } finally {
     activeChats -= 1;
   }
