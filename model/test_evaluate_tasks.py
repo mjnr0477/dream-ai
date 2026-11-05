@@ -69,5 +69,15 @@ class TaskEvaluationTests(unittest.TestCase):
         )
 
 
+    def test_repository_benchmark_has_multilingual_domain_coverage(self):
+        benchmark = Path(__file__).parents[1] / "evals" / "dream-core-v1.jsonl"
+        tasks = evaluator.load_tasks(benchmark)
+        self.assertGreaterEqual(len(tasks), 12)
+        self.assertIn("en", {task["language"] for task in tasks})
+        self.assertIn("sw", {task["language"] for task in tasks})
+        self.assertGreaterEqual(len({task["category"] for task in tasks}), 5)
+
+
+
 if __name__ == "__main__":
     unittest.main()
