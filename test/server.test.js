@@ -85,6 +85,22 @@ async function postChat(payload, rawBody) {
   });
 }
 
+
+test("liveness endpoint stays healthy when the native model is unavailable", async () => {
+  modelHasCheckpoint = false;
+  try {
+    const response = await fetch(`${base}/api/health/live`);
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), {
+      ok: true,
+      name: "DREAM AI",
+      status: "live"
+    });
+  } finally {
+    modelHasCheckpoint = true;
+  }
+});
+
 test("health endpoint identifies the DREAM engine and configured model", async () => {
   const response = await fetch(`${base}/api/health`);
   assert.equal(response.status, 200);
@@ -247,6 +263,37 @@ test("chat endpoint enforces the request body limit", async () => {
     messages: [{ role: "user", content: "x".repeat(40000) }]
   }));
   assert.equal(response.status, 413);
+});
+
+
+test("capabilities endpoint reports only verified runtime and tool availability", async () => {
+  const response = await fetch(`${base}/api/capabilities`);
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.equal(data.product, "DREAM AI");
+  assert.equal(data.contractVersion, 1);
+  assert.equal(data.model.status, "ready");
+  assert.equal(data.model.completedTrainingSteps, 12);
+  assert.deepEqual(data.application.modes, ["general", "coding", "learning"]);
+  assert.equal(data.safety.toolExecutionDefault, "disabled");
+  assert.equal(data.safety.unrestrictedAccess, false);
+  assert.ok(data.tools.some(tool => tool.id === "code_execution" && tool.status === "not-implemented"));
+  assert.ok(data.tools.every(tool => tool.status !== "ready"));
+});
+
+
+test("capabilities endpoint never reports an unverified model as ready", async () => {
+  modelHasCheckpoint = false;
+  try {
+    const response = await fetch(`${base}/api/capabilities`);
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.model.status, "unavailable");
+    assert.equal(data.model.completedTrainingSteps, null);
+    assert.equal(data.model.checkpointSha256, null);
+  } finally {
+    modelHasCheckpoint = true;
+  }
 });
 
 test("root serves the DREAM AI application", async () => {

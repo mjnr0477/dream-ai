@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generateDreamReply, getDreamRuntimeStatus } from "./lib/dream-engine.js";
+import { getDreamCapabilities } from "./lib/capabilities.js";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC_DIR = join(ROOT, "public");
@@ -147,6 +148,9 @@ async function serveStatic(encodedPathname, res) {
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
+  if (req.method === "GET" && url.pathname === "/api/health/live") {
+    return json(res, 200, { ok: true, name: "DREAM AI", status: "live" });
+  }
   if (req.method === "GET" && url.pathname === "/api/health") {
     const runtime = await getDreamRuntimeStatus();
     return json(res, 200, {
@@ -166,6 +170,10 @@ const server = http.createServer(async (req, res) => {
         tokenizer: runtime.tokenizer
       } : null
     });
+  }
+  if (req.method === "GET" && url.pathname === "/api/capabilities") {
+    const runtime = await getDreamRuntimeStatus();
+    return json(res, 200, getDreamCapabilities(runtime));
   }
   if (req.method === "POST" && url.pathname === "/api/chat") {
     try {

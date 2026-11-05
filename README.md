@@ -129,7 +129,9 @@ Kaggle documents free P100 notebook accelerators, but GPU access can be limited 
 
 ## API
 
+- `GET /api/health/live` is a fast process-only liveness probe and does not depend on model availability. It is suitable for the hosting platform health check.
 - `GET /api/health` reports application availability separately from model configuration and live native-checkpoint readiness. A ready runtime must identify as the native DREAM transformer and report positive completed training steps plus a 64-character checkpoint SHA-256. This is a runtime/provenance check, not a quality certification.
+- `GET /api/capabilities` returns a versioned, server-owned capability contract. It distinguishes implemented application features from tools that are not configured or not implemented; it never advertises disabled tools as ready. Tool execution is disabled by default and external actions require approval.
 - `POST /api/chat`
 - Supported modes: `general`, `coding`, `learning`
 
