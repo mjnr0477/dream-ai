@@ -47,6 +47,26 @@ def source_groups(path):
     return groups
 
 
+def manifest_source_groups(manifest):
+    """Read fingerprinted groups, while supporting legacy raw-ID manifests."""
+    test_split = manifest["splits"]["test"]
+    groups = set(test_split["source_group_ids"])
+    identifier_format = manifest.get("identifier_format")
+    if identifier_format is None:
+        groups = {
+            identifier_fingerprint(group, "source-group")
+            for group in groups
+        }
+    elif identifier_format != IDENTIFIER_FORMAT:
+        raise ValueError("unsupported manifest identifier format")
+    if not groups or any(
+        not isinstance(group, str) or not re.fullmatch(r"[a-f0-9]{64}", group)
+        for group in groups
+    ):
+        raise ValueError("invalid manifest source-group fingerprints")
+    return groups
+
+
 def record_signatures(path):
     """Return record IDs and normalized dialogue hashes for split-leak checks."""
     record_ids = set()
@@ -261,18 +281,7 @@ def main():
         )
         test_split = pretraining_manifest["splits"]["test"]
         pretraining_test_hash = test_split["sha256"]
-        manifest_identifier_format = pretraining_manifest.get("identifier_format")
-        manifest_test_groups = set(test_split["source_group_ids"])
-        if manifest_identifier_format == IDENTIFIER_FORMAT:
-            pretraining_test_groups = manifest_test_groups
-        elif manifest_identifier_format is None:
-            # Backward compatibility: older manifests stored raw source-group IDs.
-            pretraining_test_groups = {
-                identifier_fingerprint(group, "source-group")
-                for group in manifest_test_groups
-            }
-        else:
-            raise ValueError("unsupported manifest identifier format")
+        pretraining_test_groups = manifest_source_groups(pretraining_manifest)
     except (OSError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
         raise SystemExit(
             "Invalid pretraining manifest: expected a test split with sha256 and source_group_ids."
