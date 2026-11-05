@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 const path = new URL("../evals/african-languages-v1.jsonl", import.meta.url);
 const lines = (await readFile(path, "utf8")).split(/\r?\n/).filter(Boolean);
 const allowed = new Set(["sw", "yo", "ha", "am", "ig", "so", "rw", "lg", "zu", "xh"]);
+const expectedScripts = { sw: "Latn", yo: "Latn", ha: "Latn", am: "Ethi", ig: "Latn", so: "Latn", rw: "Latn", lg: "Latn", zu: "Latn", xh: "Latn" };
 const ids = new Set();
 const counts = new Map();
 
@@ -37,7 +38,7 @@ for (const [index, line] of lines.entries()) {
     typeof item.language !== "string" ||
     !allowed.has(item.language) ||
     typeof item.language_name !== "string" ||
-    typeof item.script !== "string" ||
+    item.script !== expectedScripts[item.language] ||
     typeof item.prompt !== "string" ||
     !item.prompt.trim() ||
     !Array.isArray(item.rubric) ||
