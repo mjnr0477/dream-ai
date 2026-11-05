@@ -138,3 +138,18 @@ test("denies sensitive tools by default when no trusted approval verifier is con
     /server-verified user approval/
   );
 });
+
+test("rejects malformed nested schemas during trusted tool registration", () => {
+  const registry = new ToolRegistry();
+  const invalid = {
+    ...definition,
+    id: "invalid_nested",
+    inputSchema: {
+      type: "object",
+      properties: { options: { type: "array", items: { type: "object" } } },
+      required: ["options"],
+      additionalProperties: false
+    }
+  };
+  assert.throws(() => registry.register(invalid, async () => ({})), /Object schemas require/);
+});
