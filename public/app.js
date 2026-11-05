@@ -125,7 +125,7 @@ function renderAssistantContent(container, content, artifacts = null) {
     }
     return;
   }
-  const segments = content.split(/\`\`\`([A-Za-z0-9_+-]*)\n([\s\S]*?)\`\`\`/g);
+  const segments = content.split(/```([A-Za-z0-9_+-]*)\n([\s\S]*?)```/g);
 
   function appendInline(parent, text) {
     const pattern = /(`[^`]+?`|\*\*[^*]+?\*\*|\*[^*]+?\*)/g;
