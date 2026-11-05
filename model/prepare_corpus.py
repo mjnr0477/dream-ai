@@ -32,6 +32,17 @@ def counts(rows, field):
     return dict(sorted(result.items()))
 
 
+
+IDENTIFIER_FORMAT = "sha256-domain-separated-v1"
+
+
+def identifier_fingerprint(kind: str, value: str) -> str:
+    """Return a stable, domain-separated digest for caller-controlled identifiers."""
+    payload = f"dream-{kind}-id-v1\0{value}".encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
+
+
+
 def write_text_file(path: Path, rows) -> dict:
     """Write ordered record text and return verifiable corpus metadata."""
     path.write_text(
@@ -42,8 +53,8 @@ def write_text_file(path: Path, rows) -> dict:
         "path": path.name,
         "records": len(rows),
         "utf8_bytes": path.stat().st_size,
-        "record_ids": sorted(row["id"] for row in rows),
-        "source_group_ids": sorted({row["source_group"] for row in rows}),
+        "record_ids": sorted(identifier_fingerprint("record", row["id"]) for row in rows),
+        "source_group_ids": sorted({identifier_fingerprint("source-group", row["source_group"]) for row in rows}),
         "sha256": sha256(path)
     }
 
@@ -261,6 +272,7 @@ def main():
     }
     manifest = {
         "schema": "dream-corpus-v1",
+        "identifier_format": IDENTIFIER_FORMAT,
         "input_sha256": sha256(source),
         "records": len(records),
         "duplicate_text_records_removed": duplicate_text_records,

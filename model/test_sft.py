@@ -14,6 +14,10 @@ from dream_transformer import DreamConfig, DreamTransformer, DreamByteTokenizer
 from sft import load_examples
 
 SCRIPT = Path(__file__).with_name("sft.py")
+
+
+def source_group_fingerprint(value):
+    return hashlib.sha256(f"dream-source-group-id-v1\0{value}".encode("utf-8")).hexdigest()
 EVALUATOR = Path(__file__).with_name("evaluate.py")
 
 
@@ -436,6 +440,33 @@ class DreamSFTTests(unittest.TestCase):
         self.write_records(train_path, "train")
         self.write_records(val_path, "validation")
         self.write_manifest(["train-group-0"])
+        result = subprocess.run(
+            [
+                sys.executable, str(SCRIPT),
+                "--checkpoint", str(self.base),
+                "--train-data", str(train_path),
+                "--validation-data", str(val_path),
+                "--pretraining-manifest", str(self.manifest),
+                "--pretraining-test-data", str(self.test_data),
+                "--steps", "1"
+            ],
+            capture_output=True, text=True, timeout=30
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("pretraining held-out test groups", result.stderr)
+
+    def test_rejects_sft_source_overlap_with_hashed_pretraining_manifest(self):
+        train_path = self.root / "train.jsonl"
+        val_path = self.root / "validation.jsonl"
+        self.write_records(train_path, "train")
+        self.write_records(val_path, "validation")
+        self.write_manifest(["placeholder"])
+        manifest = json.loads(self.manifest.read_text(encoding="utf-8"))
+        manifest["identifier_format"] = "sha256-domain-separated-v1"
+        manifest["splits"]["test"]["source_group_ids"] = [
+            source_group_fingerprint("train-group-0")
+        ]
+        self.manifest.write_text(json.dumps(manifest), encoding="utf-8")
         result = subprocess.run(
             [
                 sys.executable, str(SCRIPT),
