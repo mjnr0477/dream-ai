@@ -127,19 +127,91 @@ function renderAssistantContent(container, content) {
       header.className = "code-block-header";
       const label = document.createElement("span");
       label.textContent = language || "CODE";
+      const actions = document.createElement("div");
+      actions.className = "code-block-actions";
+      const edit = document.createElement("button");
+      edit.type = "button";
+      edit.textContent = "Edit locally";
       const copy = document.createElement("button");
       copy.type = "button";
       copy.textContent = "Copy code";
-      copy.addEventListener("click", async () => {
-        try { await navigator.clipboard.writeText(codeText); copy.textContent = "Copied"; }
-        catch { copy.textContent = "Copy unavailable"; }
-      });
-      header.append(label, copy);
+      const download = document.createElement("button");
+      download.type = "button";
+      download.textContent = "Download";
       const pre = document.createElement("pre");
       const code = document.createElement("code");
       code.textContent = codeText;
       pre.append(code);
-      block.append(header, pre);
+      const editor = document.createElement("textarea");
+      editor.className = "code-editor";
+      editor.hidden = true;
+      editor.rows = Math.max(6, Math.min(18, codeText.split("\n").length + 1));
+      editor.setAttribute("aria-label", "Edit code locally");
+      const editorActions = document.createElement("div");
+      editorActions.className = "code-editor-actions";
+      const apply = document.createElement("button");
+      apply.type = "button";
+      apply.textContent = "Apply changes";
+      apply.hidden = true;
+      const cancel = document.createElement("button");
+      cancel.type = "button";
+      cancel.textContent = "Cancel";
+      cancel.hidden = true;
+      edit.addEventListener("click", () => {
+        if (editor.hidden) {
+          editor.value = code.textContent;
+          editor.hidden = false;
+          pre.hidden = true;
+          apply.hidden = false;
+          cancel.hidden = false;
+          edit.textContent = "Editing";
+          editor.focus();
+        }
+      });
+      cancel.addEventListener("click", () => {
+        editor.hidden = true;
+        pre.hidden = false;
+        apply.hidden = true;
+        cancel.hidden = true;
+        edit.textContent = "Edit locally";
+      });
+      apply.addEventListener("click", () => {
+        const updatedCode = editor.value;
+        code.textContent = updatedCode;
+        editor.hidden = true;
+        pre.hidden = false;
+        apply.hidden = true;
+        cancel.hidden = true;
+        edit.textContent = "Edit locally";
+        const originalFence = `\`\`\`\${language || ""}\n\${codeText}\`\`\``;
+        const updatedFence = `\`\`\`\${language || ""}\n\${updatedCode}\`\`\``;
+        const storedMessage = [...messages].reverse().find(item =>
+          item.role === "assistant" && item.content.includes(originalFence)
+        );
+        if (storedMessage) {
+          storedMessage.content = storedMessage.content.replace(originalFence, updatedFence);
+          persistActiveChat();
+        }
+      });
+      copy.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(code.textContent); copy.textContent = "Copied"; }
+        catch { copy.textContent = "Copy unavailable"; }
+      });
+      download.addEventListener("click", () => {
+        const extensions = { js:"js", javascript:"js", ts:"ts", typescript:"ts", jsx:"jsx", tsx:"tsx", py:"py", python:"py", html:"html", css:"css", json:"json", bash:"sh", sh:"sh", sql:"sql", java:"java", go:"go", rust:"rs", rs:"rs", xml:"xml", yaml:"yml", yml:"yml", md:"md" };
+        const extension = extensions[String(language || "").toLowerCase()] || "txt";
+        const blob = new Blob([code.textContent], { type: "text/plain;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `dream-ai-code.${extension}`;
+        link.click();
+        URL.revokeObjectURL(url);
+      });
+      actions.append(edit, copy, download);
+      header.append(label, actions);
+      editorActions.append(apply, cancel);
+      block.append(header, pre, editor, editorActions);
       container.append(block);
     }
   }
