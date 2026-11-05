@@ -6,6 +6,7 @@ Input record:
 import argparse
 import hashlib
 import json
+import unicodedata
 from datetime import date
 from pathlib import Path
 from urllib.parse import urlparse
@@ -235,7 +236,7 @@ def main():
             raise SystemExit(f"Duplicate record id at line {line_number}")
 
         seen_ids.add(item["id"])
-        normalized = " ".join(item["text"].split()).casefold()
+        normalized = unicodedata.normalize("NFKC", " ".join(item["text"].split())).casefold()
         fingerprint = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
         if fingerprint in seen_text:
             duplicate_text_records += 1
