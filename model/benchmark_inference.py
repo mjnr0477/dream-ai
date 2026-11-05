@@ -86,7 +86,8 @@ def benchmark(model, tokenizer, config, prompt, device, warmup, runs,
         with torch.inference_mode():
             output = model.generate(
                 input_ids, max_new_tokens=max_new_tokens,
-                temperature=temperature
+                temperature=temperature,
+                token_byte_pieces=getattr(tokenizer, "token_byte_pieces", None)
             )
         synchronize()
         durations.append(time.perf_counter() - started)
