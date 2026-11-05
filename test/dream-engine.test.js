@@ -2,6 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { generateDreamReply } from "../lib/dream-engine.js";
 
+test("system prompt guides structured reasoning, calibration and evidence checks", async () => {
+  const { buildSystemPrompt } = await import("../lib/dream-engine.js");
+  const prompt = buildSystemPrompt("general", "User prefers concise explanations");
+  assert.match(prompt, /Decompose multi-step work into ordered, verifiable steps/);
+  assert.match(prompt, /recompute the result independently/);
+  assert.match(prompt, /describe the conflict/);
+  assert.match(prompt, /ask one focused clarification/);
+  assert.match(prompt, /memory, inference and speculation/);
+  assert.match(prompt, /do not invent citations/);
+  assert.match(prompt, /do not expose private internal chain-of-thought/);
+  assert.match(prompt, /User prefers concise explanations/);
+});
+
 const messages = [{ role: "user", content: "Hello DREAM AI" }];
 
 test("remote native model runtimes must use HTTPS", async () => {
