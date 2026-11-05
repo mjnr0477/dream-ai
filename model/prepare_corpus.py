@@ -20,7 +20,7 @@ IDENTIFIER_FORMAT = "sha256-domain-separated-v1"
 def identifier_fingerprint(value: str, kind: str) -> str:
     """Fingerprint caller-controlled identifiers before writing public manifests."""
     return hashlib.sha256(
-        f"dream-corpus:{kind}:v1\\0{value}".encode("utf-8")
+        f"dream-corpus:{kind}:v1\0{value}".encode("utf-8")
     ).hexdigest()
 
 
