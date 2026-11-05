@@ -89,7 +89,7 @@ class RuntimeCheckpointValidationTests(unittest.TestCase):
             load_validated_checkpoint(self.path)
 
     def test_rejects_architecture_over_parameter_budget_before_allocation(self):
-        self.checkpoint["config"]["vocab_size"] = 100_000
+        self.checkpoint["config"]["vocab_size"] = 2_000_000
         with self.assertRaisesRegex(ValueError, "exceeds the .*parameter runtime limit"):
             load_validated_checkpoint(self.save())
 
