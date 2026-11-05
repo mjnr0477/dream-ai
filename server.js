@@ -1,4 +1,5 @@
 import http from "node:http";
+import { isIP } from "node:net";
 import { readFile } from "node:fs/promises";
 import { extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,6 +14,11 @@ const MAX_BODY_BYTES = 32 * 1024;
 const MAX_MESSAGE_CHARS = 8000;
 const MAX_HISTORY_ITEMS = 12;
 const MAX_ACTIVE_CHATS = 2;
+const RATE_LIMIT_CAPACITY = 12;
+const RATE_LIMIT_REFILL_PER_MS = RATE_LIMIT_CAPACITY / 60000;
+const RATE_LIMIT_IDLE_MS = 10 * 60 * 1000;
+const MAX_RATE_LIMIT_BUCKETS = 5000;
+const rateLimitBuckets = new Map();
 let activeChats = 0;
 let activeResearch = 0;
 const MODES = ["general", "coding", "learning"];
@@ -38,8 +44,8 @@ const MIME = {
   ".ico": "image/x-icon"
 };
 
-function json(res, status, payload) {
-  res.writeHead(status, { ...SECURITY_HEADERS,
+function json(res, status, payload, extraHeaders = {}) {
+  res.writeHead(status, { ...SECURITY_HEADERS, ...extraHeaders,
     "content-type": "application/json; charset=utf-8", "cache-control": "no-store"
   });
   res.end(JSON.stringify(payload));
@@ -59,12 +65,75 @@ function validateBrowserRequest(req) {
     let parsedOrigin;
     try { parsedOrigin = new URL(origin); }
     catch { const error = new Error("Invalid request origin."); error.status = 403; throw error; }
-    const requestHost = String(req.headers.host || "").toLowerCase();
-    if (!["http:", "https:"].includes(parsedOrigin.protocol) ||
-        parsedOrigin.host.toLowerCase() !== requestHost || parsedOrigin.username || parsedOrigin.password) {
+    const requestHost = String(req.headers.host || "").trim().toLowerCase();
+    const isLoopbackHost = /^(localhost|127\\.0\\.0\\.1|\\[::1\\])(?::\\d+)?$/.test(requestHost);
+    const expectedOrigin = process.env.DREAM_PUBLIC_ORIGIN
+      ? new URL(process.env.DREAM_PUBLIC_ORIGIN).origin
+      : (isLoopbackHost ? "http://" : "https://") + requestHost;
+    if (
+      parsedOrigin.origin !== expectedOrigin ||
+      parsedOrigin.pathname !== "/" ||
+      parsedOrigin.search ||
+      parsedOrigin.hash ||
+      parsedOrigin.username ||
+      parsedOrigin.password
+    ) {
       const error = new Error("Cross-origin requests are not allowed."); error.status = 403; throw error;
     }
   }
+}
+
+
+function getClientIp(req) {
+  // Render documents X-Forwarded-For as the source of the real client IP.
+  // Use only its first address; never trust later proxy-supplied entries.
+  const forwarded = req.headers["x-forwarded-for"];
+  const first = typeof forwarded === "string" ? forwarded.split(",")[0].trim() : "";
+  if (first && isIP(first)) return first;
+  const remote = req.socket?.remoteAddress;
+  return remote && isIP(remote) ? remote : "unknown";
+}
+
+function consumeApiRateLimit(req) {
+  const now = Date.now();
+  const ip = getClientIp(req);
+  let bucket = rateLimitBuckets.get(ip);
+
+  if (!bucket) {
+    if (rateLimitBuckets.size >= MAX_RATE_LIMIT_BUCKETS) {
+      for (const [key, entry] of rateLimitBuckets) {
+        if (now - entry.lastSeenAt > RATE_LIMIT_IDLE_MS) rateLimitBuckets.delete(key);
+      }
+      if (rateLimitBuckets.size >= MAX_RATE_LIMIT_BUCKETS) {
+        return { allowed: false, retryAfter: 60 };
+      }
+    }
+    bucket = { tokens: RATE_LIMIT_CAPACITY, updatedAt: now, lastSeenAt: now };
+  }
+
+  const elapsed = Math.max(0, now - bucket.updatedAt);
+  bucket.tokens = Math.min(RATE_LIMIT_CAPACITY, bucket.tokens + elapsed * RATE_LIMIT_REFILL_PER_MS);
+  bucket.updatedAt = now;
+  bucket.lastSeenAt = now;
+
+  if (bucket.tokens < 1) {
+    rateLimitBuckets.set(ip, bucket);
+    const retryAfter = Math.max(1, Math.ceil((1 - bucket.tokens) / RATE_LIMIT_REFILL_PER_MS / 1000));
+    return { allowed: false, retryAfter };
+  }
+
+  bucket.tokens -= 1;
+  rateLimitBuckets.set(ip, bucket);
+  return { allowed: true };
+}
+
+function enforceApiRateLimit(req, res) {
+  const result = consumeApiRateLimit(req);
+  if (result.allowed) return true;
+  json(res, 429, { error: "Too many requests. Please retry shortly." }, {
+    "retry-after": String(result.retryAfter)
+  });
+  return false;
 }
 
 async function readJson(req) {
@@ -90,6 +159,7 @@ async function readJson(req) {
 
 async function handleResearch(req, res) {
   validateBrowserRequest(req);
+  if (!enforceApiRateLimit(req, res)) return;
   const body = await readJson(req);
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return json(res, 400, { error: "Request body must be a JSON object." });
@@ -116,6 +186,7 @@ async function handleResearch(req, res) {
 
 async function handleChat(req, res) {
   validateBrowserRequest(req);
+  if (!enforceApiRateLimit(req, res)) return;
   const body = await readJson(req);
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return json(res, 400, { error: "Request body must be a JSON object." });
