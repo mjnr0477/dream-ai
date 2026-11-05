@@ -164,14 +164,7 @@ def review_file(input_path, output_path, decisions_path, limit=25,
 
             problem = candidate_problem(record)
             if problem:
-                decision = {
-                    "id": safe_id,
-                    "decision": "rejected",
-                    "reason": problem,
-                    "reviewed_at": datetime.now(timezone.utc).isoformat()
-                }
-                append_jsonl(decisions_file, decision)
-                reviewed_ids.add(safe_id)
+                output_fn(f"Skipping {safe_id}: {problem}")
                 summary["rejected"] += 1
                 continue
 
