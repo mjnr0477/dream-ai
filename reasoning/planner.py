@@ -190,7 +190,12 @@ class Plan:
             if missing:
                 reasons.append("Success criteria lack matching evidence: " + ", ".join(missing))
         mean_support = (sum(e.reliability for e in support) / len(support)) if support else 0.0
-        penalty = min(0.75, 0.25 * len(contradictions))
+        # Contradictions reduce the evidence-strength indicator in proportion
+        # to their caller-supplied reliability. Counting each contradiction
+        # equally made a weak, low-reliability objection as influential as a
+        # directly observed failure. This remains a heuristic, not a probability.
+        contradiction_penalty = sum(0.25 * e.reliability for e in contradictions)
+        penalty = min(0.75, contradiction_penalty)
         confidence = max(0.0, min(1.0, mean_support - penalty))
         return VerificationReport(
             task_id, bool(record.outcome) and not reasons, round(confidence, 3),
