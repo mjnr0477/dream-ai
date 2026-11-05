@@ -230,6 +230,7 @@ class DreamServingTests(unittest.TestCase):
         self.assertEqual(body["engine"], "dream-native-transformer")
         self.assertEqual(body["model"], "dream-test")
         self.assertGreater(body["parameters"], 0)
+        self.assertGreaterEqual(body["cpu_threads"], 1)
         self.assertEqual(body["completed_training_steps"], 1)
         self.assertEqual(
             body["checkpoint_sha256"],
