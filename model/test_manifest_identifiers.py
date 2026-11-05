@@ -1,5 +1,4 @@
 """Privacy and backward-compatibility tests for corpus manifest identifiers."""
-import hashlib
 import unittest
 
 from prepare_corpus import IDENTIFIER_FORMAT, identifier_fingerprint
