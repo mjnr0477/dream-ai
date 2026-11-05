@@ -95,8 +95,36 @@ function renderHistory() {
 }
 
 
-function renderAssistantContent(container, content) {
+function renderAssistantContent(container, content, artifacts = null) {
   container.replaceChildren();
+  if (Array.isArray(artifacts) && artifacts.length > 0) {
+    const summary = document.createElement("p");
+    summary.textContent = `Generated ${artifacts.length} project files.`;
+    container.append(summary);
+    for (const artifact of artifacts) {
+      const block = document.createElement("div");
+      block.className = "code-block";
+      const header = document.createElement("div");
+      header.className = "code-block-header";
+      const label = document.createElement("span");
+      label.textContent = artifact.path;
+      const copy = document.createElement("button");
+      copy.type = "button";
+      copy.textContent = "Copy file";
+      copy.addEventListener("click", async () => {
+        try { await navigator.clipboard.writeText(artifact.content); copy.textContent = "Copied"; }
+        catch { copy.textContent = "Copy unavailable"; }
+      });
+      header.append(label, copy);
+      const pre = document.createElement("pre");
+      const code = document.createElement("code");
+      code.textContent = artifact.content;
+      pre.append(code);
+      block.append(header, pre);
+      container.append(block);
+    }
+    return;
+  }
   const segments = content.split(/```([A-Za-z0-9_+-]*)\n([\s\S]*?)```/g);
 
   function appendInline(parent, text) {
@@ -221,7 +249,7 @@ function renderAssistantContent(container, content) {
   }
 }
 
-function addMessage(role, content) {
+function addMessage(role, content, artifacts = null) {
   const row = document.createElement("article");
   row.className = `message ${role}`;
   const avatar = document.createElement("div");
@@ -229,7 +257,7 @@ function addMessage(role, content) {
   avatar.textContent = role === "user" ? "Y" : "✳";
   const body = document.createElement("div");
   body.className = "message-content";
-  if (role === "assistant") renderAssistantContent(body, content);
+  if (role === "assistant") renderAssistantContent(body, content, artifacts);
   else body.textContent = content;
   row.append(avatar, body);
   conversation.append(row);
@@ -252,7 +280,7 @@ function addMessage(role, content) {
 
 function renderMessages() {
   conversation.replaceChildren();
-  for (const item of messages) addMessage(item.role, item.content);
+  for (const item of messages) addMessage(item.role, item.content, item.artifacts);
   welcome.hidden = messages.length > 0;
 }
 
@@ -267,7 +295,7 @@ function openChat(id) {
   const chat = chats.find(item => item.id === id);
   if (!chat) return;
   activeChatId = chat.id;
-  messages = chat.messages.map(item => ({ role: item.role, content: item.content }));
+  messages = chat.messages.map(item => ({ role: item.role, content: item.content, ...(item.artifacts ? { artifacts: item.artifacts } : {}) }));
   setMode(chat.mode);
   renderMessages();
   renderHistory();
@@ -489,7 +517,7 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
     });
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "The request failed.");
-    renderAssistantContent(replyNode, data.reply);
+    renderAssistantContent(replyNode, data.reply, data.artifacts);
     statusText.textContent = data.source === "dream-model"
       ? "DREAM native model connected"
       : "Application online · native model not connected";
@@ -499,12 +527,12 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
     copy.type = "button";
     copy.textContent = "Copy response";
     copy.addEventListener("click", async () => {
-      try { await navigator.clipboard.writeText(data.reply); copy.textContent = "Copied"; }
+      try { const bundle = data.artifacts?.map(file => `--- DREAM FILE: ${file.path} ---\n${file.content}--- END DREAM FILE ---`).join("\n"); await navigator.clipboard.writeText(bundle || data.reply); copy.textContent = "Copied"; }
       catch { copy.textContent = "Copy unavailable"; }
     });
     tools.append(copy);
     replyNode.parentElement.append(tools);
-    messages.push({ role: "assistant", content: data.reply });
+    messages.push({ role: "assistant", content: data.reply, ...(data.artifacts ? { artifacts: data.artifacts } : {}) });
     persistActiveChat();
     if (data.mode === "starter") {
       statusText.textContent = "Service online · connect a model for real AI replies";
