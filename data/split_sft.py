@@ -97,6 +97,24 @@ def write_temp(path, records):
     return temporary
 
 
+def write_temp_json(path, payload):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handle = tempfile.NamedTemporaryFile(
+        mode="w", encoding="utf-8", dir=path.parent, prefix=path.name + ".",
+        suffix=".tmp", delete=False
+    )
+    temporary = Path(handle.name)
+    try:
+        with handle:
+            handle.write(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+    except Exception:
+        temporary.unlink(missing_ok=True)
+        raise
+    return temporary
+
+
 def split_sft(input_path, train_path, validation_path, manifest_path,
               validation_fraction=0.2, seed=42, overwrite=False):
     input_path = Path(input_path)
@@ -191,7 +209,7 @@ def split_sft(input_path, train_path, validation_path, manifest_path,
         "source_groups_disjoint": True
     }
     manifest_path.parent.mkdir(parents=True, exist_ok=True)
-    manifest_temp = write_temp(manifest_path, [manifest])
+    manifest_temp = write_temp_json(manifest_path, manifest)
     try:
         os.replace(manifest_temp, manifest_path)
     finally:
