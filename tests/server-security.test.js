@@ -59,7 +59,7 @@ test("chat rejects missing or non-JSON content type", async () => {
       body: JSON.stringify(validPayload)
     });
     assert.equal(response.status, 415);
-    assert.match((await response.json()).error, /application\\/json/i);
+    assert.match((await response.json()).error, /application\/json/i);
   }
 });
 
