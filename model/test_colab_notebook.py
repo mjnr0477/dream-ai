@@ -124,5 +124,17 @@ class ColabNotebookTests(unittest.TestCase):
         self.assertIn("model-budget.json", bundle)
 
 
+    def test_colab_prepares_oasst1_pretraining_and_sft_candidates_without_approval(self):
+        guidance = "".join(self.notebook["cells"][3]["source"])
+        preparation = "".join(self.notebook["cells"][4]["source"])
+        self.assertIn("data/import_oasst1_candidates.py", preparation)
+        self.assertIn("data/import_oasst1_sft_candidates.py", preparation)
+        self.assertIn("oasst1-sft-candidates.jsonl", preparation)
+        self.assertIn("--max-records', '5000", preparation)
+        self.assertIn("approval flags false", guidance.lower())
+        self.assertIn("human review", guidance.lower())
+
+
+
 if __name__ == "__main__":
     unittest.main()
