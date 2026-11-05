@@ -85,6 +85,7 @@ class ColabNotebookTests(unittest.TestCase):
         self.assertIn("not sft_completed", runtime)
         self.assertIn("dream-bpe-instruct.json", runtime)
         self.assertIn("DREAM_RUNTIME_TOKEN", runtime)
+        self.assertIn("previous_process.terminate()", runtime)
         self.assertIn("cloudflared", runtime)
         self.assertIn("trycloudflare.com", runtime)
         self.assertIn("DREAM_MODEL_URL=", runtime)
