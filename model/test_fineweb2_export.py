@@ -37,6 +37,14 @@ class FineWeb2ExportTests(unittest.TestCase):
         source["language_score"] = 0.80
         self.assertIsNone(exporter.export_row(source))
 
+    def test_rejects_non_finite_language_scores(self):
+        source = row()
+        source["language_score"] = float("nan")
+        self.assertIsNone(exporter.export_row(source))
+        source = row()
+        source["language_score"] = float("inf")
+        self.assertIsNone(exporter.export_row(source))
+
     def test_rejects_missing_source_provenance(self):
         source = row()
         del source["url"]
