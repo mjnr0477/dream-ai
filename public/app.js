@@ -231,6 +231,7 @@ async function sendMessage(text, isRetry = false) {
     retry.className = "retry-message";
     retry.textContent = "Retry message";
     retry.addEventListener("click", () => {
+      if (send.disabled) return;
       retry.closest(".message")?.remove();
       sendMessage(content, true);
     });
