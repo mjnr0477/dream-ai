@@ -413,14 +413,16 @@ test("same-host origin with the wrong scheme is rejected", async () => {
   assert.equal(response.status, 403);
 });
 
-test("shared per-IP token bucket limits chat and research using the first forwarded IP", async () => {
-  const forwarded = "198.51.100.77, 203.0.113.9";
+test("shared per-IP token bucket limits chat and research using the trusted Cloudflare client IP", async () => {
+  const clientIp = "198.51.100.77";
+  const spoofedForwardedFor = "203.0.113.9";
   for (let i = 0; i < 3; i++) {
     const response = await fetch(`${base}/api/chat`, {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        "x-forwarded-for": forwarded
+        "cf-connecting-ip": clientIp,
+        "x-forwarded-for": spoofedForwardedFor
       },
       body: JSON.stringify({ messages: [{ role: "user", content: `limit test ${i}` }] })
     });
@@ -431,7 +433,8 @@ test("shared per-IP token bucket limits chat and research using the first forwar
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "x-forwarded-for": "198.51.100.77, 192.0.2.44"
+      "cf-connecting-ip": clientIp,
+        "x-forwarded-for": "198.51.100.88"
     },
     body: JSON.stringify({ query: "DREAM" })
   });
