@@ -406,7 +406,7 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
     retry.addEventListener("click", () => {
       if (send.disabled) return;
       retry.closest(".message")?.remove();
-      sendMessage(content, true);
+      sendMessage(content, true, includeHistory);
     });
     replyNode.append(document.createTextNode(" "));
     replyNode.append(retry);
