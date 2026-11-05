@@ -54,6 +54,25 @@ class ColabCheckpointPersistenceTests(unittest.TestCase):
         self.assertIn("never approves automatically", markdown)
         self.assertIn("if not (approved_path.is_file() and approved_path.stat().st_size > 0)", all_code)
 
+    def test_manual_sft_review_creates_source_group_disjoint_splits(self):
+        notebook = json.loads(NOTEBOOK.read_text(encoding="utf-8"))
+        all_code = "\\n".join(
+            "".join(cell["source"]) for cell in notebook["cells"]
+            if cell["cell_type"] == "code"
+        )
+        markdown = "\\n".join(
+            "".join(cell["source"]) for cell in notebook["cells"]
+            if cell["cell_type"] == "markdown"
+        )
+        self.assertIn("from data.split_sft import split_sft", all_code)
+        self.assertIn("approved-sft-records.jsonl", all_code)
+        self.assertIn("sft-review-decisions.jsonl", all_code)
+        self.assertIn("sft-split-manifest.json", all_code)
+        self.assertIn("validation_fraction=0.2", all_code)
+        self.assertIn("source_group", markdown)
+        self.assertIn("local_sft_available", all_code)
+        self.assertIn("data/sft-split-manifest.json", all_code)
+
 
 if __name__ == "__main__":
     unittest.main()
