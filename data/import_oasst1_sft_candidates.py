@@ -41,6 +41,8 @@ def build_conversation(leaf, rows_by_id):
     """Return a safe root-to-leaf SFT path, or a stable rejection reason."""
     if leaf.get("role") != "assistant":
         return None, "not_assistant_leaf"
+    if rows_by_id.get(leaf.get("message_id")) is not leaf:
+        return None, "duplicate_or_unknown_leaf"
 
     chain = []
     seen = set()
