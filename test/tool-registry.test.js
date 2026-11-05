@@ -86,8 +86,8 @@ test("times out a slow handler and signals cancellation", async () => {
   const registry = new ToolRegistry();
   const short = { ...definition, timeoutMs: 100 };
   let aborted = false;
-  registry.register(short, async ({ signal }) => new Promise((resolve) => {
-    signal.addEventListener("abort", () => { aborted = true; resolve("late"); }, { once: true });
+  registry.register(short, async ({ signal }) => new Promise(() => {
+    signal.addEventListener("abort", () => { aborted = true; }, { once: true });
   }));
   await assert.rejects(registry.execute({ toolId: short.id, input: { key: "x" }, principal }), /timed out/);
   assert.equal(aborted, true);
