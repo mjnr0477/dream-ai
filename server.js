@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { generateDreamReply, getDreamRuntimeStatus } from "./lib/dream-engine.js";
 import { getDreamCapabilities } from "./lib/capabilities.js";
 import { runPublicResearch } from "./lib/dream-tools.js";
+import { ClientConcurrencyLimiter } from "./lib/client-limiter.js";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC_DIR = join(ROOT, "public");
@@ -22,6 +23,7 @@ const RATE_LIMIT_REFILL_PER_MS = RATE_LIMIT_CAPACITY / 60000;
 const RATE_LIMIT_IDLE_MS = 10 * 60 * 1000;
 const MAX_RATE_LIMIT_BUCKETS = 5000;
 const rateLimitBuckets = new Map();
+const clientConcurrencyLimiter = new ClientConcurrencyLimiter(1);
 let activeChats = 0;
 let activeResearch = 0;
 const MODES = ["general", "coding", "learning"];
@@ -95,6 +97,21 @@ function getClientIp(req) {
   if (first && isIP(first)) return first;
   const remote = req.socket?.remoteAddress;
   return remote && isIP(remote) ? remote : "unknown";
+}
+
+async function runWithClientConcurrency(req, res, handler) {
+  const slot = clientConcurrencyLimiter.acquire(getClientIp(req));
+  if (!slot.allowed) {
+    json(res, 429, { error: "This client already has a request in progress. Please retry shortly." }, {
+      "retry-after": "3"
+    });
+    return;
+  }
+  try {
+    return await handler(req, res);
+  } finally {
+    slot.release();
+  }
 }
 
 function consumeApiRateLimit(req) {
@@ -310,14 +327,14 @@ const server = http.createServer(async (req, res) => {
   }
   if (req.method === "POST" && url.pathname === "/api/research") {
     try {
-      return await handleResearch(req, res);
+      return await runWithClientConcurrency(req, res, handleResearch);
     } catch (error) {
       return json(res, error.status || 500, { error: error.status ? error.message : "An unexpected server error occurred." });
     }
   }
   if (req.method === "POST" && url.pathname === "/api/chat") {
     try {
-      return await handleChat(req, res);
+      return await runWithClientConcurrency(req, res, handleChat);
     } catch (error) {
       return json(res, error.status || 500, {
         error: error.status ? error.message : "An unexpected server error occurred."
