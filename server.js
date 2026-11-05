@@ -16,6 +16,19 @@ const MAX_ACTIVE_CHATS = 2;
 let activeChats = 0;
 let activeResearch = 0;
 const MODES = ["general", "coding", "learning"];
+const SECURITY_HEADERS = {
+  "x-content-type-options": "nosniff",
+  "x-frame-options": "DENY",
+  "referrer-policy": "strict-origin-when-cross-origin",
+  "permissions-policy": "camera=(), microphone=(), geolocation=()"
+};
+const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'", "base-uri 'self'", "object-src 'none'",
+  "frame-ancestors 'none'", "form-action 'self'", "script-src 'self'",
+  "style-src 'self' https://fonts.googleapis.com", "style-src-attr 'unsafe-inline'",
+  "font-src 'self' https://fonts.gstatic.com", "img-src 'self' data:"
+].join("; ");
+
 const MIME = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -26,12 +39,32 @@ const MIME = {
 };
 
 function json(res, status, payload) {
-  res.writeHead(status, {
-    "content-type": "application/json; charset=utf-8",
-    "cache-control": "no-store",
-    "x-content-type-options": "nosniff"
+  res.writeHead(status, { ...SECURITY_HEADERS,
+    "content-type": "application/json; charset=utf-8", "cache-control": "no-store"
   });
   res.end(JSON.stringify(payload));
+}
+
+function validateBrowserRequest(req) {
+  const contentType = req.headers["content-type"] || "";
+  if (!/^application\/json(?:\s*;|$)/i.test(contentType)) {
+    const error = new Error("Content-Type must be application/json."); error.status = 415; throw error;
+  }
+  const fetchSite = req.headers["sec-fetch-site"];
+  if (fetchSite && !["same-origin", "none"].includes(fetchSite.toLowerCase())) {
+    const error = new Error("Cross-origin requests are not allowed."); error.status = 403; throw error;
+  }
+  const origin = req.headers.origin;
+  if (origin) {
+    let parsedOrigin;
+    try { parsedOrigin = new URL(origin); }
+    catch { const error = new Error("Invalid request origin."); error.status = 403; throw error; }
+    const requestHost = String(req.headers.host || "").toLowerCase();
+    if (!["http:", "https:"].includes(parsedOrigin.protocol) ||
+        parsedOrigin.host.toLowerCase() !== requestHost || parsedOrigin.username || parsedOrigin.password) {
+      const error = new Error("Cross-origin requests are not allowed."); error.status = 403; throw error;
+    }
+  }
 }
 
 async function readJson(req) {
@@ -56,6 +89,7 @@ async function readJson(req) {
 }
 
 async function handleResearch(req, res) {
+  validateBrowserRequest(req);
   const body = await readJson(req);
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return json(res, 400, { error: "Request body must be a JSON object." });
@@ -64,11 +98,8 @@ async function handleResearch(req, res) {
     return json(res, 400, { error: "Research query must contain 1 to 200 characters." });
   }
   if (activeResearch >= 2) {
-    res.writeHead(503, {
-      "retry-after": "3",
-      "content-type": "application/json; charset=utf-8",
-      "cache-control": "no-store",
-      "x-content-type-options": "nosniff"
+    res.writeHead(503, { ...SECURITY_HEADERS,
+      "retry-after": "3", "content-type": "application/json; charset=utf-8", "cache-control": "no-store"
     });
     return res.end(JSON.stringify({ error: "DREAM research is busy. Please retry in a few seconds." }));
   }
@@ -84,6 +115,7 @@ async function handleResearch(req, res) {
 }
 
 async function handleChat(req, res) {
+  validateBrowserRequest(req);
   const body = await readJson(req);
   if (!body || typeof body !== "object" || Array.isArray(body)) {
     return json(res, 400, { error: "Request body must be a JSON object." });
@@ -114,11 +146,8 @@ async function handleChat(req, res) {
   }
 
   if (activeChats >= MAX_ACTIVE_CHATS) {
-    res.writeHead(503, {
-      "retry-after": "3",
-      "content-type": "application/json; charset=utf-8",
-      "cache-control": "no-store",
-      "x-content-type-options": "nosniff"
+    res.writeHead(503, { ...SECURITY_HEADERS,
+      "retry-after": "3", "content-type": "application/json; charset=utf-8", "cache-control": "no-store"
     });
     return res.end(JSON.stringify({
       error: "DREAM AI is handling other requests. Please retry in a few seconds."
@@ -146,7 +175,7 @@ async function serveStatic(encodedPathname, res) {
   try {
     pathname = decodeURIComponent(encodedPathname);
   } catch {
-    res.writeHead(400, { "content-type": "text/plain; charset=utf-8" });
+    res.writeHead(400, { ...SECURITY_HEADERS, "content-type": "text/plain; charset=utf-8" });
     res.end("Invalid URL path");
     return;
   }
@@ -158,20 +187,20 @@ async function serveStatic(encodedPathname, res) {
     pathFromPublic.startsWith(".." + sep) ||
     resolve(filePath) === resolve(PUBLIC_DIR)
   ) {
-    res.writeHead(403, { "content-type": "text/plain; charset=utf-8" });
+    res.writeHead(403, { ...SECURITY_HEADERS, "content-type": "text/plain; charset=utf-8" });
     res.end("Forbidden");
     return;
   }
   try {
     const content = await readFile(filePath);
-    res.writeHead(200, {
+    res.writeHead(200, { ...SECURITY_HEADERS,
       "content-type": MIME[extname(filePath)] || "application/octet-stream",
-      "x-content-type-options": "nosniff",
-      "referrer-policy": "strict-origin-when-cross-origin"
+      "content-security-policy": CONTENT_SECURITY_POLICY,
+      "cache-control": extname(filePath) === ".html" ? "no-cache" : "public, max-age=300"
     });
     res.end(content);
   } catch {
-    res.writeHead(404, { "content-type": "text/plain; charset=utf-8" });
+    res.writeHead(404, { ...SECURITY_HEADERS, "content-type": "text/plain; charset=utf-8" });
     res.end("Not found");
   }
 }
@@ -187,23 +216,18 @@ const server = http.createServer(async (req, res) => {
       ok: true,
       name: "DREAM AI",
       version: "0.3.0",
-      engine: "dream-engine",
       modelConfigured: runtime.configured,
-      modelReady: runtime.ready,
-      runtimeStatus: runtime.status,
-      modelName: runtime.modelName || null,
-      model: runtime.ready ? {
-        completedTrainingSteps: runtime.completedTrainingSteps,
-        checkpointSha256: runtime.checkpointSha256,
-        device: runtime.device,
-        parameters: runtime.parameters,
-        tokenizer: runtime.tokenizer
-      } : null
+      modelReady: runtime.ready
     });
   }
   if (req.method === "GET" && url.pathname === "/api/capabilities") {
     const runtime = await getDreamRuntimeStatus();
-    return json(res, 200, getDreamCapabilities(runtime));
+    const capabilities = getDreamCapabilities(runtime);
+    if (capabilities.model) {
+      delete capabilities.model.completedTrainingSteps;
+      delete capabilities.model.checkpointSha256;
+    }
+    return json(res, 200, capabilities);
   }
   if (req.method === "POST" && url.pathname === "/api/research") {
     try {
@@ -222,7 +246,7 @@ const server = http.createServer(async (req, res) => {
     }
   }
   if (req.method === "GET") return serveStatic(url.pathname, res);
-  res.writeHead(405, { allow: "GET, POST" }).end("Method not allowed");
+  res.writeHead(405, { ...SECURITY_HEADERS, allow: "GET, POST" }).end("Method not allowed");
 });
 
 server.listen(PORT, "0.0.0.0", () => {
