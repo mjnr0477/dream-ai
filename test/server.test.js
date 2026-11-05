@@ -2,10 +2,11 @@ import test, { before, after } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import http from "node:http";
+import net from "node:net";
 
-const port = 3197;
-const modelPort = 3198;
-const base = `http://127.0.0.1:${port}`;
+let port;
+let modelPort;
+let base;
 let server;
 let model;
 const modelRequests = [];
@@ -15,7 +16,22 @@ let runtimeModelName = "dream-test-model";
 let holdModelResponses = false;
 const heldModelResponses = [];
 
+async function getEphemeralPort() {
+  const probe = net.createServer();
+  await new Promise((resolve, reject) => {
+    probe.once("error", reject);
+    probe.listen(0, "127.0.0.1", resolve);
+  });
+  const address = probe.address();
+  const selectedPort = address.port;
+  await new Promise((resolve, reject) => probe.close(error => error ? reject(error) : resolve()));
+  return selectedPort;
+}
+
 before(async () => {
+  port = await getEphemeralPort();
+  modelPort = await getEphemeralPort();
+  base = `http://127.0.0.1:${port}`;
   model = http.createServer((req, res) => {
     if (req.method === "GET" && req.url === "/health") {
       res.writeHead(200, { "content-type": "application/json" });
