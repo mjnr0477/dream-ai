@@ -83,3 +83,5 @@
 .code-editor{box-sizing:border-box;display:block;width:100%;min-height:150px;resize:vertical;padding:14px;border:0;border-top:1px solid #303b52;background:#080d17;color:#d7e4f8;font:12px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;tab-size:2}
 .code-editor[hidden],.code-editor-actions [hidden],.code-block pre[hidden]{display:none}
 .code-editor-actions{justify-content:flex-end;padding:8px 10px;border-top:1px solid #303b52;background:#141d2d}
+
+.code-editor-actions[hidden]{display:none}
