@@ -87,7 +87,7 @@ class MultilingualCoverageTests(unittest.TestCase):
             "validation": ["validation-source"],
             "test": []
         })
-        with self.assertRaisesRegex(ValueError, "eligible language"):
+        with self.assertRaisesRegex(ValueError, "(?i)eligible language"):
             validate_language_coverage(manifest, "sw")
 
     def test_accepts_legacy_manifest_without_coverage_metadata(self):
