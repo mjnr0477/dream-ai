@@ -7,7 +7,9 @@ import argparse
 import json
 import math
 import os
+from datetime import date
 from pathlib import Path
+from urllib.parse import urlsplit
 
 DATASET = "HuggingFaceFW/fineweb-2"
 DATASET_REVISION = "v2.1.1"
@@ -18,6 +20,23 @@ def export_row(row, min_language_score=0.95):
         return None
     required = ("id", "text", "url", "date", "language", "language_script")
     if any(not isinstance(row.get(key), str) or not row[key].strip() for key in required):
+        return None
+    if len(row["text"].strip()) < 40:
+        return None
+    parsed_url = urlsplit(row["url"])
+    if (
+        parsed_url.scheme != "https"
+        or not parsed_url.hostname
+        or parsed_url.username is not None
+        or parsed_url.password is not None
+    ):
+        return None
+    try:
+        parsed_url.port
+        date.fromisoformat(row["date"][:10])
+    except ValueError:
+        return None
+    if not row["language"].replace("-", "").isalpha():
         return None
     try:
         score = float(row.get("language_score"))
