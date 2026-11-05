@@ -100,6 +100,16 @@ The native server defaults to `127.0.0.1:8081` and exposes `GET /health` plus `P
 
 Render's free web service is not a GPU training environment. Keep the Node app on Render and run model training/inference on a separate machine or host that we control. A future deployment must be based on measured memory, latency and availability, not a claim that Render free can train a large model.
 
+### Run the free Kaggle training workflow
+
+1. Download `training/dream_train_kaggle.ipynb` from this repository and import it as a Kaggle notebook.
+2. In Notebook Settings, select a GPU accelerator and enable Internet. The notebook stops immediately if CUDA is unavailable.
+3. Create a **private** Kaggle Dataset containing the human-reviewed `approved-records.jsonl`, then attach it with **Add Input**.
+4. Run the notebook cells in order. For optional instruction tuning, attach a private dataset containing both `sft-train.jsonl` and `sft-validation.jsonl`.
+5. Save a notebook version and download `dream-training-artifacts.zip` from the notebook Output panel. Keep it private if it contains reviewed training text.
+
+Kaggle documents free P100 notebook accelerators, but GPU access can be limited or queued and weekly usage quotas vary. See the [notebook guide](https://www.kaggle.com/docs/notebooks) and [GPU usage limits](https://www.kaggle.com/docs/efficient-gpu-usage).
+
 ## API
 
 - `GET /api/health` reports application availability separately from model configuration and live native-checkpoint readiness. A ready runtime must identify as the native DREAM transformer and report positive completed training steps plus a 64-character checkpoint SHA-256. This is a runtime/provenance check, not a quality certification.
