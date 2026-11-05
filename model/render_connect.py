@@ -94,14 +94,11 @@ def update_render_model_env(
                 send,
             )
         except Exception:
-            if updated_keys:
-                changed = ", ".join(updated_keys)
-                raise RuntimeError(
-                    f"Render update stopped after saving {changed}. No deploy was requested; "
-                    "review all three DREAM variables before any future deploy."
-                ) from None
+            possibly_changed = ", ".join([*updated_keys, key])
             raise RuntimeError(
-                "Render could not save the first DREAM variable. No deploy was requested."
+                f"Render update failed while setting {key}; these variables may now be saved: "
+                f"{possibly_changed}. No deploy was requested; review all three DREAM variables "
+                "before any future deploy."
             ) from None
         updated_keys.append(key)
 
