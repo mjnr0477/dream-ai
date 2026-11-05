@@ -48,7 +48,7 @@ class BoundedThreadingHTTPServer(ThreadingHTTPServer):
                 request.sendall(
                     b"HTTP/1.1 503 Service Unavailable\\r\\n"
                     b"Content-Type: application/json\\r\\n"
-                    b"Content-Length: 64\\r\\n"
+                    b"Content-Length: 60\\r\\n"
                     b"Cache-Control: no-store\\r\\n"
                     b"Connection: close\\r\\n\\r\\n"
                     b'{"error":{"message":"DREAM runtime is busy; retry shortly"}}'
