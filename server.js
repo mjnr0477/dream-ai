@@ -48,14 +48,14 @@ function guardApiRequest(req, res) {
     json(res, invalid.status, { error: invalid.message });
     return false;
   }
-  const budget = apiRateLimiter.consume(req);
+  const budget = apiRateLimiter.acquire(req);
   if (!budget.allowed) {
     json(res, 429, {
       error: "DREAM is receiving too many requests from this connection. Please wait before retrying."
     }, { "retry-after": String(budget.retryAfterSeconds) });
     return false;
   }
-  return true;
+  return budget.release;
 }
 
 async function readJson(req) {
@@ -230,21 +230,27 @@ const server = http.createServer(async (req, res) => {
     return json(res, 200, getDreamCapabilities(runtime));
   }
   if (req.method === "POST" && url.pathname === "/api/research") {
-    if (!guardApiRequest(req, res)) return;
+    const release = guardApiRequest(req, res);
+    if (!release) return;
     try {
       return await handleResearch(req, res);
     } catch (error) {
       return json(res, error.status || 500, { error: error.status ? error.message : "An unexpected server error occurred." });
+    } finally {
+      release();
     }
   }
   if (req.method === "POST" && url.pathname === "/api/chat") {
-    if (!guardApiRequest(req, res)) return;
+    const release = guardApiRequest(req, res);
+    if (!release) return;
     try {
       return await handleChat(req, res);
     } catch (error) {
       return json(res, error.status || 500, {
         error: error.status ? error.message : "An unexpected server error occurred."
       });
+    } finally {
+      release();
     }
   }
   if (req.method === "GET") return serveStatic(url.pathname, res);
