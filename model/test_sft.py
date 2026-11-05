@@ -94,7 +94,7 @@ class DreamSFTTests(unittest.TestCase):
                 del rows[0]["approval_granted"]
             else:
                 rows[0]["approval_granted"] = value
-            train_path.write_text("".join(json.dumps(row) + "\\n" for row in rows), encoding="utf-8")
+            train_path.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
             with self.subTest(value=value):
                 with self.assertRaises(SystemExit) as error:
                     load_examples(train_path, DreamByteTokenizer(), self.config.block_size)
