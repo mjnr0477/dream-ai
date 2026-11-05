@@ -288,7 +288,14 @@ async function handleChat(req, res) {
   activeChats += 1;
   try {
     const result = await generateDreamReply(messages, mode, process.env, memoryContext);
-    const artifacts = mode === "coding" ? parseCodeArtifactsIfPresent(result.reply) : null;
+    let artifacts = null;
+    if (mode === "coding") {
+      try {
+        artifacts = parseCodeArtifactsIfPresent(result.reply);
+      } catch (error) {
+        console.warn("DREAM coding artifact output was invalid:", error.message);
+      }
+    }
     return json(res, 200, {
       reply: result.reply,
       mode,
