@@ -26,10 +26,11 @@ def load_validated_checkpoint(checkpoint_path):
     config_data = checkpoint.get("config")
     if not isinstance(config_data, dict):
         raise ValueError("Checkpoint config must be an object")
+    expected_config_fields = set(DreamConfig.__dataclass_fields__)
+    if set(config_data) != expected_config_fields:
+        raise ValueError("Checkpoint config contains unexpected or missing fields")
     try:
         config = DreamConfig(**config_data)
-        if config.__dict__ != config_data:
-            raise ValueError("Checkpoint config contains unexpected or missing fields")
     except (TypeError, ValueError) as exc:
         raise ValueError(f"Invalid DREAM model config: {exc}") from exc
 
