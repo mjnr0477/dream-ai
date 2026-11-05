@@ -6,6 +6,7 @@ A human must review the candidate records before they can pass DREAM's corpus ga
 import argparse
 import gzip
 import json
+import math
 from collections import Counter
 from datetime import date, datetime
 from pathlib import Path
@@ -43,9 +44,10 @@ def score(mapping, name):
     if isinstance(value, dict):
         value = value.get("value")
     try:
-        return float(value)
+        parsed = float(value)
     except (TypeError, ValueError):
         return None
+    return parsed if math.isfinite(parsed) else None
 
 
 def parse_source_date(value):
