@@ -1,0 +1,32 @@
+# CPU-first native DREAM inference container.
+# Use a GPU-enabled PyTorch base image on a GPU host; see model/DEPLOYMENT.md.
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    DREAM_CHECKPOINT=/models/dream-instruct.pt \
+    DREAM_RUNTIME_HOST=0.0.0.0 \
+    DREAM_RUNTIME_PORT=8081 \
+    DREAM_MODEL_NAME=dream-native-v1
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates libgomp1 \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system dream \
+    && useradd --system --gid dream --home-dir /app dream \
+    && mkdir -p /app/model /models \
+    && chown dream:dream /app /app/model
+
+WORKDIR /app/model
+RUN python -m pip install --upgrade pip \
+    && python -m pip install --index-url https://download.pytorch.org/whl/cpu "torch>=2.2,<3"
+
+COPY --chown=dream:dream model/serve.py model/checkpoint_tokenizer.py model/dream_bpe.py model/dream_transformer.py ./
+
+USER dream
+EXPOSE 8081
+HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8081/health', timeout=4).read()" || exit 1
+
+ENTRYPOINT ["python", "serve.py"]
