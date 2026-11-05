@@ -1,11 +1,11 @@
 import http from "node:http";
-import { isIP } from "node:net";
 import { readFile } from "node:fs/promises";
 import { extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generateDreamReply, getDreamRuntimeStatus } from "./lib/dream-engine.js";
 import { getDreamCapabilities } from "./lib/capabilities.js";
 import { runPublicResearch } from "./lib/dream-tools.js";
+import { ClientRateLimiter } from "./lib/client-rate-limit.js";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC_DIR = join(ROOT, "public");
@@ -18,10 +18,13 @@ const configuredRateLimit = Number(process.env.DREAM_API_RATE_LIMIT);
 const RATE_LIMIT_CAPACITY = Number.isInteger(configuredRateLimit) && configuredRateLimit > 0
   ? Math.min(configuredRateLimit, 120)
   : 20;
-const RATE_LIMIT_REFILL_PER_MS = RATE_LIMIT_CAPACITY / 60000;
-const RATE_LIMIT_IDLE_MS = 10 * 60 * 1000;
-const MAX_RATE_LIMIT_BUCKETS = 5000;
-const rateLimitBuckets = new Map();
+const apiRateLimiter = new ClientRateLimiter({
+  capacity: RATE_LIMIT_CAPACITY,
+  refillPerMinute: RATE_LIMIT_CAPACITY,
+  idleMs: 10 * 60 * 1000,
+  maxBuckets: 5000,
+  maxConcurrentPerClient: 1
+});
 let activeChats = 0;
 let activeResearch = 0;
 const MODES = ["general", "coding", "learning"];
@@ -87,57 +90,13 @@ function validateBrowserRequest(req) {
 }
 
 
-function getClientIp(req) {
-  // Render documents X-Forwarded-For as the source of the real client IP.
-  // Use only its first address; never trust later proxy-supplied entries.
-  const forwarded = req.headers["x-forwarded-for"];
-  const first = typeof forwarded === "string" ? forwarded.split(",")[0].trim() : "";
-  if (first && isIP(first)) return first;
-  const remote = req.socket?.remoteAddress;
-  return remote && isIP(remote) ? remote : "unknown";
-}
-
-function consumeApiRateLimit(req) {
-  const now = Date.now();
-  const ip = getClientIp(req);
-  if (ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1") return { allowed: true };
-  let bucket = rateLimitBuckets.get(ip);
-
-  if (!bucket) {
-    if (rateLimitBuckets.size >= MAX_RATE_LIMIT_BUCKETS) {
-      for (const [key, entry] of rateLimitBuckets) {
-        if (now - entry.lastSeenAt > RATE_LIMIT_IDLE_MS) rateLimitBuckets.delete(key);
-      }
-      if (rateLimitBuckets.size >= MAX_RATE_LIMIT_BUCKETS) {
-        return { allowed: false, retryAfter: 60 };
-      }
-    }
-    bucket = { tokens: RATE_LIMIT_CAPACITY, updatedAt: now, lastSeenAt: now };
-  }
-
-  const elapsed = Math.max(0, now - bucket.updatedAt);
-  bucket.tokens = Math.min(RATE_LIMIT_CAPACITY, bucket.tokens + elapsed * RATE_LIMIT_REFILL_PER_MS);
-  bucket.updatedAt = now;
-  bucket.lastSeenAt = now;
-
-  if (bucket.tokens < 1) {
-    rateLimitBuckets.set(ip, bucket);
-    const retryAfter = Math.max(1, Math.ceil((1 - bucket.tokens) / RATE_LIMIT_REFILL_PER_MS / 1000));
-    return { allowed: false, retryAfter };
-  }
-
-  bucket.tokens -= 1;
-  rateLimitBuckets.set(ip, bucket);
-  return { allowed: true };
-}
-
 function enforceApiRateLimit(req, res) {
-  const result = consumeApiRateLimit(req);
-  if (result.allowed) return true;
-  json(res, 429, { error: "Too many requests. Please retry shortly." }, {
-    "retry-after": String(result.retryAfter)
+  const result = apiRateLimiter.acquire(req);
+  if (result.allowed) return result.release;
+  json(res, 429, { error: "Too many requests from this client. Please retry shortly." }, {
+    "retry-after": String(result.retryAfterSeconds)
   });
-  return false;
+  return null;
 }
 
 async function readJson(req) {
@@ -163,85 +122,95 @@ async function readJson(req) {
 
 async function handleResearch(req, res) {
   validateBrowserRequest(req);
-  if (!enforceApiRateLimit(req, res)) return;
-  const body = await readJson(req);
-  if (!body || typeof body !== "object" || Array.isArray(body)) {
-    return json(res, 400, { error: "Request body must be a JSON object." });
-  }
-  if (typeof body.query !== "string" || !body.query.trim() || body.query.length > 200) {
-    return json(res, 400, { error: "Research query must contain 1 to 200 characters." });
-  }
-  if (activeResearch >= 2) {
-    res.writeHead(503, { ...SECURITY_HEADERS,
-      "retry-after": "3", "content-type": "application/json; charset=utf-8", "cache-control": "no-store"
-    });
-    return res.end(JSON.stringify({ error: "DREAM research is busy. Please retry in a few seconds." }));
-  }
-  activeResearch += 1;
+  const release = enforceApiRateLimit(req, res);
+  if (!release) return;
   try {
-    return json(res, 200, await runPublicResearch(body.query));
-  } catch (error) {
-    console.error("DREAM public research failed:", error.message);
-    return json(res, 502, { error: "Public research is temporarily unavailable. Please try again." });
+    const body = await readJson(req);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return json(res, 400, { error: "Request body must be a JSON object." });
+    }
+    if (typeof body.query !== "string" || !body.query.trim() || body.query.length > 200) {
+      return json(res, 400, { error: "Research query must contain 1 to 200 characters." });
+    }
+    if (activeResearch >= 2) {
+      res.writeHead(503, { ...SECURITY_HEADERS,
+        "retry-after": "3", "content-type": "application/json; charset=utf-8", "cache-control": "no-store"
+      });
+      return res.end(JSON.stringify({ error: "DREAM research is busy. Please retry in a few seconds." }));
+    }
+    activeResearch += 1;
+    try {
+      return json(res, 200, await runPublicResearch(body.query));
+    } catch (error) {
+      console.error("DREAM public research failed:", error.message);
+      return json(res, 502, { error: "Public research is temporarily unavailable. Please try again." });
+    } finally {
+      activeResearch -= 1;
+    }
   } finally {
-    activeResearch -= 1;
+    release();
   }
 }
 
 async function handleChat(req, res) {
   validateBrowserRequest(req);
-  if (!enforceApiRateLimit(req, res)) return;
-  const body = await readJson(req);
-  if (!body || typeof body !== "object" || Array.isArray(body)) {
-    return json(res, 400, { error: "Request body must be a JSON object." });
-  }
-  const mode = body.mode ?? "general";
-  if (!MODES.includes(mode)) {
-    return json(res, 400, { error: "Mode must be general, coding or learning." });
-  }
-  if (!Array.isArray(body.messages) || body.messages.length === 0) {
-    return json(res, 400, { error: "Send a non-empty messages array." });
-  }
-  const messages = body.messages.slice(-MAX_HISTORY_ITEMS);
-  for (const item of messages) {
-    if (
-      !item ||
-      !["user", "assistant"].includes(item.role) ||
-      typeof item.content !== "string" ||
-      !item.content.trim() ||
-      item.content.length > MAX_MESSAGE_CHARS
-    ) {
-      return json(res, 400, {
-        error: "Each message needs a valid user/assistant role and text under 8,000 characters."
-      });
-    }
-  }
-  if (messages.at(-1).role !== "user") {
-    return json(res, 400, { error: "The last message must be from the user." });
-  }
-
-  if (activeChats >= MAX_ACTIVE_CHATS) {
-    res.writeHead(503, { ...SECURITY_HEADERS,
-      "retry-after": "3", "content-type": "application/json; charset=utf-8", "cache-control": "no-store"
-    });
-    return res.end(JSON.stringify({
-      error: "DREAM AI is handling other requests. Please retry in a few seconds."
-    }));
-  }
-
-  activeChats += 1;
+  const release = enforceApiRateLimit(req, res);
+  if (!release) return;
   try {
-    const result = await generateDreamReply(messages, mode);
-    return json(res, 200, {
-      reply: result.reply,
-      mode,
-      source: result.source
-    });
-  } catch (error) {
-    console.error("DREAM AI request failed:", error.message);
-    return json(res, 502, { error: error.message || "DREAM AI runtime unavailable." });
+    const body = await readJson(req);
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return json(res, 400, { error: "Request body must be a JSON object." });
+    }
+    const mode = body.mode ?? "general";
+    if (!MODES.includes(mode)) {
+      return json(res, 400, { error: "Mode must be general, coding or learning." });
+    }
+    if (!Array.isArray(body.messages) || body.messages.length === 0) {
+      return json(res, 400, { error: "Send a non-empty messages array." });
+    }
+    const messages = body.messages.slice(-MAX_HISTORY_ITEMS);
+    for (const item of messages) {
+      if (
+        !item ||
+        !["user", "assistant"].includes(item.role) ||
+        typeof item.content !== "string" ||
+        !item.content.trim() ||
+        item.content.length > MAX_MESSAGE_CHARS
+      ) {
+        return json(res, 400, {
+          error: "Each message needs a valid user/assistant role and text under 8,000 characters."
+        });
+      }
+    }
+    if (messages.at(-1).role !== "user") {
+      return json(res, 400, { error: "The last message must be from the user." });
+    }
+
+    if (activeChats >= MAX_ACTIVE_CHATS) {
+      res.writeHead(503, { ...SECURITY_HEADERS,
+        "retry-after": "3", "content-type": "application/json; charset=utf-8", "cache-control": "no-store"
+      });
+      return res.end(JSON.stringify({
+        error: "DREAM AI is handling other requests. Please retry in a few seconds."
+      }));
+    }
+
+    activeChats += 1;
+    try {
+      const result = await generateDreamReply(messages, mode);
+      return json(res, 200, {
+        reply: result.reply,
+        mode,
+        source: result.source
+      });
+    } catch (error) {
+      console.error("DREAM AI request failed:", error.message);
+      return json(res, 502, { error: error.message || "DREAM AI runtime unavailable." });
+    } finally {
+      activeChats -= 1;
+    }
   } finally {
-    activeChats -= 1;
+    release();
   }
 }
 
