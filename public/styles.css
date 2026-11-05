@@ -7,3 +7,7 @@
 .code-block-header button{border:1px solid #38445d;border-radius:6px;background:#1b2638;color:#c8d2e5;padding:4px 8px;font-size:10px;cursor:pointer}
 .code-block pre{margin:0;padding:14px;overflow-x:auto;white-space:pre;font:12px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;color:#d7e4f8}
 .code-block code{font:inherit}
+
+.retry-message{display:inline-flex;align-items:center;margin-top:9px;padding:7px 11px;border:1px solid #665d9b;border-radius:8px;background:#211d39;color:#d4caff;font:600 11px system-ui,sans-serif;cursor:pointer}
+.retry-message:hover{background:#30294e;border-color:#9d8de8}
+.retry-message:focus-visible{outline:2px solid #b39cff;outline-offset:3px}

@@ -184,12 +184,12 @@ async function checkHealth() {
   }
 }
 
-async function sendMessage(text) {
+async function sendMessage(text, isRetry = false) {
   const content = text.trim();
   if (!content || send.disabled) return;
   welcome.hidden = true;
   messages.push({ role: "user", content });
-  addMessage("user", content);
+  if (!isRetry) addMessage("user", content);
   input.value = "";
   input.style.height = "auto";
   send.disabled = true;
@@ -229,6 +229,18 @@ async function sendMessage(text) {
       ? "DREAM AI is busy · please retry shortly"
       : "Model runtime unavailable · check connection";
     messages.pop();
+
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "retry-message";
+    retry.textContent = "Retry message";
+    retry.addEventListener("click", () => {
+      if (send.disabled) return;
+      retry.closest(".message")?.remove();
+      sendMessage(content, true);
+    });
+    replyNode.append(document.createTextNode(" "));
+    replyNode.append(retry);
   } finally {
     send.disabled = false;
     send.textContent = "↑";
