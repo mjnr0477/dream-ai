@@ -9,6 +9,10 @@ from pathlib import Path
 SCRIPT = Path(__file__).with_name("prepare_corpus.py")
 
 
+def fingerprint(kind, value):
+    return hashlib.sha256(f"dream-{kind}-id-v1\0{value}".encode("utf-8")).hexdigest()
+
+
 class CorpusPreparationTests(unittest.TestCase):
     def make_records(self, count=6, rights=True):
         rows = []
@@ -61,12 +65,16 @@ class CorpusPreparationTests(unittest.TestCase):
                 }
                 self.assertTrue(text.strip())
                 split_manifest = manifest["splits"][split]
-                self.assertEqual(set(split_manifest["source_group_ids"]), groups[split])
+                self.assertEqual(
+                    set(split_manifest["source_group_ids"]),
+                    {fingerprint("source-group", group) for group in groups[split]}
+                )
                 self.assertEqual(split_manifest["records"], len(groups[split]))
                 self.assertEqual(split_manifest["source_groups"], len(groups[split]))
                 self.assertEqual(split_manifest["utf8_bytes"], len(text.encode("utf-8")))
                 self.assertEqual(split_manifest["record_ids"], sorted(
-                    f"record-{i}" for i in range(6) if f"Record {i}" in text
+                    fingerprint("record", f"record-{i}")
+                    for i in range(6) if f"Record {i}" in text
                 ))
                 self.assertEqual(split_manifest["language_counts"], {"en": len(groups[split])})
                 self.assertEqual(split_manifest["license_counts"], {"CC0-1.0": len(groups[split])})
@@ -74,6 +82,10 @@ class CorpusPreparationTests(unittest.TestCase):
                     split_manifest["sha256"],
                     hashlib.sha256(text.encode("utf-8")).hexdigest()
                 )
+            manifest_text = (root / "prepared" / "manifest.json").read_text(encoding="utf-8")
+            self.assertNotIn("record-0", manifest_text)
+            self.assertNotIn("independent-group-0", manifest_text)
+            self.assertEqual(manifest["identifier_format"], "sha256-domain-separated-v1")
             self.assertFalse(groups["train"] & groups["validation"])
             self.assertFalse(groups["train"] & groups["test"])
             self.assertFalse(groups["validation"] & groups["test"])
