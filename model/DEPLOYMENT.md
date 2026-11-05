@@ -20,23 +20,28 @@ The image installs CPU-only PyTorch. For larger models or production traffic, bu
 
 ## 3. Run it with an external, read-only checkpoint
 
-Generate a long random token (at least 32 bytes) and keep it secret:
+Create a protected environment file so the secret is not written directly into the Docker command or shell history:
 
 ```sh
-openssl rand -hex 32
+umask 077
+TOKEN="$(openssl rand -hex 32)"
+printf '%s\\n' \
+  'DREAM_CHECKPOINT=/models/dream-instruct.pt' \
+  'DREAM_MODEL_NAME=dream-native-v1' \
+  'DREAM_RUNTIME_HOST=0.0.0.0' \
+  'DREAM_RUNTIME_PORT=8081' \
+  "DREAM_RUNTIME_TOKEN=$TOKEN" > /absolute/path/dream-runtime.env
+unset TOKEN
+chmod 600 /absolute/path/dream-runtime.env
 ```
 
-Then run the container, replacing the host path and token:
+Then run the container, replacing the checkpoint and environment-file paths:
 
 ```sh
 docker run --detach --name dream-native \
   --publish 8081:8081 \
   --mount type=bind,src=/absolute/path/dream-bpe-instruct.pt,dst=/models/dream-instruct.pt,readonly \
-  --env DREAM_CHECKPOINT=/models/dream-instruct.pt \
-  --env DREAM_MODEL_NAME=dream-native-v1 \
-  --env DREAM_RUNTIME_HOST=0.0.0.0 \
-  --env DREAM_RUNTIME_PORT=8081 \
-  --env DREAM_RUNTIME_TOKEN=REPLACE_WITH_RANDOM_SECRET \
+  --env-file /absolute/path/dream-runtime.env \
   --restart unless-stopped \
   dream-native-runtime:local
 ```
