@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import { extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generateDreamReply, getDreamRuntimeStatus } from "./lib/dream-engine.js";
+import { parseCodeArtifactsIfPresent } from "./lib/code-artifacts.js";
 import { getDreamCapabilities } from "./lib/capabilities.js";
 import { runPublicResearch } from "./lib/dream-tools.js";
 
@@ -236,10 +237,12 @@ async function handleChat(req, res) {
   activeChats += 1;
   try {
     const result = await generateDreamReply(messages, mode, process.env, memoryContext);
+    const artifacts = mode === "coding" ? parseCodeArtifactsIfPresent(result.reply) : null;
     return json(res, 200, {
       reply: result.reply,
       mode,
-      source: result.source
+      source: result.source,
+      ...(artifacts ? { artifacts } : {})
     });
   } catch (error) {
     console.error("DREAM AI request failed:", error.message);
