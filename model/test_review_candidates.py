@@ -131,6 +131,7 @@ class ReviewCandidatesTests(unittest.TestCase):
     def test_rejects_identifying_ids_and_malformed_message_records(self):
         item = candidate("reviewer@example.com")
         self.assertEqual(candidate_problem(item), "invalid_id")
+        self.assertEqual(candidate_problem(candidate("5551234567")), "invalid_id")
 
         item = candidate("conversation-1")
         item.pop("text")
