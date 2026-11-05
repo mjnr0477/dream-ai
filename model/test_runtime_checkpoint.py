@@ -76,7 +76,7 @@ class RuntimeCheckpointValidationTests(unittest.TestCase):
 
     def test_rejects_tokenizer_vocab_mismatch(self):
         self.checkpoint["config"]["vocab_size"] = 300
-        with self.assertRaisesRegex(ValueError, "tokenizer vocabulary size"):
+        with self.assertRaisesRegex(ValueError, "Tokenizer vocabulary size"):
             load_validated_checkpoint(self.save())
 
     def test_rejects_unsafe_or_corrupt_checkpoint_file(self):
