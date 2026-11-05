@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generateDreamReply, getDreamRuntimeStatus } from "./lib/dream-engine.js";
+import { getDreamCapabilities } from "./lib/capabilities.js";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC_DIR = join(ROOT, "public");
@@ -166,6 +167,10 @@ const server = http.createServer(async (req, res) => {
         tokenizer: runtime.tokenizer
       } : null
     });
+  }
+  if (req.method === "GET" && url.pathname === "/api/capabilities") {
+    const runtime = await getDreamRuntimeStatus();
+    return json(res, 200, getDreamCapabilities(runtime));
   }
   if (req.method === "POST" && url.pathname === "/api/chat") {
     try {
