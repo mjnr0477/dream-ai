@@ -2,7 +2,7 @@
 
 Date: 2026-11-05
 Repository: mjnr0477/dream-ai
-Review basis: current main at 200204e56df034a27b61e87db0a577f9b76e6a39, plus direct source inspection of server.js, lib/dream-engine.js, lib/research.js, package.json, existing security tests and the Session 8 security review.
+Review basis: current main at branch creation (main ref; see PR base SHA for exact commit), plus direct source inspection of server.js, lib/dream-engine.js, lib/research.js, package.json, existing security tests and the Session 8 security review.
 
 ## Executive summary
 
