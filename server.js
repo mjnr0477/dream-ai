@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generateDreamReply, getDreamRuntimeStatus } from "./lib/dream-engine.js";
+import { searchPublicKnowledge } from "./lib/research.js";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC_DIR = join(ROOT, "public");
@@ -12,6 +13,7 @@ const MAX_MESSAGE_CHARS = 8000;
 const MAX_HISTORY_ITEMS = 12;
 const MAX_ACTIVE_CHATS = 2;
 let activeChats = 0;
+let activeResearch = 0;
 const MODES = ["general", "coding", "learning"];
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -49,6 +51,37 @@ async function readJson(req) {
     const error = new Error("Request body must be valid JSON.");
     error.status = 400;
     throw error;
+  }
+}
+
+async function handleResearch(req, res) {
+  const body = await readJson(req);
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return json(res, 400, { error: "Request body must be a JSON object." });
+  }
+  if (typeof body.query !== "string" || !body.query.trim() || body.query.length > 200) {
+    return json(res, 400, { error: "Research query must contain 1 to 200 characters." });
+  }
+  if (activeResearch >= 2) {
+    res.writeHead(503, {
+      "retry-after": "3",
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff"
+    });
+    return res.end(JSON.stringify({
+      error: "DREAM research is busy. Please retry in a few seconds."
+    }));
+  }
+  activeResearch += 1;
+  try {
+    const result = await searchPublicKnowledge(body.query);
+    return json(res, 200, result);
+  } catch (error) {
+    console.error("DREAM public research failed:", error.message);
+    return json(res, 502, { error: "Public research is temporarily unavailable. Please try again." });
+  } finally {
+    activeResearch -= 1;
   }
 }
 
@@ -166,6 +199,15 @@ const server = http.createServer(async (req, res) => {
         tokenizer: runtime.tokenizer
       } : null
     });
+  }
+  if (req.method === "POST" && url.pathname === "/api/research") {
+    try {
+      return await handleResearch(req, res);
+    } catch (error) {
+      return json(res, error.status || 500, {
+        error: error.status ? error.message : "An unexpected server error occurred."
+      });
+    }
   }
   if (req.method === "POST" && url.pathname === "/api/chat") {
     try {
