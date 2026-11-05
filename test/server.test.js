@@ -10,6 +10,8 @@ let server;
 let model;
 const modelRequests = [];
 let modelEngine = "dream-native-transformer";
+let holdModelResponses = false;
+const heldModelResponses = [];
 
 before(async () => {
   model = http.createServer((req, res) => {
@@ -26,10 +28,14 @@ before(async () => {
         url: req.url,
         body: JSON.parse(Buffer.concat(chunks).toString("utf8"))
       });
-      res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify({
-        choices: [{ message: { content: "Test response from the DREAM model runtime." } }]
-      }));
+      const respond = () => {
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({
+          choices: [{ message: { content: "Test response from the DREAM model runtime." } }]
+        }));
+      };
+      if (holdModelResponses) heldModelResponses.push(respond);
+      else respond();
     });
   });
   await new Promise((resolve, reject) => {
@@ -120,6 +126,36 @@ test("chat endpoint uses the DREAM runtime in all supported modes", async () => 
   assert.match(modelRequests[0].body.messages[0].content, /Answer clearly/);
   assert.match(modelRequests[1].body.messages[0].content, /senior software engineer/);
   assert.match(modelRequests[2].body.messages[0].content, /patient expert tutor/);
+});
+
+test("chat endpoint bounds concurrent model requests and tells clients when to retry", async () => {
+  const beforeCount = modelRequests.length;
+  holdModelResponses = true;
+  const first = postChat({
+    messages: [{ role: "user", content: "First concurrent request" }]
+  });
+  const second = postChat({
+    messages: [{ role: "user", content: "Second concurrent request" }]
+  });
+  try {
+    for (let attempt = 0; attempt < 50 && modelRequests.length < beforeCount + 2; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    assert.equal(modelRequests.length, beforeCount + 2);
+    const rejected = await postChat({
+      messages: [{ role: "user", content: "Third concurrent request" }]
+    });
+    assert.equal(rejected.status, 503);
+    assert.equal(rejected.headers.get("retry-after"), "3");
+    const data = await rejected.json();
+    assert.match(data.error, /retry in a few seconds/i);
+  } finally {
+    holdModelResponses = false;
+    for (const respond of heldModelResponses.splice(0)) respond();
+  }
+  const [firstResponse, secondResponse] = await Promise.all([first, second]);
+  assert.equal(firstResponse.status, 200);
+  assert.equal(secondResponse.status, 200);
 });
 
 test("chat endpoint refuses a non-native OpenAI-compatible model service", async () => {

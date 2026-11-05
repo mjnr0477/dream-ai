@@ -10,6 +10,8 @@ const PORT = Number(process.env.PORT || 3000);
 const MAX_BODY_BYTES = 32 * 1024;
 const MAX_MESSAGE_CHARS = 8000;
 const MAX_HISTORY_ITEMS = 12;
+const MAX_ACTIVE_CHATS = 2;
+let activeChats = 0;
 const MODES = ["general", "coding", "learning"];
 const MIME = {
   ".html": "text/html; charset=utf-8",
@@ -80,6 +82,19 @@ async function handleChat(req, res) {
     return json(res, 400, { error: "The last message must be from the user." });
   }
 
+  if (activeChats >= MAX_ACTIVE_CHATS) {
+    res.writeHead(503, {
+      "retry-after": "3",
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      "x-content-type-options": "nosniff"
+    });
+    return res.end(JSON.stringify({
+      error: "DREAM AI is handling other requests. Please retry in a few seconds."
+    }));
+  }
+
+  activeChats += 1;
   try {
     const result = await generateDreamReply(messages, mode);
     return json(res, 200, {
@@ -90,6 +105,8 @@ async function handleChat(req, res) {
   } catch (error) {
     console.error("DREAM AI request failed:", error.message);
     return json(res, 502, { error: error.message || "DREAM AI runtime unavailable." });
+  } finally {
+    activeChats -= 1;
   }
 }
 

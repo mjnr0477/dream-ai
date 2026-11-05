@@ -13,7 +13,7 @@ DREAM has its own decoder-only transformer architecture, byte-tokenizer default,
 - Responsive mobile-first chat workspace.
 - General, coding and learning modes.
 - Browser-local conversation history, export and copy.
-- Node API with bounded request validation and health status.
+- Node API with bounded request validation, two-request model concurrency protection with retry guidance, and health status.
 - Provider-independent DREAM engine adapter.
 - Automated Node tests and original evaluation dataset.
 
