@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [main]
 
+concurrency:
+  group: dream-ai-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -21,6 +25,7 @@ jobs:
 
   native-model:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Check out source
         uses: actions/checkout@v4
@@ -32,6 +37,10 @@ jobs:
         run: python -m pip install --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple -r model/requirements.txt
       - name: Compile Python sources
         run: python -m compileall -q model
+      - name: Compile corpus importer
+        run: python -m py_compile data/import_oasst1_candidates.py
+      - name: Compile multilingual corpus exporter
+        run: python -m py_compile data/export_fineweb2_sample.py
       - name: Estimate DREAM model parameter and memory budget
         run: python model/estimate_model.py --out /tmp/dream-model-budget.json
       - name: Validate training notebook structure and Python cells
