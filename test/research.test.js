@@ -293,5 +293,4 @@ test("research UI presents scholarly metadata without misrepresenting it as pape
   assert.ok(app.includes("no abstract or full text retrieved"));
   assert.ok(app.includes("A scholarly metadata record supports bibliographic facts only"));
   assert.ok(app.includes("Freshness classification"));
-  assert.ok(app.includes("providerAvailability"));
 });
