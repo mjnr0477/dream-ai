@@ -42,8 +42,15 @@ def candidate_from_row(row: dict, line_number: int) -> dict:
         raise ValueError(f"line {line_number}: text is shorter than 40 characters")
 
     parsed_url = urlsplit(row["url"])
-    if parsed_url.scheme not in ("http", "https") or not parsed_url.hostname:
-        raise ValueError(f"line {line_number}: url must be an absolute HTTP(S) URL")
+    if (
+        parsed_url.scheme != "https"
+        or not parsed_url.hostname
+        or parsed_url.username is not None
+        or parsed_url.password is not None
+    ):
+        raise ValueError(
+            f"line {line_number}: url must be an absolute HTTPS URL without embedded credentials"
+        )
     try:
         source_date = date.fromisoformat(row["date"][:10]).isoformat()
     except ValueError as exc:
@@ -98,7 +105,7 @@ def main():
         "output": output_path.resolve(),
         "summary": summary_path.resolve(),
     }
-    if len(set(resolved_paths.values())) != len(resolved_paths):
+    if len(set(resolved_paths.values())) != 3:
         parser.error("--input, --output and --summary must be three different paths")
     rows = []
     seen_ids = set()
