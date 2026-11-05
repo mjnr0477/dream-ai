@@ -196,3 +196,7 @@ python model/train.py --data data/prepared/train.txt --validation-data data/prep
 ```
 
 Balanced mode requires at least `block_size + 2` tokens for every tagged language. Validation loss remains proportional to the held-out validation corpus. The selected sampling mode is recorded in checkpoints and cannot be silently changed when resuming; Python RNG state is saved so balanced sampling can resume reproducibly.
+
+## Internal agent orchestration boundary
+
+The bounded agent orchestrator is an internal library primitive, not a public endpoint or permission bypass. A server integration must supply an authenticated principal, a server-side approval provider that issues registry-verifiable approvals bound to the exact tool/input/principal, trusted input resolution, and a trusted verifier for tasks marked `verify: true`. The runner caps plans at 20 tasks, tool executions at 40 attempts, and read-only retries at 3; cancellation is checked before each tool execution. Do not wire it to unauthenticated chat requests or allow model-generated plans to choose their own principal, approval token, or verifier.
