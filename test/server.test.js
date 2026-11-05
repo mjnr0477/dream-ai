@@ -6,6 +6,14 @@ import http from "node:http";
 const port = 3197;
 const modelPort = 3198;
 const base = `http://127.0.0.1:${port}`;
+let simulatedClientCount = 0;
+
+function simulatedClientHeaders() {
+  simulatedClientCount += 1;
+  const ray = simulatedClientCount.toString(16).padStart(16, "0");
+  const ip = `203.0.113.${(simulatedClientCount % 254) + 1}`;
+  return { "cf-ray": `${ray}-LHR`, "cf-connecting-ip": ip };
+}
 let server;
 let model;
 const modelRequests = [];
@@ -82,7 +90,7 @@ after(async () => {
 async function postResearch(payload, rawBody, extraHeaders = {}) {
   return fetch(`${base}/api/research`, {
     method: "POST",
-    headers: { "content-type": "application/json", ...extraHeaders },
+    headers: { "content-type": "application/json", ...simulatedClientHeaders(), ...extraHeaders },
     body: rawBody ?? JSON.stringify(payload)
   });
 }
@@ -90,7 +98,7 @@ async function postResearch(payload, rawBody, extraHeaders = {}) {
 async function postChat(payload, rawBody, extraHeaders = {}) {
   return fetch(`${base}/api/chat`, {
     method: "POST",
-    headers: { "content-type": "application/json", ...extraHeaders },
+    headers: { "content-type": "application/json", ...simulatedClientHeaders(), ...extraHeaders },
     body: rawBody ?? JSON.stringify(payload)
   });
 }
