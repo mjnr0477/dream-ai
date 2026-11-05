@@ -183,8 +183,8 @@ function renderAssistantContent(container, content) {
         apply.hidden = true;
         cancel.hidden = true;
         edit.textContent = "Edit locally";
-        const originalFence = `\`\`\`\${language || ""}\n\${codeText}\`\`\``;
-        const updatedFence = `\`\`\`\${language || ""}\n\${updatedCode}\`\`\``;
+        const originalFence = `\`\`\`${language || ""}\n${codeText}\`\`\``;
+        const updatedFence = `\`\`\`${language || ""}\n${updatedCode}\`\`\``;
         const storedMessage = [...messages].reverse().find(item =>
           item.role === "assistant" && item.content.includes(originalFence)
         );
