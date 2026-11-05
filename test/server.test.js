@@ -86,10 +86,10 @@ async function postResearch(payload, rawBody) {
   });
 }
 
-async function postChat(payload, rawBody) {
+async function postChat(payload, rawBody, extraHeaders = {}) {
   return fetch(`${base}/api/chat`, {
     method: "POST",
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...extraHeaders },
     body: rawBody ?? JSON.stringify(payload)
   });
 }
@@ -437,6 +437,44 @@ test("shared per-IP token bucket limits chat and research using the first forwar
   });
   assert.equal(blocked.status, 429);
   assert.ok(Number(blocked.headers.get("retry-after")) >= 1);
+});
+
+test("per-client concurrency rejects a second active request but allows another client", async () => {
+  const beforeCount = modelRequests.length;
+  holdModelResponses = true;
+  const payload = (label) => ({
+    messages: [{ role: "user", content: label }]
+  });
+  const first = postChat(payload("first client request"), undefined, {
+    "x-forwarded-for": "198.51.100.201"
+  });
+  try {
+    for (let attempt = 0; attempt < 50 && modelRequests.length < beforeCount + 1; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    assert.equal(modelRequests.length, beforeCount + 1, "first client request should reach the model");
+
+    const duplicate = await postChat(payload("duplicate same-client request"), undefined, {
+      "x-forwarded-for": "198.51.100.201"
+    });
+    assert.equal(duplicate.status, 429, "same client must be rejected while its first request is active");
+    assert.equal(duplicate.headers.get("retry-after"), "3");
+
+    const otherClient = postChat(payload("independent client request"), undefined, {
+      "x-forwarded-for": "198.51.100.202"
+    });
+    for (let attempt = 0; attempt < 50 && modelRequests.length < beforeCount + 2; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, 20));
+    }
+    assert.equal(modelRequests.length, beforeCount + 2, "a different client should be admitted independently");
+    const response = await otherClient;
+    assert.equal(response.status, 200);
+  } finally {
+    holdModelResponses = false;
+    for (const respond of heldModelResponses.splice(0)) respond();
+  }
+  const response = await first;
+  assert.equal(response.status, 200);
 });
 
 test("security headers are present on API and static responses", async () => {
