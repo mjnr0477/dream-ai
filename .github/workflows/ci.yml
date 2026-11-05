@@ -37,8 +37,11 @@ jobs:
         run: python -m pip install --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple -r model/requirements.txt
       - name: Compile Python sources
         run: python -m compileall -q model
-      - name: Compile corpus importer
-        run: python -m py_compile data/import_oasst1_candidates.py
+      - name: Compile corpus importers
+        run: >-
+          python -m py_compile
+          data/import_oasst1_candidates.py
+          data/import_oasst1_sft_candidates.py
       - name: Compile multilingual corpus exporter
         run: python -m py_compile data/export_fineweb2_sample.py
       - name: Estimate DREAM model parameter and memory budget
