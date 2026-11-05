@@ -2,7 +2,7 @@ import http from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { generateDreamReply, isDreamEngineConfigured } from "./lib/dream-engine.js";
+import { generateDreamReply, getDreamRuntimeStatus } from "./lib/dream-engine.js";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC_DIR = join(ROOT, "public");
@@ -148,14 +148,23 @@ async function serveStatic(encodedPathname, res) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   if (req.method === "GET" && url.pathname === "/api/health") {
-    const modelConfigured = isDreamEngineConfigured();
+    const runtime = await getDreamRuntimeStatus();
     return json(res, 200, {
       ok: true,
       name: "DREAM AI",
       version: "0.3.0",
       engine: "dream-engine",
-      modelConfigured,
-      modelName: modelConfigured ? process.env.DREAM_MODEL_NAME : null
+      modelConfigured: runtime.configured,
+      modelReady: runtime.ready,
+      runtimeStatus: runtime.status,
+      modelName: runtime.modelName || null,
+      model: runtime.ready ? {
+        completedTrainingSteps: runtime.completedTrainingSteps,
+        checkpointSha256: runtime.checkpointSha256,
+        device: runtime.device,
+        parameters: runtime.parameters,
+        tokenizer: runtime.tokenizer
+      } : null
     });
   }
   if (req.method === "POST" && url.pathname === "/api/chat") {
