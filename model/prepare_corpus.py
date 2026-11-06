@@ -84,6 +84,20 @@ def write_provenance_file(path: Path, rows) -> dict:
             "language": row["language"],
             "license_policy_code": row["license_policy_code"],
             "attribution_required": row["attribution_required"],
+            "rights_confirmed": row["rights_confirmed"],
+            "privacy_reviewed": row["privacy_reviewed"],
+            "quality_reviewed": row["quality_reviewed"],
+            "approval_granted": row["approval_granted"],
+            "consent_version": row.get("consent_version"),
+            "consented": row.get("consented"),
+            "consented_at": row.get("consented_at"),
+            "human_reviewed_at": row.get("human_reviewed_at"),
+            "permission_scope": row.get("permission_scope"),
+            "permission_evidence_url": (
+                _attribution_url(row["permission_evidence_url"])
+                if isinstance(row.get("permission_evidence_url"), str)
+                else None
+            ),
         })
     path.write_text(
         "".join(json.dumps(item, ensure_ascii=False, sort_keys=True) + "\n" for item in payloads),
@@ -297,8 +311,18 @@ def main():
             "license_policy_code": license_policy["code"],
             "attribution_required": license_policy["attribution_required"],
             "rights_basis": item["rights_basis"],
+            "rights_confirmed": item["rights_confirmed"],
+            "privacy_reviewed": item["privacy_reviewed"],
+            "quality_reviewed": item["quality_reviewed"],
+            "approval_granted": item["approval_granted"],
             "source_date": item["source_date"],
             "language": item["language"],
+            "consent_version": item.get("consent_version"),
+            "consented": item.get("consented"),
+            "consented_at": item.get("consented_at"),
+            "human_reviewed_at": item.get("human_reviewed_at"),
+            "permission_scope": item.get("permission_scope"),
+            "permission_evidence_url": item.get("permission_evidence_url"),
             "text": item["text"].strip()
         })
 
@@ -354,6 +378,7 @@ def main():
             "source_groups": len(split_groups),
             "language_counts": counts(selected, "language"),
             "license_counts": counts(selected, "license"),
+            "license_policy_counts": counts(selected, "license_policy_code"),
             "source_date_range": {
                 "earliest": min(row["source_date"] for row in selected),
                 "latest": max(row["source_date"] for row in selected)
