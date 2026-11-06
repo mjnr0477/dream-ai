@@ -63,6 +63,9 @@ class DreamAIOptinPipelineTests(unittest.TestCase):
         row = candidates[0]
         self.assertEqual(row["source_group"], "dream-ai-session-" + SESSION_HASH)
         self.assertEqual(row["source_date"], "2026-11-06")
+        self.assertTrue(row["id"].startswith("dream-optin-"))
+        self.assertNotEqual(row["id"], "11111111-1111-4111-8111-111111111111")
+        self.assertNotIn("11111111-1111-4111-8111-111111111111", str(row))
         self.assertEqual(row["messages"][0]["role"], "user")
         self.assertEqual(row["messages"][1]["role"], "assistant")
         for flag in ("rights_confirmed", "privacy_reviewed", "quality_reviewed", "approval_granted"):
