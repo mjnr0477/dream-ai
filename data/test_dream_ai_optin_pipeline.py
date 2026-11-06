@@ -89,7 +89,7 @@ class DreamAIOptinPipelineTests(unittest.TestCase):
 
     def test_export_deduplicates_dialogue_and_never_puts_text_in_report(self):
         first = optin_row()
-        second = optin_row("55555555-5555-4555-8555-555555555555")
+        second = optin_row("55555555-5555-4555-8555-555555555555", mode="coding")
         candidates, report = export_optin_rows([first, second])
         self.assertEqual(len(candidates), 1)
         self.assertEqual(report["skipped_reasons"].get("duplicate_dialogue"), 1)
