@@ -6,6 +6,8 @@ Checked 6 November 2026 against provider documentation.
 
 Kaggle's official GPU guidance says free NVIDIA Tesla P100 access is available with a weekly GPU quota of 30 hours or sometimes higher depending on demand and resources. This is a quota, not a permanently allocated GPU. Kaggle notebooks are therefore suitable for bounded training runs, not for an always-on model server.
 
+For the existing Kaggle kernel `mathiassimiyu/notebook21501a7fa8`, the repository helper `scripts/kaggle-run-dream-training.sh` pulls its metadata (including the private dataset attachment), replaces the code with the current DREAM training notebook, enables GPU and Internet, pushes the run, waits for completion and downloads the artifact ZIP. It uses the Kaggle CLI's local credentials; the token is never committed or sent to the repository. It refuses to run if the existing kernel does not have exactly one dataset source attached.
+
 Official references:
 - https://www.kaggle.com/docs/efficient-gpu-usage
 - https://www.kaggle.com/getting-started/524433
