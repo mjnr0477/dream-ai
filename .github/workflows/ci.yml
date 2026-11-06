@@ -70,6 +70,7 @@ jobs:
           for notebook in (
               Path("training/dream_train_colab.ipynb"),
               Path("training/dream_train_kaggle.ipynb"),
+              Path("training/dream_self_improve_kaggle.ipynb"),
           ):
               document = json.loads(notebook.read_text(encoding="utf-8"))
               assert document["nbformat"] == 4 and document["cells"]
