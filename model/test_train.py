@@ -103,7 +103,7 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             row["text_sha256"] = __import__("hashlib").sha256(
                 b"some other text that was never approved"
             ).hexdigest()
-            provenance_path.write_text(json.dumps(row) + "\\n", encoding="utf-8")
+            provenance_path.write_text(json.dumps(row) + "\n", encoding="utf-8")
             provenance_meta["sha256"] = __import__("hashlib").sha256(
                 provenance_path.read_bytes()
             ).hexdigest()
