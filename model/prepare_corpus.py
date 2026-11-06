@@ -86,7 +86,7 @@ def write_provenance_file(path: Path, rows) -> dict:
             "attribution_required": row["attribution_required"],
         })
     path.write_text(
-        "".join(json.dumps(item, ensure_ascii=False, sort_keys=True) + "\\n" for item in payloads),
+        "".join(json.dumps(item, ensure_ascii=False, sort_keys=True) + "\n" for item in payloads),
         encoding="utf-8"
     )
     return {
