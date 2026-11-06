@@ -141,8 +141,9 @@ def export_optin_rows(rows):
             continue
         seen_dialogues.add(dialogue_key)
 
+        candidate_id = "dream-optin-" + _fingerprint("optin-record", record_id)
         candidate = {
-            "id": record_id,
+            "id": candidate_id,
             "source": SOURCE_LABEL,
             "source_group": "dream-ai-session-" + group_hash,
             "license": LICENSE_LABEL,
