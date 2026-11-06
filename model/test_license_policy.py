@@ -110,10 +110,10 @@ class CommercialTrainingLicensePolicyTests(unittest.TestCase):
 
     def test_dream_v2_user_permission_is_recognized_only_with_consent_and_review(self):
         base = {
-            "license": "DREAM AI Contributor Permission v2",
+            "license": "DREAM AI Contributor Permission v3",
             "license_url": "https://dream-ai-live.onrender.com/learning-data-terms.html",
             "rights_basis": "explicit-permission",
-            "consent_version": "dream-learning-opt-in-v2",
+            "consent_version": "dream-learning-opt-in-v3",
             "consented": True,
             "consented_at": "2026-11-06T10:00:00+00:00",
             "human_reviewed_at": "2026-11-06T11:00:00+00:00",
