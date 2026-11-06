@@ -32,6 +32,53 @@ def sha256(path):
     return digest.hexdigest()
 
 
+def jsonl_record_count(path):
+    with Path(path).open("r", encoding="utf-8") as handle:
+        return sum(1 for line in handle if line.strip())
+
+
+def verify_sft_audit_gate(gate_path, train_path, validation_path):
+    """Require a privacy gate bound to the exact SFT files before loading data."""
+    try:
+        gate = json.loads(Path(gate_path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise SystemExit("SFT privacy audit gate is missing or invalid.") from exc
+
+    if (
+        not isinstance(gate, dict)
+        or gate.get("schema") != "dream-sft-audit-gate-v1"
+        or gate.get("passed") is not True
+    ):
+        raise SystemExit("SFT privacy audit gate has not passed.")
+
+    dataset_hash = gate.get("dataset_sha256")
+    if not isinstance(dataset_hash, str) or not re.fullmatch(r"[0-9a-f]{64}", dataset_hash):
+        raise SystemExit("SFT privacy audit gate has an invalid dataset hash.")
+
+    splits = gate.get("splits")
+    if not isinstance(splits, dict):
+        raise SystemExit("SFT privacy audit gate is missing split attestations.")
+
+    for name, path in (("train", train_path), ("validation", validation_path)):
+        attestation = splits.get(name)
+        if not isinstance(attestation, dict):
+            raise SystemExit(f"SFT privacy audit gate is missing the {name} attestation.")
+        if attestation.get("sha256") != sha256(path):
+            raise SystemExit(f"SFT {name} file does not match its privacy audit hash.")
+        if attestation.get("records") != jsonl_record_count(path):
+            raise SystemExit(f"SFT {name} file does not match its privacy audit record count.")
+        if attestation.get("possible_pii_findings") != 0:
+            raise SystemExit(f"SFT {name} audit reports possible personal information.")
+        if attestation.get("unreviewed_records") != 0:
+            raise SystemExit(f"SFT {name} audit reports unreviewed records.")
+        if attestation.get("error_count") != 0 or attestation.get("parse_errors") != 0:
+            raise SystemExit(f"SFT {name} audit reports errors.")
+        if attestation.get("finding_counts") != {} or attestation.get("errors") != []:
+            raise SystemExit(f"SFT {name} audit contains unresolved findings.")
+
+    return sha256(gate_path)
+
+
 
 IDENTIFIER_FORMAT = "sha256-domain-separated-v1"
 
@@ -210,6 +257,7 @@ def main():
     parser.add_argument("--checkpoint", required=True, help="DREAM pretrained checkpoint")
     parser.add_argument("--train-data", required=True, help="Reviewed training JSONL")
     parser.add_argument("--validation-data", required=True, help="Independent reviewed validation JSONL")
+    parser.add_argument("--sft-audit-gate", required=True, help="Passing hash-bound privacy audit gate JSON for these exact SFT files")
     parser.add_argument(
         "--pretraining-manifest", required=True,
         help="Manifest from the pretraining corpus; SFT sources must not overlap its held-out test split"
@@ -254,6 +302,9 @@ def main():
     validation_hash = sha256(validation_path)
     if train_hash == validation_hash:
         raise SystemExit("SFT training and validation content hashes must differ.")
+    audit_gate_hash = verify_sft_audit_gate(
+        args.sft_audit_gate, train_path, validation_path
+    )
 
     base = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
     base_steps = base.get("training", {}).get("completed_steps", 0)
@@ -344,6 +395,8 @@ def main():
             raise SystemExit("SFT resume base checkpoint hash does not match.")
         if meta.get("train_sha256") != train_hash or meta.get("validation_sha256") != validation_hash:
             raise SystemExit("SFT resume dataset hashes do not match.")
+        if meta.get("sft_audit_gate_sha256") != audit_gate_hash:
+            raise SystemExit("SFT resume privacy audit gate does not match.")
         if meta.get("learning_rate") != args.learning_rate or meta.get("batch_size") != args.batch_size:
             raise SystemExit("SFT resume hyperparameters do not match.")
         if meta.get("grad_accum_steps") != args.grad_accum_steps or meta.get("eval_batches") != args.eval_batches:
@@ -399,6 +452,8 @@ def main():
                 "train_sha256": train_hash,
                 "validation_data": str(validation_path),
                 "validation_sha256": validation_hash,
+                "sft_audit_gate": str(Path(args.sft_audit_gate)),
+                "sft_audit_gate_sha256": audit_gate_hash,
                 "pretraining_test_sha256": pretraining_test_hash,
                 "pretraining_test_data": str(pretraining_test_path),
                 "pretraining_test_source_groups": sorted(pretraining_test_groups),

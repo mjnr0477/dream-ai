@@ -57,8 +57,19 @@ jobs:
           python -m py_compile
           data/import_oasst1_candidates.py
           data/import_oasst1_sft_candidates.py
+      - name: Compile DREAM opt-in pipeline tools
+        run: >-
+          python -m py_compile
+          data/dream_ai_optin_pipeline.py
+          data/export_dream_ai_optins.py
+          data/prepare_dream_ai_sft_splits.py
+          data/verify_dream_ai_sft_audits.py
       - name: Compile multilingual corpus exporter
         run: python -m py_compile data/export_fineweb2_sample.py
+      - name: Test opt-in learning export and SFT split gates
+        run: python -m unittest discover -s data -p 'test_dream_ai_optin_pipeline.py' -v
+      - name: Test SFT privacy audit release gate
+        run: python -m unittest discover -s data -p 'test_dream_ai_sft_audit_gate.py' -v
       - name: Estimate DREAM model parameter and memory budget
         run: python model/estimate_model.py --out /tmp/dream-model-budget.json
       - name: Validate training notebook structure and Python cells
@@ -115,12 +126,49 @@ jobs:
           --audit /tmp/dream-smoke-checkpoint-audit.json
           --evaluation /tmp/dream-smoke-eval.json
           --out /tmp/dream-smoke-release-gate.json
+      - name: Audit synthetic SFT splits and create a hash-bound manifest
+        run: |
+          python model/audit_corpus.py --input data/sft-smoke-train.jsonl --out /tmp/dream-smoke-sft-train-audit.json
+          python model/audit_corpus.py --input data/sft-smoke-validation.jsonl --out /tmp/dream-smoke-sft-validation-audit.json
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          def split(path):
+              raw = Path(path).read_bytes()
+              return {
+                  "records": sum(1 for line in raw.splitlines() if line.strip()),
+                  "sha256": hashlib.sha256(raw).hexdigest(),
+              }
+
+          train = split("data/sft-smoke-train.jsonl")
+          validation = split("data/sft-smoke-validation.jsonl")
+          dataset_hash = hashlib.sha256(
+              Path("data/sft-smoke-train.jsonl").read_bytes()
+              + Path("data/sft-smoke-validation.jsonl").read_bytes()
+          ).hexdigest()
+          manifest = {
+              "schema": "dream-sft-splits-v1",
+              "dataset_sha256": dataset_hash,
+              "splits": {"train": train, "validation": validation},
+          }
+          Path("/tmp/dream-smoke-sft-manifest.json").write_text(
+              json.dumps(manifest, indent=2), encoding="utf-8"
+          )
+          PY
+          python data/verify_dream_ai_sft_audits.py \
+            --manifest /tmp/dream-smoke-sft-manifest.json \
+            --train-audit /tmp/dream-smoke-sft-train-audit.json \
+            --validation-audit /tmp/dream-smoke-sft-validation-audit.json \
+            --output /tmp/dream-smoke-sft-audit-gate.json
       - name: Fine-tune DREAM on synthetic assistant-only examples
         run: >-
           python model/sft.py
           --checkpoint /tmp/dream-smoke-small.pt
           --train-data data/sft-smoke-train.jsonl
           --validation-data data/sft-smoke-validation.jsonl
+          --sft-audit-gate /tmp/dream-smoke-sft-audit-gate.json
           --pretraining-manifest /tmp/dream-smoke-data/manifest.json
           --pretraining-test-data /tmp/dream-smoke-data/test.txt
           --out /tmp/dream-smoke-instruct.pt

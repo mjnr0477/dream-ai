@@ -69,7 +69,7 @@ python model/evaluate.py --checkpoint checkpoints/dream-small.pt --data data/pre
 # Report held-out metrics separately for every language in the corpus manifest:
 python model/evaluate_multilingual.py --checkpoint checkpoints/dream-small.pt --manifest data/prepared/manifest.json --out eval-results/dream-multilingual.json
 # Then instruction-tune on separate, reviewed conversation JSONL files:
-python model/sft.py --checkpoint checkpoints/dream-small.pt --train-data data/sft-train.jsonl --validation-data data/sft-validation.jsonl --pretraining-manifest data/prepared/manifest.json --pretraining-test-data data/prepared/test.txt --steps 1000 --batch-size 2 --grad-accum-steps 4 --out checkpoints/dream-instruct.pt
+python model/sft.py --checkpoint checkpoints/dream-small.pt --train-data data/sft-train.jsonl --validation-data data/sft-validation.jsonl --sft-audit-gate eval-results/sft-audit-gate.json --pretraining-manifest data/prepared/manifest.json --pretraining-test-data data/prepared/test.txt --steps 1000 --batch-size 2 --grad-accum-steps 4 --out checkpoints/dream-instruct.pt
 python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER: Hello DREAM.\nASSISTANT:"
 ```
 

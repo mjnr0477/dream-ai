@@ -6,6 +6,7 @@ import net from "node:net";
 
 let port;
 let modelPort;
+let learningIpCounter = 210;
 let base;
 let server;
 let model;
@@ -72,7 +73,10 @@ before(async () => {
       DREAM_MODEL_URL: `http://127.0.0.1:${modelPort}/v1`,
       DREAM_MODEL_NAME: "dream-test-model",
       DREAM_MODEL_TOKEN: "",
-      DREAM_API_RATE_LIMIT: "3"
+      DREAM_API_RATE_LIMIT: "3",
+      DREAM_LEARNING_INGEST_URL: "",
+      DREAM_LEARNING_INGEST_TOKEN: "",
+      DREAM_LEARNING_SUPABASE_ANON_KEY: ""
     },
     stdio: "ignore"
   });
@@ -104,6 +108,17 @@ async function postResearch(payload, rawBody) {
   });
 }
 
+async function postLearning(payload, rawBody) {
+  return fetch(`${base}/api/learning/examples`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "cf-connecting-ip": `198.51.100.${learningIpCounter++}`
+    },
+    body: rawBody ?? JSON.stringify(payload)
+  });
+}
+
 async function postChat(payload, rawBody) {
   return fetch(`${base}/api/chat`, {
     method: "POST",
@@ -112,6 +127,65 @@ async function postChat(payload, rawBody) {
   });
 }
 
+
+test("learning contribution requires a valid temporary source group for v2 consent", async () => {
+  const missing = await postLearning({
+    mode: "general",
+    prompt: "Explain photosynthesis.",
+    response: "Photosynthesis is how plants convert light energy into chemical energy.",
+    consentVersion: "dream-learning-opt-in-v2"
+  });
+  assert.equal(missing.status, 400);
+
+  const malformed = await postLearning({
+    mode: "general",
+    prompt: "Explain photosynthesis.",
+    response: "Photosynthesis is how plants convert light energy into chemical energy.",
+    consentVersion: "dream-learning-opt-in-v2",
+    sourceGroupId: "../../not-a-uuid"
+  });
+  assert.equal(malformed.status, 400);
+});
+
+test("learning contribution rejects malformed consent-version types instead of downgrading them", async () => {
+  const response = await postLearning({
+    mode: "general",
+    prompt: "Explain photosynthesis.",
+    response: "Photosynthesis is how plants convert light energy into chemical energy.",
+    consentVersion: { version: "dream-learning-opt-in-v2" }
+  });
+  assert.equal(response.status, 400);
+});
+
+test("learning contribution rejects unknown consent versions", async () => {
+  const response = await postLearning({
+    mode: "general",
+    prompt: "Explain photosynthesis.",
+    response: "Photosynthesis is how plants convert light energy into chemical energy.",
+    consentVersion: "dream-learning-opt-in-v99",
+    sourceGroupId: "123e4567-e89b-42d3-a456-426614174000"
+  });
+  assert.equal(response.status, 400);
+});
+
+test("learning contribution keeps legacy v1 clients compatible but accepts valid v2 input", async () => {
+  const validV2 = await postLearning({
+    mode: "general",
+    prompt: "Explain photosynthesis.",
+    response: "Photosynthesis is how plants convert light energy into chemical energy.",
+    consentVersion: "dream-learning-opt-in-v2",
+    sourceGroupId: "123e4567-e89b-42d3-a456-426614174000"
+  });
+  assert.equal(validV2.status, 503);
+  assert.match((await validV2.json()).error, /not configured/i);
+
+  const legacyV1 = await postLearning({
+    mode: "general",
+    prompt: "Explain photosynthesis.",
+    response: "Photosynthesis is how plants convert light energy into chemical energy."
+  });
+  assert.equal(legacyV1.status, 503);
+});
 
 test("research endpoint rejects malformed and oversized queries before upstream access", async () => {
   for (const payload of [
@@ -521,4 +595,17 @@ test("root serves the DREAM AI application", async () => {
 test("static server blocks encoded traversal attempts", async () => {
   const response = await fetch(`${base}/%2e%2e%2fserver.js`);
   assert.notEqual(response.status, 200);
+});
+
+test("learning contribution terms page explains the independent review gate", async () => {
+  const response = await fetch(`${base}/learning-data-terms.html`);
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Only the single question and the corresponding DREAM AI answer/);
+  assert.match(html, /only after separate human review/);
+  assert.match(html, /non-exclusive, worldwide, royalty-free permission/);
+  assert.match(html, /not automatically approve an example/);
+  assert.match(html, /raw identifier is not saved in the database/);
+  assert.match(html, /non-exclusive, worldwide, royalty-free permission/);
+  assert.match(html, /have permission from its rights-holder/);
 });
