@@ -53,7 +53,7 @@ def _cc_path(license_url: object) -> str:
         return ""
     if (parsed.hostname or "").lower() not in {"creativecommons.org", "www.creativecommons.org"}:
         return ""
-    return parsed.path.lower().strip("/")
+    return parsed.path.lower().strip("/").replace(".", "-")
 
 
 def _has_separate_commercial_permission(record: dict) -> bool:
