@@ -123,6 +123,20 @@ class CommercialTrainingLicensePolicyTests(unittest.TestCase):
         base["consented"] = False
         self.assertEqual(classify_record_license(base)["status"], "review_required")
 
+    def test_legacy_v2_dream_consent_is_not_a_commercial_training_license(self):
+        record = {
+            "license": "DREAM AI Contributor Permission v2",
+            "license_url": "https://dream-ai-live.onrender.com/learning-data-terms.html",
+            "rights_basis": "explicit-permission",
+            "consent_version": "dream-learning-opt-in-v2",
+            "consented": True,
+            "consented_at": "2026-11-06T10:00:00+00:00",
+            "human_reviewed_at": "2026-11-06T11:00:00+00:00",
+            "rights_confirmed": True,
+        }
+        result = classify_record_license(record)
+        self.assertEqual(result["status"], "review_required")
+
     def test_prepare_function_fails_closed_for_unresolved_terms(self):
         with self.assertRaisesRegex(ValueError, "noncommercial_restriction"):
             require_commercial_training_license(record(
