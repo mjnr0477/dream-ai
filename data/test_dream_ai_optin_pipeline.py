@@ -19,7 +19,7 @@ def optin_row(record_id="11111111-1111-4111-8111-111111111111", **overrides):
         "prompt": "What is photosynthesis and why is sunlight important?",
         "response": "Photosynthesis is the process plants use to convert light energy into chemical energy.",
         "consented": True,
-        "consent_version": "dream-learning-opt-in-v2",
+        "consent_version": "dream-learning-opt-in-v3",
         "consented_at": "2026-11-06T10:00:00Z",
         "review_status": "pending",
         "status": "pending",
@@ -35,11 +35,11 @@ def approved_sft_record(index, group=None):
         "id": "dream-optin-" + f"{index + 1:064x}",
         "source": "DREAM AI opt-in exchange",
         "source_group": group or f"dream-ai-session-{index:064x}",
-        "license": "DREAM AI Contributor Permission v2",
+        "license": "DREAM AI Contributor Permission v3",
         "license_url": "https://dream-ai-live.onrender.com/learning-data-terms.html",
         "source_url": "https://dream-ai-live.onrender.com",
         "rights_basis": "explicit-permission",
-        "consent_version": "dream-learning-opt-in-v2",
+        "consent_version": "dream-learning-opt-in-v3",
         "consented": True,
         "consented_at": "2026-11-06T10:00:00+00:00",
         "human_reviewed_at": "2026-11-06T11:00:00+00:00",
@@ -164,7 +164,7 @@ class DreamAIOptinPipelineTests(unittest.TestCase):
     def test_refuses_legacy_v1_even_when_review_flags_are_true(self):
         records = [approved_sft_record(i) for i in range(4)]
         records[0]["consent_version"] = "dream-learning-opt-in-v1"
-        with self.assertRaisesRegex(ValueError, "dream-learning-opt-in-v2"):
+        with self.assertRaisesRegex(ValueError, "dream-learning-opt-in-v3"):
             prepare_sft_splits(records)
 
     def test_refuses_unrecognized_source_or_permission_metadata(self):
