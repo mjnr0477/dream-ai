@@ -32,6 +32,10 @@ python model/evaluate_tasks.py \
 
 The report includes deterministic exact-match results by category and language, model/checkpoint hashes and every generated answer. This 15-task starter set is a debugging aid, not a comprehensive reasoning, factuality, safety or multilingual benchmark; its score cannot establish production readiness or superiority over other models. Expand it with independently authored and reviewed tests before making capability claims.
 
+## Free GPU and deployment path
+
+See [training/FREE_GPU_AND_RENDER.md](training/FREE_GPU_AND_RENDER.md) for the current free-compute options and the supported split: Kaggle GPU for training, a separate model runtime for inference, and Render for the Node chat application. Render Free is not a GPU training host.
+
 ## Verified self-improvement
 
 DREAM can run repeatable, guarded instruction-tuning cycles from explicitly approved feedback using `python model/self_improve.py`. The controller audits and evaluates each candidate against the unchanged held-out corpus and the authored task diagnostic before promotion, keeps a rollback checkpoint, and leaves the active model untouched on failure. See [model/SELF_IMPROVEMENT.md](model/SELF_IMPROVEMENT.md). This is controlled continual fine-tuning, not unrestricted autonomous learning or a claim of frontier-level capability.
