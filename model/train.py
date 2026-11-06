@@ -105,6 +105,7 @@ def verify_pretraining_corpus_manifest(manifest_path, train_path, validation_pat
             or Path(provenance_name).name != provenance_name
             or provenance.get("contains_training_text") is not False
             or provenance.get("contains_raw_record_or_group_ids") is not False
+            or provenance.get("offset_semantics") != "utf8-byte-start-inclusive-end-exclusive-v1"
         ):
             raise SystemExit(f"Pretraining {split_name} provenance sidecar metadata is invalid.")
         provenance_path = (manifest_path.parent / provenance_name).resolve()
@@ -119,6 +120,7 @@ def verify_pretraining_corpus_manifest(manifest_path, train_path, validation_pat
         split_record_ids = set()
         split_groups = set()
         policy_counts = Counter()
+        text_segments = []
         with provenance_path.open("r", encoding="utf-8") as handle:
             for line_number, line in enumerate(handle, 1):
                 if not line.strip():
@@ -140,6 +142,16 @@ def verify_pretraining_corpus_manifest(manifest_path, train_path, validation_pat
                         raise SystemExit(f"Missing {field} in {split_name} provenance at line {line_number}.")
                 if not SHA256_RE.fullmatch(item["record_id_sha256"]) or not SHA256_RE.fullmatch(item["source_group_sha256"]):
                     raise SystemExit(f"Invalid hashed identifier in {split_name} provenance at line {line_number}.")
+                text_start = item.get("text_byte_start")
+                text_end = item.get("text_byte_end")
+                text_digest = item.get("text_sha256")
+                if (
+                    not isinstance(text_start, int) or isinstance(text_start, bool) or text_start < 0
+                    or not isinstance(text_end, int) or isinstance(text_end, bool) or text_end <= text_start
+                    or not isinstance(text_digest, str) or not SHA256_RE.fullmatch(text_digest)
+                ):
+                    raise SystemExit(f"Invalid text byte attestation in {split_name} provenance at line {line_number}.")
+                text_segments.append((text_start, text_end, text_digest))
                 if any(field in item for field in ("id", "source_group", "text", "input_text", "target_text")):
                     raise SystemExit(f"Raw identifiers or training text found in {split_name} provenance.")
                 if not _valid_https_url(item["source_url"]) or not _valid_https_url(item["license_url"]):
@@ -178,6 +190,33 @@ def verify_pretraining_corpus_manifest(manifest_path, train_path, validation_pat
 
         if len(split_record_ids) != record_count or len(split_groups) != split.get("source_groups"):
             raise SystemExit(f"Pretraining {split_name} provenance identifiers do not match the manifest.")
+        if len(text_segments) != record_count:
+            raise SystemExit(f"Pretraining {split_name} text attestations do not match the record count.")
+
+        # Prove that every provenance row identifies the exact UTF-8 byte range
+        # in the actual text file that the model will consume.
+        ordered_segments = sorted(text_segments, key=lambda segment: segment[0])
+        cursor = 0
+        with text_path.open("rb") as text_handle:
+            for index, (text_start, text_end, text_digest) in enumerate(ordered_segments):
+                if text_start != cursor:
+                    raise SystemExit(f"Pretraining {split_name} text/provenance offsets are not contiguous.")
+                text_handle.seek(text_start)
+                segment_bytes = text_handle.read(text_end - text_start)
+                if len(segment_bytes) != text_end - text_start:
+                    raise SystemExit(f"Pretraining {split_name} text/provenance range exceeds the text file.")
+                if hashlib.sha256(segment_bytes).hexdigest() != text_digest:
+                    raise SystemExit(f"Pretraining {split_name} record text does not match its license provenance.")
+                cursor = text_end
+                if index < len(ordered_segments) - 1:
+                    text_handle.seek(cursor)
+                    if text_handle.read(2) != b"\\n\\n":
+                        raise SystemExit(f"Pretraining {split_name} text/provenance separator is invalid.")
+                    cursor += 2
+                else:
+                    text_handle.seek(cursor)
+                    if text_handle.read() != b"\\n":
+                        raise SystemExit(f"Pretraining {split_name} text/provenance ending is invalid.")
         if sorted(split_record_ids) != split.get("record_ids"):
             raise SystemExit(f"Pretraining {split_name} record identifiers do not match the manifest.")
         if sorted(split_groups) != split.get("source_group_ids"):
