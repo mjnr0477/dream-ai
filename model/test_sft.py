@@ -67,6 +67,18 @@ def run_with_sft_gate(command, *args, **kwargs):
 
 
 class DreamSFTTests(unittest.TestCase):
+    def test_sft_requires_the_privacy_audit_gate_argument(self):
+        result = SUBPROCESS_RUN([
+            sys.executable, str(SCRIPT),
+            "--checkpoint", str(self.base),
+            "--train-data", str(self.root / "missing-train.jsonl"),
+            "--validation-data", str(self.root / "missing-validation.jsonl"),
+            "--pretraining-manifest", str(self.manifest),
+            "--pretraining-test-data", str(self.test_data),
+        ], capture_output=True, text=True, timeout=30)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("--sft-audit-gate", result.stderr)
+
     def test_sft_rejects_audit_gate_bound_to_different_train_bytes(self):
         train_path = self.root / "audit-train.jsonl"
         validation_path = self.root / "audit-validation.jsonl"
