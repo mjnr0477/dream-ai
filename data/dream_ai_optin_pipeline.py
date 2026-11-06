@@ -127,7 +127,8 @@ def export_optin_rows(rows):
             skipped[str(exc)] += 1
             continue
 
-        mode = row.get("mode") if row.get("mode") in {"general", "coding", "learning"} else "general"
+        raw_mode = row.get("mode")
+        mode = raw_mode if isinstance(raw_mode, str) and raw_mode in {"general", "coding", "learning"} else "general"
         language = metadata.get("language", "und")
         if not isinstance(language, str) or not LANGUAGE_TAG.fullmatch(language):
             language = "und"
