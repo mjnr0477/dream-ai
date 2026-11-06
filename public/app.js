@@ -583,6 +583,7 @@ async function sendResearch(text, isRetry = false) {
 }
 
 async function sendMessage(text, isRetry = false, includeHistory = true) {
+  const requestMode = activeMode;
   const content = text.trim();
   if (!content || send.disabled) return;
   welcome.hidden = true;
@@ -619,7 +620,35 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
       try { await navigator.clipboard.writeText(data.reply); copy.textContent = "Copied"; }
       catch { copy.textContent = "Copy unavailable"; }
     });
-    tools.append(copy);
+    const share = document.createElement("button");
+    share.type = "button";
+    share.textContent = "Share this exchange to improve Dream AI";
+    share.title = "Only this question and answer will be submitted for review. Your chat history is not uploaded.";
+    share.addEventListener("click", async () => {
+      if (share.disabled) return;
+      share.disabled = true;
+      share.textContent = "Submitting…";
+      try {
+        const learningResponse = await fetch("/api/learning/examples", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ mode: requestMode, prompt: content, response: data.reply })
+        });
+        const learningData = await learningResponse.json();
+        if (!learningResponse.ok || learningData.accepted !== true) {
+          throw new Error(learningData.error || "Submission failed.");
+        }
+        share.textContent = learningData.status === "already-submitted"
+          ? "Already submitted"
+          : "Submitted for review ✓";
+        share.title = "This example is pending review. It will not train a model automatically.";
+      } catch (error) {
+        share.disabled = false;
+        share.textContent = "Try sharing again";
+        statusText.textContent = error.message || "Could not submit this example.";
+      }
+    });
+    tools.append(copy, share);
     replyNode.parentElement.append(tools);
     messages.push({ role: "assistant", content: data.reply, ...(Array.isArray(data.artifacts) ? { artifacts: data.artifacts } : {}) });
     persistActiveChat();
