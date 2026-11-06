@@ -333,6 +333,23 @@ class CorpusPreparationTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn(message, result.stderr)
 
+    def test_rejects_noncommercial_license_even_when_all_review_flags_are_true(self):
+        rows = self.make_records()
+        rows[0]["license"] = "CC-BY-NC-SA-4.0"
+        rows[0]["license_url"] = "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_prepare(Path(directory), rows)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("noncommercial_restriction", result.stderr)
+
+    def test_manifest_records_license_policy_version_and_decisions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_prepare(Path(directory), self.make_records())
+            self.assertEqual(result.returncode, 0, result.stderr)
+            manifest = json.loads((Path(directory) / "prepared" / "manifest.json").read_text())
+            self.assertEqual(manifest["license_policy_version"], "dream-commercial-training-license-policy-v1")
+            self.assertEqual(manifest["license_policy_counts"], {"cc0_1_0": 6})
+
     def test_rejects_too_few_independent_sources(self):
         rows = self.make_records(count=3)
         for row in rows:
