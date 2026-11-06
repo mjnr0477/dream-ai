@@ -32,6 +32,10 @@ python model/evaluate_tasks.py \
 
 The report includes deterministic exact-match results by category and language, model/checkpoint hashes and every generated answer. This 15-task starter set is a debugging aid, not a comprehensive reasoning, factuality, safety or multilingual benchmark; its score cannot establish production readiness or superiority over other models. Expand it with independently authored and reviewed tests before making capability claims.
 
+## Verified self-improvement
+
+DREAM can run repeatable, guarded instruction-tuning cycles from explicitly approved feedback using `python model/self_improve.py`. The controller audits and evaluates each candidate against the unchanged held-out corpus and the authored task diagnostic before promotion, keeps a rollback checkpoint, and leaves the active model untouched on failure. See [model/SELF_IMPROVEMENT.md](model/SELF_IMPROVEMENT.md). This is controlled continual fine-tuning, not unrestricted autonomous learning or a claim of frontier-level capability.
+
 ## Native DREAM model
 
 See [model/BASELINE.md](model/BASELINE.md) for the architecture, commands and release gates. For free-tier training, use the [DREAM from-scratch Colab notebook](https://colab.research.google.com/github/mjnr0477/dream-ai/blob/main/training/dream_train_colab.ipynb) or the [Kaggle training notebook](https://github.com/mjnr0477/dream-ai/blob/main/training/dream_train_kaggle.ipynb). Both require a real, reviewed corpus; GPU access is not guaranteed. Download the checkpoint and evaluation report before the session ends.
