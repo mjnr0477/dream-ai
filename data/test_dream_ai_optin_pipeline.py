@@ -63,6 +63,12 @@ class DreamAIOptinPipelineTests(unittest.TestCase):
         self.assertEqual(report["exported"], 1)
         self.assertEqual(candidates[0]["dream_mode"], "general")
 
+    def test_excludes_v2_rows_from_commercial_ready_export(self):
+        row = optin_row(consent_version="dream-learning-opt-in-v2")
+        candidates, report = export_optin_rows([row])
+        self.assertEqual(candidates, [])
+        self.assertEqual(report["skipped_reasons"].get("unsupported_consent_version"), 1)
+
     def test_exports_only_v2_consented_pending_rows_as_unapproved_sft_candidates(self):
         candidates, report = export_optin_rows([optin_row()])
         self.assertEqual(report["exported"], 1)
