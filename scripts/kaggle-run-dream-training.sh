@@ -19,7 +19,7 @@ command -v kaggle >/dev/null 2>&1 || {
   echo "Kaggle CLI installation did not provide the kaggle command." >&2
   exit 2
 }
-if [[ ! -f "$HOME/.kaggle/kaggle.json" && -z "${KAGGLE_USERNAME:-}" && -z "${KAGGLE_API_TOKEN:-}" ]]; then
+if [[ ! -f "$HOME/.kaggle/kaggle.json" && ( -z "${KAGGLE_USERNAME:-}" || -z "${KAGGLE_KEY:-}" ) ]]; then
   echo "Kaggle API credentials are not configured here. Configure ~/.kaggle/kaggle.json locally; do not paste credentials into chat or Git." >&2
   exit 2
 fi
