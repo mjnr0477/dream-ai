@@ -348,9 +348,9 @@ async function handleLearningExample(req, res) {
   const mode = body.mode;
   const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
   const responseText = typeof body.response === "string" ? body.response.trim() : "";
-  const consentVersion = typeof body.consentVersion === "string"
-    ? body.consentVersion
-    : "dream-learning-opt-in-v1";
+  const consentVersion = body.consentVersion === undefined
+    ? "dream-learning-opt-in-v1"
+    : body.consentVersion;
   const sourceGroupId = body.sourceGroupId;
   const validSourceGroupId = typeof sourceGroupId === "string" &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sourceGroupId);
