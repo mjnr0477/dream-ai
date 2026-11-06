@@ -22,6 +22,25 @@ Corpus preparation deduplicates text using Unicode NFKC normalization, whitespac
 
 Each JSONL record must include `source_url`, `license_url`, `rights_basis` and `source_date` in strict `YYYY-MM-DD` form, and set `rights_confirmed`, `privacy_reviewed` and `quality_reviewed` to `true`. The preparation gate requires absolute HTTPS source and license URLs and rejects an unverified rights basis. The generated manifest reports record counts by language and license plus the source-date range; inspect these before training. Record IDs and source-group IDs in the manifest are domain-separated SHA-256 fingerprints (`identifier_format: sha256-domain-separated-v1`), not raw caller-supplied identifiers; the SFT leakage checks compare the same fingerprints. These fingerprints reduce accidental raw-ID disclosure but are pseudonymous, not anonymized: low-entropy IDs may be guessed, so never put secrets or personal data in identifier fields. Older manifests without this field remain supported by hashing their legacy raw group IDs before comparison. The manifest also reports each language's independent source-group count and split coverage. Languages with at least three independent groups are assigned at least one group to each split; rarer languages are marked as not yet eligible for three-way held-out evaluation. These flags record a human review; the script cannot independently verify legal rights or detect all personal information.
 
+## Commercial-ready license compatibility
+
+DREAM's training pipeline uses the versioned policy in `model/license_policy.py` before pretraining and native SFT. This is conservative automated triage, not legal advice or a substitute for checking the source page and rights holder. The policy assumes DREAM may later be operated as a paid service, so non-commercial-only material is not accepted into this corpus by default.
+
+The current standard allow-list is:
+- CC0 1.0, with no attribution condition under that dedication;
+- CC BY 4.0, with attribution and change-notice obligations;
+- Apache-2.0 and MIT, where the specific item is actually released under that license;
+- Public Domain Mark 1.0 only when the record is explicitly marked public domain and a human has confirmed the applicable rights basis.
+
+The gate blocks Creative Commons NonCommercial terms (NC) unless a separate HTTPS permission record expressly covers commercial AI model training and a human confirms that permission. ShareAlike (SA), NoDerivatives (ND), unknown licenses and collection-only license claims are held for review unless separate permission resolves the issue. A dataset collection license alone does not establish rights in every underlying web page. A generic `rights_confirmed: true` flag cannot override a known non-commercial restriction.
+
+The gate also writes a text-free `train.provenance.jsonl`, `validation.provenance.jsonl` and `test.provenance.jsonl` beside the prepared text splits. These sidecars preserve source names, source URLs, license identifiers, license URLs, dates, languages and attribution requirements. Record and source-group identifiers are SHA-256 fingerprints; URL query strings and fragments are stripped; training text and raw IDs are not copied. Their hashes and counts are recorded in `manifest.json`. Keep the original approved JSONL export privately because the sidecars are not a replacement for the review record.
+
+Examples:
+- [OpenAssistant OASST1 dataset card](https://huggingface.co/datasets/OpenAssistant/oasst1) declares Apache-2.0; its individual conversations still require privacy and quality review.
+- [OpenStax's official licensing information](https://help.openstax.org/s/article/Licensing-information-of-OpenStax-textbooks) states CC BY-NC-SA. DREAM must not use those textbook records for a potentially commercial model unless OpenStax separately grants the required permission.
+- [Creative Commons BY 4.0](https://creativecommons.org/licenses/by/4.0/) permits commercial reuse with attribution; [BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/) restricts use to non-commercial purposes and carries ShareAlike conditions.
+
 ## DREAM AI opt-in exchange candidates
 
 Optional user contributions are stored in the separate `dream_ai_training_examples` table. v2 submissions include a temporary browser-tab session identifier; the trusted Edge Function stores only a domain-separated SHA-256 fingerprint in `metadata.source_group_sha256`. The raw session ID and database row ID are not used as identifiers in the training export.
