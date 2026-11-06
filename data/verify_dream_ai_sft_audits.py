@@ -44,7 +44,10 @@ def verify_audit_reports(manifest, train_report, validation_report):
             "sha256": expected["sha256"],
             "possible_pii_findings": 0,
             "unreviewed_records": 0,
+            "error_count": 0,
+            "parse_errors": 0,
             "finding_counts": {},
+            "errors": [],
         }
 
     return {
