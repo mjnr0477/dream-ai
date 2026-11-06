@@ -311,6 +311,69 @@ async function handleChat(req, res) {
   }
 }
 
+async function handleLearningExample(req, res) {
+  validateBrowserRequest(req);
+  if (!enforceApiRateLimit(req, res)) return;
+  const body = await readJson(req);
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return json(res, 400, { error: "Request body must be a JSON object." });
+  }
+  const mode = body.mode;
+  const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
+  const responseText = typeof body.response === "string" ? body.response.trim() : "";
+  if (!["general", "coding", "learning"].includes(mode) ||
+      !prompt || prompt.length > 8000 ||
+      !responseText || responseText.length > 16000) {
+    return json(res, 400, { error: "A valid single question and answer are required." });
+  }
+  const endpoint = process.env.DREAM_LEARNING_INGEST_URL;
+  const token = process.env.DREAM_LEARNING_INGEST_TOKEN;
+  const anonKey = process.env.DREAM_LEARNING_SUPABASE_ANON_KEY;
+  if (!endpoint || !token || !anonKey) {
+    return json(res, 503, { error: "Dream AI learning collection is not configured." });
+  }
+  let target;
+  try {
+    target = new URL(endpoint);
+    if (target.protocol !== "https:" || !target.hostname.endsWith(".supabase.co")) throw new Error("invalid");
+  } catch {
+    return json(res, 503, { error: "Dream AI learning collection is not configured." });
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 10000);
+  try {
+    const upstream = await fetch(target, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        apikey: anonKey,
+        authorization: `Bearer ${anonKey}`,
+        "x-dream-learning-token": token
+      },
+      body: JSON.stringify({
+        mode, prompt, response: responseText,
+        consentVersion: "dream-learning-opt-in-v1"
+      }),
+      redirect: "error",
+      signal: controller.signal
+    });
+    const result = await upstream.json().catch(() => ({}));
+    if (!upstream.ok) {
+      console.error("DREAM learning ingest failed:", upstream.status);
+      return json(res, 502, { error: "Could not submit this example. Please try again." });
+    }
+    return json(res, upstream.status === 201 ? 201 : 200, {
+      accepted: result.accepted === true,
+      status: result.status || (result.duplicate ? "already-submitted" : "pending")
+    });
+  } catch (error) {
+    console.error("DREAM learning ingest request failed:", error.name || "error");
+    return json(res, 502, { error: "Learning collection is temporarily unavailable." });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 async function serveStatic(encodedPathname, res) {
   let pathname;
   try {
@@ -369,6 +432,15 @@ const server = http.createServer(async (req, res) => {
       delete capabilities.model.checkpointSha256;
     }
     return json(res, 200, capabilities);
+  }
+  if (req.method === "POST" && url.pathname === "/api/learning/examples") {
+    try {
+      return await runWithClientConcurrency(req, res, handleLearningExample);
+    } catch (error) {
+      return json(res, error.status || 500, {
+        error: error.status ? error.message : "An unexpected server error occurred."
+      });
+    }
   }
   if (req.method === "POST" && url.pathname === "/api/research") {
     try {
