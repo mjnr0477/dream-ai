@@ -242,6 +242,32 @@ class DreamSFTTests(unittest.TestCase):
                     load_examples(train_path, DreamByteTokenizer(), self.config.block_size)
                 self.assertIn(expected, str(error.exception))
 
+    def test_sft_rejects_noncommercial_license_even_when_rights_are_marked_confirmed(self):
+        train_path = self.root / "noncommercial-sft.jsonl"
+        self.write_records(train_path, "noncommercial")
+        rows = [json.loads(line) for line in train_path.read_text(encoding="utf-8").splitlines()]
+        rows[0]["license"] = "CC-BY-NC-4.0"
+        rows[0]["license_url"] = "https://creativecommons.org/licenses/by-nc/4.0/"
+        train_path.write_text(
+            "".join(json.dumps(row) + "\n" for row in rows),
+            encoding="utf-8"
+        )
+        with self.assertRaisesRegex(SystemExit, "noncommercial_restriction"):
+            load_examples(train_path, DreamByteTokenizer(), self.config.block_size)
+
+    def test_sft_rejects_unresolved_sharealike_license(self):
+        train_path = self.root / "sharealike-sft.jsonl"
+        self.write_records(train_path, "sharealike")
+        rows = [json.loads(line) for line in train_path.read_text(encoding="utf-8").splitlines()]
+        rows[0]["license"] = "CC-BY-SA-4.0"
+        rows[0]["license_url"] = "https://creativecommons.org/licenses/by-sa/4.0/"
+        train_path.write_text(
+            "".join(json.dumps(row) + "\n" for row in rows),
+            encoding="utf-8"
+        )
+        with self.assertRaisesRegex(SystemExit, "share_alike_obligations_require_review"):
+            load_examples(train_path, DreamByteTokenizer(), self.config.block_size)
+
     def test_masks_user_prompt_and_trains_assistant_answers(self):
         train_path = self.root / "train.jsonl"
         val_path = self.root / "validation.jsonl"
