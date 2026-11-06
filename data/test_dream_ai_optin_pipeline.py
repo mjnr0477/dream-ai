@@ -1,5 +1,8 @@
 import copy
 import unittest
+import hashlib
+import tempfile
+from pathlib import Path
 
 from dream_ai_optin_pipeline import export_optin_rows, prepare_sft_splits
 
@@ -117,6 +120,24 @@ class DreamAIOptinPipelineTests(unittest.TestCase):
         self.assertEqual([row["id"] for row in train_a], [row["id"] for row in train_b])
         self.assertEqual([row["id"] for row in val_a], [row["id"] for row in val_b])
         self.assertEqual(manifest_a, manifest_b)
+
+    def test_manifest_split_hash_matches_exact_jsonl_bytes_written(self):
+        records = [approved_sft_record(i) for i in range(8)]
+        train, validation, manifest = prepare_sft_splits(records)
+        with tempfile.TemporaryDirectory() as directory:
+            train_path = Path(directory) / "train.jsonl"
+            validation_path = Path(directory) / "validation.jsonl"
+            from dream_ai_optin_pipeline import write_jsonl
+            write_jsonl(train_path, train)
+            write_jsonl(validation_path, validation)
+            self.assertEqual(
+                hashlib.sha256(train_path.read_bytes()).hexdigest(),
+                manifest["splits"]["train"]["sha256"]
+            )
+            self.assertEqual(
+                hashlib.sha256(validation_path.read_bytes()).hexdigest(),
+                manifest["splits"]["validation"]["sha256"]
+            )
 
     def test_refuses_fewer_than_four_independent_source_groups(self):
         records = [approved_sft_record(i) for i in range(3)]
