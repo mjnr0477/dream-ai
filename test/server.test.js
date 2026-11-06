@@ -104,6 +104,17 @@ async function postResearch(payload, rawBody) {
   });
 }
 
+async function postLearning(payload, rawBody) {
+  return fetch(`${base}/api/learning/examples`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "cf-connecting-ip": "198.51.100.230"
+    },
+    body: rawBody ?? JSON.stringify(payload)
+  });
+}
+
 async function postChat(payload, rawBody) {
   return fetch(`${base}/api/chat`, {
     method: "POST",
@@ -112,6 +123,44 @@ async function postChat(payload, rawBody) {
   });
 }
 
+
+test("learning contribution requires a valid temporary source group for v2 consent", async () => {
+  const missing = await postLearning({
+    mode: "general",
+    prompt: "Explain photosynthesis.",
+    response: "Photosynthesis is how plants convert light energy into chemical energy.",
+    consentVersion: "dream-learning-opt-in-v2"
+  });
+  assert.equal(missing.status, 400);
+
+  const malformed = await postLearning({
+    mode: "general",
+    prompt: "Explain photosynthesis.",
+    response: "Photosynthesis is how plants convert light energy into chemical energy.",
+    consentVersion: "dream-learning-opt-in-v2",
+    sourceGroupId: "../../not-a-uuid"
+  });
+  assert.equal(malformed.status, 400);
+});
+
+test("learning contribution keeps legacy v1 clients compatible but accepts valid v2 input", async () => {
+  const validV2 = await postLearning({
+    mode: "general",
+    prompt: "Explain photosynthesis.",
+    response: "Photosynthesis is how plants convert light energy into chemical energy.",
+    consentVersion: "dream-learning-opt-in-v2",
+    sourceGroupId: "123e4567-e89b-42d3-a456-426614174000"
+  });
+  assert.equal(validV2.status, 503);
+  assert.match((await validV2.json()).error, /not configured/i);
+
+  const legacyV1 = await postLearning({
+    mode: "general",
+    prompt: "Explain photosynthesis.",
+    response: "Photosynthesis is how plants convert light energy into chemical energy."
+  });
+  assert.equal(legacyV1.status, 503);
+});
 
 test("research endpoint rejects malformed and oversized queries before upstream access", async () => {
   for (const payload of [
