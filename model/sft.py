@@ -71,7 +71,9 @@ def verify_sft_audit_gate(gate_path, train_path, validation_path):
             raise SystemExit(f"SFT {name} audit reports possible personal information.")
         if attestation.get("unreviewed_records") != 0:
             raise SystemExit(f"SFT {name} audit reports unreviewed records.")
-        if attestation.get("finding_counts") != {}:
+        if attestation.get("error_count") != 0 or attestation.get("parse_errors") != 0:
+            raise SystemExit(f"SFT {name} audit reports errors.")
+        if attestation.get("finding_counts") != {} or attestation.get("errors") != []:
             raise SystemExit(f"SFT {name} audit contains unresolved findings.")
 
     return sha256(gate_path)
