@@ -127,7 +127,10 @@ class DreamSFTTests(unittest.TestCase):
                 "sha256": hashlib.sha256(raw).hexdigest(),
                 "possible_pii_findings": 0,
                 "unreviewed_records": 0,
-                "finding_counts": {"possible_email": 1} if name == "validation" else {}
+                "error_count": 0,
+                "parse_errors": 0,
+                "finding_counts": {"possible_email": 1} if name == "validation" else {},
+                "errors": []
             }
         gate_path.write_text(json.dumps(gate), encoding="utf-8")
         with self.assertRaisesRegex(SystemExit, "validation audit contains unresolved findings"):
