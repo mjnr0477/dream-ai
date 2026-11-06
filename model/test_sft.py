@@ -285,13 +285,13 @@ class DreamSFTTests(unittest.TestCase):
         self.assertEqual(saved["tokenizer"], tokenizer.to_dict())
         self.assertEqual(saved["sft_training"]["max_grad_norm"], 0.5)
         self.assertEqual(saved["config"]["vocab_size"], tokenizer.vocab_size)
-        audited = subprocess.run([
+        audited = run_with_sft_gate([
             sys.executable, str(Path(__file__).with_name("audit_checkpoint.py")),
             "--checkpoint", str(output)
         ], capture_output=True, text=True, timeout=30)
         self.assertEqual(audited.returncode, 0, audited.stdout + audited.stderr)
         self.assertEqual(json.loads(audited.stdout)["tokenizer"], "dream-bpe-v1")
-        evaluated = subprocess.run([
+        evaluated = run_with_sft_gate([
             sys.executable, str(EVALUATOR), "--checkpoint", str(output),
             "--data", str(self.test_data), "--sample-tokens", "2",
             "--batches", "1", "--batch-size", "1",
@@ -299,7 +299,7 @@ class DreamSFTTests(unittest.TestCase):
         ], capture_output=True, text=True, timeout=60)
         self.assertEqual(evaluated.returncode, 0, evaluated.stdout + evaluated.stderr)
 
-        resumed = subprocess.run([
+        resumed = run_with_sft_gate([
             sys.executable, str(SCRIPT), "--checkpoint", str(bpe_base),
             "--train-data", str(train_path), "--validation-data", str(val_path),
             "--pretraining-manifest", str(self.manifest),
@@ -318,7 +318,7 @@ class DreamSFTTests(unittest.TestCase):
         corrupted["tokenizer"] = "utf8-byte-v1"
         corrupted_path = self.root / "wrong-tokenizer-resume.pt"
         torch.save(corrupted, corrupted_path)
-        rejected = subprocess.run([
+        rejected = run_with_sft_gate([
             sys.executable, str(SCRIPT), "--checkpoint", str(bpe_base),
             "--train-data", str(train_path), "--validation-data", str(val_path),
             "--pretraining-manifest", str(self.manifest),
@@ -380,7 +380,7 @@ class DreamSFTTests(unittest.TestCase):
         self.write_records(train_path, "train")
         self.write_records(val_path, "validation")
         output = self.root / "dream-instruct.pt"
-        result = subprocess.run(
+        result = run_with_sft_gate(
             [
                 sys.executable, str(SCRIPT),
                 "--checkpoint", str(self.base),
@@ -415,7 +415,7 @@ class DreamSFTTests(unittest.TestCase):
         self.assertIn("python_rng_state", saved)
         self.assertIn("torch_rng_state", saved)
 
-        resumed = subprocess.run(
+        resumed = run_with_sft_gate(
             [
                 sys.executable, str(SCRIPT),
                 "--checkpoint", str(self.base),
@@ -438,7 +438,7 @@ class DreamSFTTests(unittest.TestCase):
         saved = torch.load(output, map_location="cpu", weights_only=True)
         self.assertEqual(saved["sft_training"]["completed_steps"], 3)
 
-        leaked = subprocess.run(
+        leaked = run_with_sft_gate(
             [
                 sys.executable, str(EVALUATOR),
                 "--checkpoint", str(output),
@@ -451,7 +451,7 @@ class DreamSFTTests(unittest.TestCase):
         self.assertNotEqual(leaked.returncode, 0)
         self.assertIn("matches training or validation", leaked.stderr)
 
-        valid_eval = subprocess.run(
+        valid_eval = run_with_sft_gate(
             [
                 sys.executable, str(EVALUATOR),
                 "--checkpoint", str(output),
@@ -477,7 +477,7 @@ class DreamSFTTests(unittest.TestCase):
             "".join(json.dumps(row) + "\n" for row in val_rows),
             encoding="utf-8"
         )
-        result = subprocess.run(
+        result = run_with_sft_gate(
             [
                 sys.executable, str(SCRIPT),
                 "--checkpoint", str(self.base),
@@ -504,7 +504,7 @@ class DreamSFTTests(unittest.TestCase):
             "".join(json.dumps(row) + "\n" for row in val_rows),
             encoding="utf-8"
         )
-        result = subprocess.run(
+        result = run_with_sft_gate(
             [
                 sys.executable, str(SCRIPT),
                 "--checkpoint", str(self.base),
@@ -531,7 +531,7 @@ class DreamSFTTests(unittest.TestCase):
             "".join(json.dumps(row) + "\n" for row in val_rows),
             encoding="utf-8"
         )
-        result = subprocess.run(
+        result = run_with_sft_gate(
             [
                 sys.executable, str(SCRIPT),
                 "--checkpoint", str(self.base),
@@ -555,7 +555,7 @@ class DreamSFTTests(unittest.TestCase):
             "Changed after the pretraining manifest was generated. " * 5,
             encoding="utf-8"
         )
-        result = subprocess.run(
+        result = run_with_sft_gate(
             [
                 sys.executable, str(SCRIPT),
                 "--checkpoint", str(self.base),
@@ -576,7 +576,7 @@ class DreamSFTTests(unittest.TestCase):
         self.write_records(train_path, "train")
         self.write_records(val_path, "validation")
         self.write_manifest(["train-group-0"])
-        result = subprocess.run(
+        result = run_with_sft_gate(
             [
                 sys.executable, str(SCRIPT),
                 "--checkpoint", str(self.base),
@@ -603,7 +603,7 @@ class DreamSFTTests(unittest.TestCase):
             source_group_fingerprint("train-group-0")
         ]
         self.manifest.write_text(json.dumps(manifest), encoding="utf-8")
-        result = subprocess.run(
+        result = run_with_sft_gate(
             [
                 sys.executable, str(SCRIPT),
                 "--checkpoint", str(self.base),
@@ -631,7 +631,7 @@ class DreamSFTTests(unittest.TestCase):
         val_path = self.root / "validation.jsonl"
         self.write_records(train_path, "train")
         self.write_records(val_path, "validation")
-        result = subprocess.run(
+        result = run_with_sft_gate(
             [
                 sys.executable, str(SCRIPT),
                 "--checkpoint", str(untrained),
@@ -653,7 +653,7 @@ class DreamSFTTests(unittest.TestCase):
         self.write_records(val_path, "gradient-validation")
         for invalid in ("0", "-1", "nan", "inf"):
             with self.subTest(invalid=invalid):
-                result = subprocess.run(
+                result = run_with_sft_gate(
                     [
                         sys.executable, str(SCRIPT),
                         "--checkpoint", str(self.base),
