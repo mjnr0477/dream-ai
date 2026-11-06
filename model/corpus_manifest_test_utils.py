@@ -72,6 +72,9 @@ def write_test_corpus_manifest(
         provenance_record = {
             "record_id_sha256": record_id,
             "source_group_sha256": source_group,
+            "text_byte_start": 0,
+            "text_byte_end": len(raw_text),
+            "text_sha256": _sha256(raw_text),
             "source": item["source"],
             "source_url": item["source_url"],
             "license": license_name,
@@ -121,6 +124,7 @@ def write_test_corpus_manifest(
                 "sha256": _sha256(provenance_bytes),
                 "contains_training_text": False,
                 "contains_raw_record_or_group_ids": False,
+                "offset_semantics": "utf8-byte-start-inclusive-end-exclusive-v1",
             },
         }
 
