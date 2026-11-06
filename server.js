@@ -458,7 +458,6 @@ const server = http.createServer(async (req, res) => {
       modelConfigured: runtime.configured,
       modelReady: runtime.ready,
       provider: runtime.provider || null,
-      modelName: runtime.modelName || null,
       modelStatus: runtime.status || (runtime.ready ? "ready" : "unavailable")
     });
   }
