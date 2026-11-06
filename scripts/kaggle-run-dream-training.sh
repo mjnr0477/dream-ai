@@ -6,8 +6,17 @@ OUT_DIR="${DREAM_KAGGLE_OUTPUT_DIR:-$PWD/dream-ai-kaggle-output}"
 WAIT_SECONDS="${DREAM_KAGGLE_WAIT_SECONDS:-60}"
 MAX_WAIT_SECONDS="${DREAM_KAGGLE_MAX_WAIT_SECONDS:-43200}"
 
+if ! command -v kaggle >/dev/null 2>&1; then
+  command -v python >/dev/null 2>&1 || {
+    echo "Python is required to install the Kaggle CLI." >&2
+    exit 2
+  }
+  echo "Installing the Kaggle CLI"
+  python -m pip install --user --upgrade kaggle
+  export PATH="$HOME/.local/bin:$PATH"
+fi
 command -v kaggle >/dev/null 2>&1 || {
-  echo "Kaggle CLI is not installed in this environment." >&2
+  echo "Kaggle CLI installation did not provide the kaggle command." >&2
   exit 2
 }
 if [[ ! -f "$HOME/.kaggle/kaggle.json" && -z "${KAGGLE_USERNAME:-}" && -z "${KAGGLE_API_TOKEN:-}" ]]; then
