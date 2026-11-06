@@ -11,6 +11,30 @@ const mobileHistoryButton = document.querySelector("#mobile-history");
 const sidebarBackdrop = document.querySelector("#sidebar-backdrop");
 const STORAGE_KEY = "dream-ai-conversations-v1";
 const MEMORY_KEY = "dream-ai-user-memory-v1";
+const LEARNING_SESSION_GROUP_KEY = "dream-ai-learning-session-group-v2";
+const LEARNING_CONSENT_VERSION = "dream-learning-opt-in-v2";
+
+function getLearningSessionGroupId() {
+  try {
+    const existing = sessionStorage.getItem(LEARNING_SESSION_GROUP_KEY);
+    if (typeof existing === "string" &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(existing)) {
+      return existing;
+    }
+    if (!globalThis.crypto?.randomUUID) {
+      throw new Error("Secure session grouping is unavailable in this browser.");
+    }
+    const value = globalThis.crypto.randomUUID();
+    sessionStorage.setItem(LEARNING_SESSION_GROUP_KEY, value);
+    return value;
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "SecurityError") {
+      throw new Error("This browser blocked temporary session storage. You can still use DREAM AI without sharing training examples.");
+    }
+    throw error;
+  }
+}
+
 const memoryNotes = document.querySelector("#memory-notes");
 const memoryStatus = document.querySelector("#memory-status");
 let userMemory = loadMemory();
@@ -653,17 +677,24 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
     });
     const share = document.createElement("button");
     share.type = "button";
-    share.textContent = "Share this exchange to improve Dream AI";
-    share.title = "Only this question and answer will be submitted for review. Your chat history is not uploaded.";
+    share.textContent = "Contribute this exchange for DREAM training review";
+    share.title = "Optional: only this question and answer is submitted. It may be used to train DREAM after separate human rights, privacy, safety and quality review. Chat history and saved memory are not uploaded.";
     share.addEventListener("click", async () => {
       if (share.disabled) return;
       share.disabled = true;
       share.textContent = "Submitting…";
       try {
+        const sourceGroupId = getLearningSessionGroupId();
         const learningResponse = await fetch("/api/learning/examples", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ mode: requestMode, prompt: content, response: data.reply })
+          body: JSON.stringify({
+            mode: requestMode,
+            prompt: content,
+            response: data.reply,
+            consentVersion: LEARNING_CONSENT_VERSION,
+            sourceGroupId
+          })
         });
         const learningData = await learningResponse.json();
         if (!learningResponse.ok || learningData.accepted !== true) {
@@ -672,7 +703,7 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
         share.textContent = learningData.status === "already-submitted"
           ? "Already submitted"
           : "Submitted for review ✓";
-        share.title = "This example is pending review. It will not train a model automatically.";
+        share.title = "Pending human review. This exchange is not automatically approved or used for training.";
       } catch (error) {
         share.disabled = false;
         share.textContent = "Try sharing again";
