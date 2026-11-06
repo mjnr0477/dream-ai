@@ -36,6 +36,7 @@ def approved_sft_record(index, group=None):
         "license_url": "https://dream-ai-live.onrender.com/learning-data-terms.html",
         "source_url": "https://dream-ai-live.onrender.com",
         "rights_basis": "explicit-permission",
+        "consent_version": "dream-learning-opt-in-v2",
         "source_date": "2026-11-06",
         "language": "en",
         "rights_confirmed": True,
@@ -132,6 +133,18 @@ class DreamAIOptinPipelineTests(unittest.TestCase):
         records = [approved_sft_record(i) for i in range(4)]
         records[1]["messages"] = copy.deepcopy(records[0]["messages"])
         with self.assertRaisesRegex(ValueError, "duplicate dialogue content"):
+            prepare_sft_splits(records)
+
+    def test_refuses_legacy_v1_even_when_review_flags_are_true(self):
+        records = [approved_sft_record(i) for i in range(4)]
+        records[0]["consent_version"] = "dream-learning-opt-in-v1"
+        with self.assertRaisesRegex(ValueError, "dream-learning-opt-in-v2"):
+            prepare_sft_splits(records)
+
+    def test_refuses_unrecognized_source_or_permission_metadata(self):
+        records = [approved_sft_record(i) for i in range(4)]
+        records[0]["license_url"] = "https://example.org/other-license"
+        with self.assertRaisesRegex(ValueError, "DREAM AI contributor terms"):
             prepare_sft_splits(records)
 
     def test_refuses_raw_source_group_identifiers(self):
