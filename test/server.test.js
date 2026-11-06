@@ -147,6 +147,17 @@ test("learning contribution requires a valid temporary source group for v2 conse
   assert.equal(malformed.status, 400);
 });
 
+test("learning contribution rejects unknown consent versions", async () => {
+  const response = await postLearning({
+    mode: "general",
+    prompt: "Explain photosynthesis.",
+    response: "Photosynthesis is how plants convert light energy into chemical energy.",
+    consentVersion: "dream-learning-opt-in-v99",
+    sourceGroupId: "123e4567-e89b-42d3-a456-426614174000"
+  });
+  assert.equal(response.status, 400);
+});
+
 test("learning contribution keeps legacy v1 clients compatible but accepts valid v2 input", async () => {
   const validV2 = await postLearning({
     mode: "general",
@@ -574,4 +585,14 @@ test("root serves the DREAM AI application", async () => {
 test("static server blocks encoded traversal attempts", async () => {
   const response = await fetch(`${base}/%2e%2e%2fserver.js`);
   assert.notEqual(response.status, 200);
+});
+
+test("learning contribution terms page explains the independent review gate", async () => {
+  const response = await fetch(`${base}/learning-data-terms.html`);
+  assert.equal(response.status, 200);
+  const html = await response.text();
+  assert.match(html, /Only the single question and the corresponding DREAM AI answer/);
+  assert.match(html, /only after separate human review/);
+  assert.match(html, /not automatically approve an example/);
+  assert.match(html, /raw identifier is not saved in the database/);
 });
