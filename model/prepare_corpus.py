@@ -11,6 +11,8 @@ from datetime import date
 from pathlib import Path
 from urllib.parse import urlparse
 
+from license_policy import POLICY_VERSION, classify_record_license
+
 
 ALLOWED_RIGHTS_BASIS = {
     "original-authorship", "public-domain", "open-license", "explicit-permission"
@@ -214,6 +216,11 @@ def main():
                 f"Invalid rights_basis at line {line_number}; expected one of "
                 + ", ".join(sorted(ALLOWED_RIGHTS_BASIS))
             )
+        license_policy = classify_record_license(item)
+        if license_policy["status"] != "allowed":
+            raise SystemExit(
+                f"License terms not cleared at line {line_number}: {license_policy['code']}"
+            )
         try:
             parsed_source_date = date.fromisoformat(item["source_date"])
             if parsed_source_date.isoformat() != item["source_date"]:
@@ -249,6 +256,7 @@ def main():
             "source": item["source"],
             "source_group": item["source_group"],
             "license": item["license"],
+            "license_policy_code": license_policy["code"],
             "rights_basis": item["rights_basis"],
             "source_date": item["source_date"],
             "language": item["language"],
@@ -280,6 +288,8 @@ def main():
         "source_groups": group_count,
         "language_counts": language_counts,
         "license_counts": license_counts,
+        "license_policy_version": POLICY_VERSION,
+        "license_policy_counts": counts(records, "license_policy_code"),
         "rights_basis_counts": counts(records, "rights_basis"),
         "source_date_range": source_date_range,
         "split_strategy": "deterministic source-group stratification; languages with at least three independent groups are represented in train, validation and test; no group crosses splits",
