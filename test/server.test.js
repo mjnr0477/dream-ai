@@ -631,4 +631,7 @@ test("learning contribution terms page explains the independent review gate", as
   assert.match(html, /free or paid offerings/);
   assert.match(html, /services that DREAM AI may operate/);
   assert.match(html, /VERSION 3/);
+  assert.match(html, /free or paid offerings/);
+  assert.match(html, /services that DREAM AI may operate/);
+  assert.match(html, /VERSION 3/);
 });
