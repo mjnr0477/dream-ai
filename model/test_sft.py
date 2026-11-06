@@ -352,6 +352,37 @@ class DreamSFTTests(unittest.TestCase):
         )
         self.assertEqual(valid_eval.returncode, 0, valid_eval.stdout + valid_eval.stderr)
 
+        # A promoted instruction checkpoint can be the base for a later
+        # reviewed-data cycle; the held-out corpus must remain identical.
+        continued = self.root / "dream-instruct-continued.pt"
+        second_cycle = subprocess.run(
+            [
+                sys.executable, str(SCRIPT),
+                "--checkpoint", str(output),
+                "--train-data", str(train_path),
+                "--validation-data", str(val_path),
+                "--pretraining-manifest", str(self.manifest),
+                "--pretraining-test-data", str(self.test_data),
+                "--out", str(continued),
+                "--steps", "1", "--batch-size", "2",
+                "--grad-accum-steps", "1", "--eval-every", "1",
+                "--eval-batches", "1", "--checkpoint-every", "1"
+            ],
+            capture_output=True, text=True, timeout=120
+        )
+        self.assertEqual(
+            second_cycle.returncode, 0, second_cycle.stdout + second_cycle.stderr
+        )
+        continued_checkpoint = torch.load(
+            continued, map_location="cpu", weights_only=True
+        )
+        self.assertEqual(continued_checkpoint["sft_training"]["iteration"], 2)
+        self.assertEqual(continued_checkpoint["sft_training"]["completed_steps"], 1)
+        self.assertEqual(
+            continued_checkpoint["sft_training"]["pretraining_test_sha256"],
+            hashlib.sha256(self.test_data.read_bytes()).hexdigest()
+        )
+
     def test_rejects_overlapping_source_groups(self):
         train_path = self.root / "train.jsonl"
         val_path = self.root / "validation.jsonl"
@@ -531,7 +562,7 @@ class DreamSFTTests(unittest.TestCase):
             capture_output=True, text=True, timeout=30
         )
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("completed pretraining steps", result.stderr)
+        self.assertIn("pretraining or instruction-tuning steps", result.stderr)
 
 
     def test_sft_rejects_invalid_gradient_clipping_thresholds(self):
