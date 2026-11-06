@@ -65,7 +65,9 @@ Deno.serve(async (req: Request) => {
     { auth: { persistSession: false, autoRefreshToken: false } }
   );
 
-  const contentHash = await digest(mode + "\n" + prompt + "\n" + response);
+  const contentHash = await digest(consentVersion === "dream-learning-opt-in-v2"
+    ? mode + "\n" + prompt + "\n" + response + "\n" + consentVersion + "\n" + String(metadata.source_group_sha256)
+    : mode + "\n" + prompt + "\n" + response);
   const { data, error } = await supabase.from("dream_ai_training_examples").insert({
     mode,
     input_text: prompt,
