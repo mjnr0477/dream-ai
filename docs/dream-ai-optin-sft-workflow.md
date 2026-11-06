@@ -12,12 +12,12 @@ Do not export or attach Dream Education learner tables, `learning_history`, `lea
 
 The exporter will accept only rows with:
 - `consented = true`
-- `consent_version = dream-learning-opt-in-v2`
+- `consent_version = dream-learning-opt-in-v3` (explicitly permits model use in free or paid DREAM services)
 - `review_status = pending` and `status = pending`
 - a valid `metadata.source_group_sha256` produced by the trusted Edge Function
 - valid prompt/response text and a valid creation timestamp
 
-Legacy v1 contributions remain stored and pending, but are intentionally excluded because they have no session grouping fingerprint. Invalid rows are skipped with reason counts; the report does not print prompts, answers, database row IDs or raw session UUIDs.
+Legacy v1 and v2 contributions remain stored and pending, but are intentionally excluded from the commercial-ready exporter: v1 lacks session grouping and v2 terms did not explicitly disclose commercial use. Invalid rows are skipped with reason counts; the report does not print prompts, answers, database row IDs or raw session UUIDs.
 
 ## 2. Create unapproved SFT candidates
 
@@ -32,7 +32,7 @@ python data/export_dream_ai_optins.py \
 
 Keep both output files private. Candidate approval fields are always false. The exporter hashes database row identifiers into deterministic candidate IDs and uses only the stored one-way session-group fingerprint for group boundaries.
 
-Review the aggregate report. An export containing zero eligible records is expected until new v2 contributions are made and reviewed.
+Review the aggregate report. An export containing zero eligible records is expected until new v3 contributions are made and reviewed. A separate commercial-training permission can be used only when the rights holder has documented that scope and a human reviewer has verified the permission evidence.
 
 ## 3. Human-review every candidate
 
