@@ -714,7 +714,10 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
     contributionTerms.href = "/learning-data-terms.html";
     contributionTerms.textContent = "Contribution terms";
     contributionTerms.rel = "noopener";
-    tools.append(copy, share, contributionTerms);
+    const consentNote = document.createElement("small");
+    consentNote.className = "learning-consent-note";
+    consentNote.textContent = "Only this exchange is sent. It may train DREAM only after separate human review.";
+    tools.append(copy, share, contributionTerms, consentNote);
     replyNode.parentElement.append(tools);
     messages.push({ role: "assistant", content: data.reply, ...(Array.isArray(data.artifacts) ? { artifacts: data.artifacts } : {}) });
     persistActiveChat();
