@@ -72,7 +72,15 @@ Run the existing corpus/privacy audit independently on both supervised splits:
 ```sh
 python model/audit_corpus.py --input data/dream-ai-optin-sft-prepared/train.jsonl --out data/dream-ai-optin-sft-prepared/train-audit.json
 python model/audit_corpus.py --input data/dream-ai-optin-sft-prepared/validation.jsonl --out data/dream-ai-optin-sft-prepared/validation-audit.json
+
+python data/verify_dream_ai_sft_audits.py \
+  --manifest data/dream-ai-optin-sft-prepared/manifest.json \
+  --train-audit data/dream-ai-optin-sft-prepared/train-audit.json \
+  --validation-audit data/dream-ai-optin-sft-prepared/validation-audit.json \
+  --output data/dream-ai-optin-sft-prepared/audit-gate.json
 ```
+
+The audit gate passes only when both reports match the exact split-file hashes in the manifest and contain zero parse errors, findings, possible-PII flags and unreviewed records. Any finding blocks fine-tuning until the underlying candidate is resolved and the splits and audits are regenerated.
 
 Then use a genuinely pretrained DREAM checkpoint and its exact pretraining manifest and held-out test file with `model/sft.py`. Follow `model/BASELINE.md` for the required arguments, checkpoint audit, task evaluation, multilingual evaluation and release-gate checks. An SFT candidate does not become active automatically.
 
