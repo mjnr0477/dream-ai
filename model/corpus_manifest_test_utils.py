@@ -55,7 +55,11 @@ def write_test_corpus_manifest(
         if not text_path.is_file():
             raise FileNotFoundError(text_path)
         raw_text = text_path.read_bytes()
+        if not raw_text.endswith(b"\\n"):
+            raw_text += b"\\n"
+            text_path.write_bytes(raw_text)
         all_bytes.extend(raw_text)
+        record_text_bytes = raw_text[:-1]
         record_id = _fingerprint("record", f"synthetic-{split_name}-record")
         source_group = _fingerprint("source-group", f"synthetic-{split_name}-group")
         source_ids.append(source_group)
@@ -73,8 +77,8 @@ def write_test_corpus_manifest(
             "record_id_sha256": record_id,
             "source_group_sha256": source_group,
             "text_byte_start": 0,
-            "text_byte_end": len(raw_text),
-            "text_sha256": _sha256(raw_text),
+            "text_byte_end": len(record_text_bytes),
+            "text_sha256": _sha256(record_text_bytes),
             "source": item["source"],
             "source_url": item["source_url"],
             "license": license_name,
