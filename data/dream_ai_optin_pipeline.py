@@ -55,6 +55,16 @@ def _source_date(value):
     return parsed.isoformat()
 
 
+def _source_timestamp(value, field):
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"missing_{field}")
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"invalid_{field}") from exc
+    return parsed.isoformat()
+
+
 def _https_url(value, field):
     if not isinstance(value, str):
         raise ValueError(f"missing_{field}")
@@ -128,6 +138,11 @@ def export_optin_rows(rows):
         except ValueError as exc:
             skipped[str(exc)] += 1
             continue
+        try:
+            consented_at = _source_timestamp(row.get("consented_at"), "consented_at")
+        except ValueError as exc:
+            skipped[str(exc)] += 1
+            continue
 
         raw_mode = row.get("mode")
         mode = raw_mode if isinstance(raw_mode, str) and raw_mode in {"general", "coding", "learning"} else "general"
@@ -164,6 +179,8 @@ def export_optin_rows(rows):
             ],
             "dream_mode": mode,
             "consent_version": CONSENT_VERSION,
+            "consented": True,
+            "consented_at": consented_at,
         }
         candidates.append(candidate)
 
@@ -192,6 +209,16 @@ def _validate_sft_record(record, line_number):
         raise ValueError(f"record {line_number}: source_group must be a privacy-preserving session fingerprint")
     if record.get("consent_version") != CONSENT_VERSION:
         raise ValueError(f"record {line_number}: consent_version must be {CONSENT_VERSION}")
+    if record.get("consented") is not True:
+        raise ValueError(f"record {line_number}: explicit v2 contribution consent is required")
+    try:
+        _source_timestamp(record.get("consented_at"), "consented_at")
+    except ValueError as exc:
+        raise ValueError(f"record {line_number}: valid consented_at is required") from exc
+    try:
+        _source_timestamp(record.get("human_reviewed_at"), "human_reviewed_at")
+    except ValueError as exc:
+        raise ValueError(f"record {line_number}: valid human_reviewed_at is required") from exc
     _https_url(record["source_url"], "source_url")
     _https_url(record["license_url"], "license_url")
     if (
