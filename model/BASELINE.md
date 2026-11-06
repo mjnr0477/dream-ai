@@ -16,11 +16,12 @@ The first configurable experiment defaults to 6 layers, width 256, 8 attention h
 
 ## Training and inference
 
-- `model/train.py` trains from random initialization on an authorized UTF-8 text corpus.
+- `model/train.py` trains from random initialization only after verifying a `dream-corpus-v1` manifest that binds the exact train, validation and held-out test files to their license/provenance sidecars. It rejects arbitrary text inputs, unapproved licenses, missing attribution records and cross-split source-group leakage.
 - `model/sft.py` performs assistant-response-only supervised instruction fine-tuning from a trained DREAM checkpoint; prompt tokens are masked from the loss. It requires `--sft-audit-gate`, a clean audit report pair bound to the exact training and validation JSONL hashes, and stores the gate hash in the resulting resumable checkpoint. Generate the gate with `data/verify_dream_ai_sft_audits.py` after running `model/audit_corpus.py` on each split. A missing gate, stale file hash, count mismatch, possible-PII finding, unreviewed row, parse error or unresolved finding blocks training and checkpoint resume.
 - `model/generate.py` runs local inference from a DREAM checkpoint. Generation uses per-layer key/value caching when the prompt plus requested output fits the learned absolute-position context; if it would overflow, it retains the existing sliding-window recomputation path so positional behavior is unchanged. Sampling constrains both byte-token and BPE-token output to valid UTF-8 sequences (including continuation-byte ranges that exclude overlong encodings, surrogates and values above U+10FFFF); this guarantees valid Unicode encoding, not language fluency or factual quality.
 - `model/benchmark_generation.py` compares cached greedy decoding against a full-prefix recomputation reference, first requiring exact token-ID parity, then reporting median latency, generated tokens/second and speedup ratio for the selected checkpoint and device. Run it only when the requested output fits inside the configured context window; results are local performance measurements, not model-quality evidence.
 - `model/estimate_model.py` reports the exact parameter count for the current tied-embedding architecture, FP32/FP16 parameter storage, and an explicitly labeled FP32 Adam training-memory floor. It excludes activations, CUDA workspaces and allocator overhead, so it is a planning lower bound rather than a VRAM guarantee. Run `python model/estimate_model.py --out eval-results/model-budget.json`; override `--vocab-size`, `--block-size`, `--d-model`, `--heads` and `--layers` to compare configurations. Its tests cross-check the formula against an instantiated model.
+- `model/license_policy.py` applies a versioned commercial-ready license screen during corpus preparation, pre-ingestion audit and native SFT. CC BY-NC terms are blocked without separate permission that expressly covers commercial AI model training; ShareAlike, NoDerivatives, unknown and collection-only license claims require additional review or permission. This is an automated policy screen, not legal advice. Each prepared corpus split also gets a text-free provenance JSONL sidecar with source/license URLs, policy codes and attribution requirements; identifiers are hashed and URL query/fragment values are removed.
 - `model/audit_checkpoint.py` performs a read-only checkpoint preflight: validates the byte tokenizer, model config, positive training-step metadata, exact state-dict keys/shapes/dtypes, finite floating-point weights and strict model loading. It emits a SHA-256 identity report and does not prove that training data, rights attestations or model quality are valid.
 - `model/evaluate.py` reconstructs the tokenizer from the checkpoint and reports held-out cross-entropy per token and per represented UTF-8 byte, bits-per-byte, perplexity-per-byte, SHA-256 provenance and a qualitative sample. BPE byte-normalized loss divides summed token NLL by the actual UTF-8 bytes represented by sampled target tokens.
 - `model/serve.py` exposes the native checkpoint over a local HTTP endpoint. Its chat-completions-shaped JSON is only a transport protocol; no external model is called.
@@ -32,10 +33,10 @@ Install the model dependencies from `model/requirements.txt`. Run the training s
 ```sh
 python -m pip install -r model/requirements.txt
 python model/prepare_corpus.py --input data/approved-records.jsonl
-python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --eval-batches 10 --batch-size 4 --grad-accum-steps 8
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --corpus-manifest data/prepared/manifest.json --steps 2000 --eval-batches 10 --batch-size 4 --grad-accum-steps 8
 python model/audit_checkpoint.py --checkpoint checkpoints/dream-small.pt --out eval-results/checkpoint-audit.json
 # Resume the saved run later, keeping the same corpus, architecture and optimizer settings:
-python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --resume checkpoints/dream-small.pt
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --corpus-manifest data/prepared/manifest.json --steps 2000 --resume checkpoints/dream-small.pt
 python model/evaluate.py --checkpoint checkpoints/dream-small.pt --data data/prepared/test.txt --out eval-results/dream-small.json
 # After pretraining, prepare separate reviewed train/validation conversation JSONL files:
 python model/sft.py --checkpoint checkpoints/dream-small.pt --train-data data/dream-ai-optin-sft-prepared/train.jsonl --validation-data data/dream-ai-optin-sft-prepared/validation.jsonl --sft-audit-gate data/dream-ai-optin-sft-prepared/audit-gate.json --pretraining-manifest data/prepared/manifest.json --pretraining-test-data data/prepared/test.txt --steps 1000 --batch-size 2 --grad-accum-steps 4 --out checkpoints/dream-instruct.pt
@@ -60,7 +61,7 @@ The server binds to localhost by default, serializes model generation to bound i
 Train a BPE checkpoint by selecting the tokenizer explicitly:
 
 ```sh
-python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --tokenizer bpe --vocab-size 1024 --steps 2000 --out checkpoints/dream-bpe.pt
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --corpus-manifest data/prepared/manifest.json --tokenizer bpe --vocab-size 1024 --steps 2000 --out checkpoints/dream-bpe.pt
 python model/audit_checkpoint.py --checkpoint checkpoints/dream-bpe.pt
 python model/evaluate.py --checkpoint checkpoints/dream-bpe.pt --data data/prepared/test.txt --out eval-results/dream-bpe.json
 python model/generate.py --checkpoint checkpoints/dream-bpe.pt --prompt "USER: Habari dunia.\\nASSISTANT:"

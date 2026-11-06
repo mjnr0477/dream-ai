@@ -39,11 +39,12 @@ See [model/BASELINE.md](model/BASELINE.md) for the architecture, commands and re
 - `model/dream_transformer.py`: DREAM's own transformer blocks, causal attention, embeddings, UTF-8 byte tokenizer, inference-time key/value caching when the sequence fits the context window, and UTF-8-constrained output-byte sampling.
 - `model/dream_bpe.py`: deterministic byte-fallback BPE tokenizer, integrated with native pretraining, SFT, checkpoint auditing, evaluation, generation and serving. Existing byte-tokenizer checkpoints remain supported.
 - `model/benchmark_multilingual_tokenizer.py`: measures BPE token efficiency per language on held-out UTF-8 text, checks train/test text overlap and verifies exact Unicode round trips. This measures compression only, not language understanding.
-- `model/train.py`: trains from random initialization and optionally uses activation checkpointing to reduce GPU memory at the cost of extra recomputation; the setting is recorded and enforced on resume.
+- `model/train.py`: requires a verified `dream-corpus-v1` manifest binding the exact train/validation/test text files to their text-free license provenance sidecars; arbitrary text files cannot be passed directly. It trains from random initialization and optionally uses activation checkpointing to reduce GPU memory at the cost of extra recomputation; the setting is recorded and enforced on resume.
 - `model/evaluate.py`: reconstructs the checkpoint tokenizer and reports held-out cross-entropy per token and per represented UTF-8 byte, bits-per-byte, perplexity-per-byte, corpus/checkpoint hashes and a sample generation.
 - `model/evaluate_multilingual.py`: verifies manifest hashes, source-group isolation and declared per-language train/validation/test coverage, then evaluates each language-specific held-out test file independently for pretrained or SFT checkpoints. Reports whether each language has at least three independent source groups and coverage in all three splits; legacy manifests are explicitly marked as lacking this evidence. No pooled score is emitted.
 - `model/generate.py`: local checkpoint inference.
 - `model/benchmark_generation.py`: compares cached greedy generation with exact full-prefix recomputation, verifies identical token output, and reports local median latency and throughput. The result is hardware/checkpoint-specific, not a model-quality score.
+- `model/license_policy.py`: conservative, versioned license screening for a potentially commercial DREAM service; blocks non-commercial terms, holds share-alike/no-derivatives/unknown and collection-only claims for review, and requires documented commercial AI-training permission for exceptions. Corpus preparation and native SFT enforce this policy. Each prepared split also has a text-free provenance sidecar preserving source and license attribution with hashed identifiers.
 - `model/audit_checkpoint.py`: read-only preflight audit for checkpoint tokenizer/configuration, trained-step metadata, exact tensor keys/shapes/dtypes, finite weights, strict state loading and SHA-256 identity.
 - `model/serve.py`: serves DREAM checkpoints through a local HTTP API; `/health` reports the checkpoint SHA-256, completed training steps, tokenizer and architecture so benchmark results can be tied to the exact native model; the JSON protocol does not call an external AI.
 - `Dockerfile.model-cpu` and `model/DEPLOYMENT.md`: reproducible CPU container and secure instructions for connecting a trained native checkpoint to the Render web application. This is an initial integration path, not a GPU-scale production deployment.
@@ -61,9 +62,9 @@ Install and run the model locally:
 python -m pip install -r model/requirements.txt
 python -m unittest discover -s model -p 'test_*.py'
 python model/prepare_corpus.py --input data/approved-records.jsonl
-python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --eval-batches 10 --batch-size 4 --grad-accum-steps 8 --gradient-checkpointing
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --corpus-manifest data/prepared/manifest.json --steps 2000 --eval-batches 10 --batch-size 4 --grad-accum-steps 8 --gradient-checkpointing
 # Resume an interrupted run from its latest atomic checkpoint:
-python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --steps 2000 --resume checkpoints/dream-small.pt
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --corpus-manifest data/prepared/manifest.json --steps 2000 --resume checkpoints/dream-small.pt
 python model/audit_checkpoint.py --checkpoint checkpoints/dream-small.pt --out eval-results/checkpoint-audit.json
 python model/evaluate.py --checkpoint checkpoints/dream-small.pt --data data/prepared/test.txt --out eval-results/dream-small.json
 # Report held-out metrics separately for every language in the corpus manifest:
@@ -192,7 +193,7 @@ The runner records checkpoint and benchmark hashes, language metadata and prompt
 For multilingual pretraining, prepare the training text with one `<|language:TAG|>` marker on its own line before each document (for example, `<|language:en|>` and `<|language:sw|>`). Then opt into uniform per-language window sampling:
 
 ```sh
-python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --language-sampling balanced
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --corpus-manifest data/prepared/manifest.json --language-sampling balanced
 ```
 
 Balanced mode requires at least `block_size + 2` tokens for every tagged language. Validation loss remains proportional to the held-out validation corpus. The selected sampling mode is recorded in checkpoints and cannot be silently changed when resuming; Python RNG state is saved so balanced sampling can resume reproducibly.

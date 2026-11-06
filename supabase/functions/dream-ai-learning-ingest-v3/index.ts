@@ -45,12 +45,13 @@ Deno.serve(async (req: Request) => {
   }
 
   if (consentVersion !== "dream-learning-opt-in-v1" &&
-      consentVersion !== "dream-learning-opt-in-v2") {
+      consentVersion !== "dream-learning-opt-in-v2" &&
+      consentVersion !== "dream-learning-opt-in-v3") {
     return Response.json({ error: "Invalid learning consent version" }, { status: 400 });
   }
 
   let metadata: Record<string, unknown> = {};
-  if (consentVersion === "dream-learning-opt-in-v2") {
+  if (consentVersion === "dream-learning-opt-in-v2" || consentVersion === "dream-learning-opt-in-v3") {
     if (typeof sourceGroupId !== "string" || !UUID_V4.test(sourceGroupId)) {
       return Response.json({ error: "A valid temporary session group is required" }, { status: 400 });
     }
@@ -65,7 +66,7 @@ Deno.serve(async (req: Request) => {
     { auth: { persistSession: false, autoRefreshToken: false } }
   );
 
-  const contentHash = await digest(consentVersion === "dream-learning-opt-in-v2"
+  const contentHash = await digest(consentVersion !== "dream-learning-opt-in-v1"
     ? mode + "\n" + prompt + "\n" + response + "\n" + consentVersion + "\n" + String(metadata.source_group_sha256)
     : mode + "\n" + prompt + "\n" + response);
   const { error } = await supabase.from("dream_ai_training_examples").insert({

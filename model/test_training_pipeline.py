@@ -6,6 +6,8 @@ from pathlib import Path
 
 import torch
 
+from corpus_manifest_test_utils import write_test_corpus_manifest
+
 TRAIN_SCRIPT = Path(__file__).with_name("train.py")
 
 
@@ -24,11 +26,13 @@ class TrainingPipelineTests(unittest.TestCase):
                 ("Independent validation examples measure generalization. " * 20),
                 encoding="utf-8"
             )
+            corpus_manifest = write_test_corpus_manifest(root, train_path, validation_path)
 
             common = [
                 sys.executable, str(TRAIN_SCRIPT),
                 "--data", str(train_path),
                 "--validation-data", str(validation_path),
+                "--corpus-manifest", str(corpus_manifest),
                 "--out", str(checkpoint_path),
                 "--batch-size", "2",
                 "--block-size", "8",

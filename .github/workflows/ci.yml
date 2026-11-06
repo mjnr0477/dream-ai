@@ -99,6 +99,7 @@ jobs:
           python model/train.py
           --data /tmp/dream-smoke-data/train.txt
           --validation-data /tmp/dream-smoke-data/validation.txt
+          --corpus-manifest /tmp/dream-smoke-data/manifest.json
           --out /tmp/dream-smoke-small.pt
           --steps 2 --batch-size 2 --grad-accum-steps 1
           --block-size 32 --d-model 16 --layers 1 --heads 4

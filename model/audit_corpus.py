@@ -12,6 +12,8 @@ from collections import Counter
 from pathlib import Path
 from urllib.parse import urlparse
 
+from license_policy import POLICY_VERSION, classify_record_license
+
 EMAIL_RE = re.compile(r"(?<![\w.+-])[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}(?![\w.-])")
 KENYAN_PHONE_RE = re.compile(r"(?<!\w)(?:\+254[ .()-]?|254[ .()-]?|0)(?:7|1)\d(?:[ .()-]?\d){7}(?!\w)")
 INTERNATIONAL_PHONE_RE = re.compile(
@@ -73,6 +75,7 @@ def audit(input_path, max_record_bytes=1_000_000):
     source_groups = set()
     languages = Counter()
     licenses = Counter()
+    license_policy_statuses = Counter()
     record_count = 0
     pii_records = 0
     unreviewed_records = 0
@@ -116,6 +119,16 @@ def audit(input_path, max_record_bytes=1_000_000):
                     findings.append({"line": line_number, "record_id": safe_id, "code": f"invalid_{field}", "severity": "error"})
             if item.get("rights_basis") not in ALLOWED_RIGHTS:
                 findings.append({"line": line_number, "record_id": safe_id, "code": "invalid_rights_basis", "severity": "error"})
+            license_policy = classify_record_license(item)
+            license_policy_statuses[license_policy["status"]] += 1
+            if license_policy["status"] != "allowed":
+                severity = "error" if license_policy["status"] == "blocked" else "review"
+                findings.append({
+                    "line": line_number,
+                    "record_id": safe_id,
+                    "code": "license_" + license_policy["code"],
+                    "severity": severity
+                })
             missing_flags = [flag for flag in REVIEW_FLAGS if item.get(flag) is not True]
             if missing_flags:
                 unreviewed_records += 1
@@ -173,6 +186,8 @@ def audit(input_path, max_record_bytes=1_000_000):
         "possible_pii_findings": pii_records,
         "language_counts": dict(sorted(languages.items())),
         "license_counts": dict(sorted(licenses.items())),
+        "license_policy_version": POLICY_VERSION,
+        "license_policy_status_counts": dict(sorted(license_policy_statuses.items())),
         "error_count": error_count,
         "finding_counts": dict(sorted(Counter(f["code"] for f in findings).items())),
         "findings": findings,

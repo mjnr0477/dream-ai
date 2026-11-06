@@ -9,7 +9,9 @@ import json
 import unicodedata
 from datetime import date
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunsplit
+
+from license_policy import POLICY_VERSION, classify_record_license
 
 
 ALLOWED_RIGHTS_BASIS = {
@@ -57,6 +59,70 @@ def write_text_file(path: Path, rows) -> dict:
         "record_ids": sorted(identifier_fingerprint("record", row["id"]) for row in rows),
         "source_group_ids": sorted({identifier_fingerprint("source-group", row["source_group"]) for row in rows}),
         "sha256": sha256(path)
+    }
+
+
+def _attribution_url(value: str) -> str:
+    """Strip query/fragment tokens before retaining source URLs in public manifests."""
+    parsed = urlparse(value)
+    return urlunsplit((parsed.scheme, parsed.netloc, parsed.path, "", ""))
+
+
+def write_provenance_file(path: Path, rows) -> dict:
+    """Write a text-free, hash-identified source/rights ledger for one split."""
+    text_segments = {}
+    cursor = 0
+    for index, row in enumerate(rows):
+        text_bytes = row["text"].strip().encode("utf-8")
+        end = cursor + len(text_bytes)
+        text_segments[row["id"]] = {
+            "text_byte_start": cursor,
+            "text_byte_end": end,
+            "text_sha256": hashlib.sha256(text_bytes).hexdigest(),
+        }
+        cursor = end + (2 if index < len(rows) - 1 else 1)
+
+    payloads = []
+    for row in sorted(rows, key=lambda item: identifier_fingerprint("record", item["id"])):
+        payloads.append({
+            **text_segments[row["id"]],
+            "record_id_sha256": identifier_fingerprint("record", row["id"]),
+            "source_group_sha256": identifier_fingerprint("source-group", row["source_group"]),
+            "source": row["source"],
+            "source_url": _attribution_url(row["source_url"]),
+            "license": row["license"],
+            "license_url": _attribution_url(row["license_url"]),
+            "rights_basis": row["rights_basis"],
+            "source_date": row["source_date"],
+            "language": row["language"],
+            "license_policy_code": row["license_policy_code"],
+            "attribution_required": row["attribution_required"],
+            "rights_confirmed": row["rights_confirmed"],
+            "privacy_reviewed": row["privacy_reviewed"],
+            "quality_reviewed": row["quality_reviewed"],
+            "approval_granted": row["approval_granted"],
+            "consent_version": row.get("consent_version"),
+            "consented": row.get("consented"),
+            "consented_at": row.get("consented_at"),
+            "human_reviewed_at": row.get("human_reviewed_at"),
+            "permission_scope": row.get("permission_scope"),
+            "permission_evidence_url": (
+                _attribution_url(row["permission_evidence_url"])
+                if isinstance(row.get("permission_evidence_url"), str)
+                else None
+            ),
+        })
+    path.write_text(
+        "".join(json.dumps(item, ensure_ascii=False, sort_keys=True) + "\n" for item in payloads),
+        encoding="utf-8"
+    )
+    return {
+        "path": path.name,
+        "records": len(payloads),
+        "sha256": sha256(path),
+        "contains_training_text": False,
+        "contains_raw_record_or_group_ids": False,
+        "offset_semantics": "utf8-byte-start-inclusive-end-exclusive-v1",
     }
 
 
@@ -214,6 +280,11 @@ def main():
                 f"Invalid rights_basis at line {line_number}; expected one of "
                 + ", ".join(sorted(ALLOWED_RIGHTS_BASIS))
             )
+        license_policy = classify_record_license(item)
+        if license_policy["status"] != "allowed":
+            raise SystemExit(
+                f"License terms not cleared at line {line_number}: {license_policy['code']}"
+            )
         try:
             parsed_source_date = date.fromisoformat(item["source_date"])
             if parsed_source_date.isoformat() != item["source_date"]:
@@ -247,11 +318,25 @@ def main():
         records.append({
             "id": item["id"],
             "source": item["source"],
+            "source_url": item["source_url"],
             "source_group": item["source_group"],
             "license": item["license"],
+            "license_url": item["license_url"],
+            "license_policy_code": license_policy["code"],
+            "attribution_required": license_policy["attribution_required"],
             "rights_basis": item["rights_basis"],
+            "rights_confirmed": item["rights_confirmed"],
+            "privacy_reviewed": item["privacy_reviewed"],
+            "quality_reviewed": item["quality_reviewed"],
+            "approval_granted": item["approval_granted"],
             "source_date": item["source_date"],
             "language": item["language"],
+            "consent_version": item.get("consent_version"),
+            "consented": item.get("consented"),
+            "consented_at": item.get("consented_at"),
+            "human_reviewed_at": item.get("human_reviewed_at"),
+            "permission_scope": item.get("permission_scope"),
+            "permission_evidence_url": item.get("permission_evidence_url"),
             "text": item["text"].strip()
         })
 
@@ -280,6 +365,8 @@ def main():
         "source_groups": group_count,
         "language_counts": language_counts,
         "license_counts": license_counts,
+        "license_policy_version": POLICY_VERSION,
+        "license_policy_counts": counts(records, "license_policy_code"),
         "rights_basis_counts": counts(records, "rights_basis"),
         "source_date_range": source_date_range,
         "split_strategy": "deterministic source-group stratification; languages with at least three independent groups are represented in train, validation and test; no group crosses splits",
@@ -290,6 +377,8 @@ def main():
         selected = [row for row in records if split_by_group[row["source_group"]] == split]
         text_path = output / f"{split}.txt"
         split_file = write_text_file(text_path, selected)
+        provenance_path = output / f"{split}.provenance.jsonl"
+        provenance_file = write_provenance_file(provenance_path, selected)
         split_groups = sorted({row["source_group"] for row in selected})
         language_files = {}
         for language in sorted({row["language"] for row in selected}):
@@ -303,11 +392,13 @@ def main():
             "source_groups": len(split_groups),
             "language_counts": counts(selected, "language"),
             "license_counts": counts(selected, "license"),
+            "license_policy_counts": counts(selected, "license_policy_code"),
             "source_date_range": {
                 "earliest": min(row["source_date"] for row in selected),
                 "latest": max(row["source_date"] for row in selected)
             },
-            "language_files": language_files
+            "language_files": language_files,
+            "provenance": provenance_file
         }
     all_split_groups = [
         set(manifest["splits"][split]["source_group_ids"])
