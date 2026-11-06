@@ -95,6 +95,34 @@ function renderHistory() {
 }
 
 
+function appendAutoResearchSources(container, autoResearch) {
+  const sources = Array.isArray(autoResearch?.sources) ? autoResearch.sources.slice(0, 5) : [];
+  const safeSources = sources.filter(source => {
+    if (!source || typeof source.title !== "string" || typeof source.url !== "string") return false;
+    try {
+      const url = new URL(source.url);
+      return url.protocol === "https:" && url.hostname === "en.wikipedia.org";
+    } catch { return false; }
+  });
+  if (!safeSources.length) return;
+
+  const panel = document.createElement("section");
+  panel.className = "auto-research-sources";
+  const heading = document.createElement("strong");
+  heading.textContent = "Public knowledge sources consulted";
+  const list = document.createElement("div");
+  list.className = "auto-research-links";
+  for (const source of safeSources) {
+    const link = document.createElement("a");
+    link.href = source.url;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = source.title;
+    list.append(link);
+  }
+  panel.append(heading, list);
+  container.append(panel);
+}
 function renderAssistantContent(container, content, artifacts = null) {
   container.replaceChildren();
   if (Array.isArray(artifacts) && artifacts.length > 0) {
@@ -608,9 +636,12 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "The request failed.");
     renderAssistantContent(replyNode, data.reply, data.artifacts);
-    statusText.textContent = data.source === "dream-model"
-      ? "DREAM native model connected"
-      : "Application online · native model not connected";
+    appendAutoResearchSources(replyNode, data.autoResearch);
+    statusText.textContent = data.autoResearch?.sourceCount
+      ? `DREAM AI · consulted ${data.autoResearch.sourceCount} public sources`
+      : data.source === "dream-model"
+        ? "DREAM native model connected"
+        : "Application online · native model not connected";
     const tools = document.createElement("div");
     tools.className = "message-tools";
     const copy = document.createElement("button");
