@@ -29,7 +29,7 @@ def optin_row(record_id="11111111-1111-4111-8111-111111111111", **overrides):
 
 def approved_sft_record(index, group=None):
     return {
-        "id": f"sft-{index:03d}",
+        "id": "dream-optin-" + f"{index + 1:064x}",
         "source": "DREAM AI opt-in exchange",
         "source_group": group or f"dream-ai-session-{index:064x}",
         "license": "DREAM AI Contributor Permission v2",
@@ -132,6 +132,18 @@ class DreamAIOptinPipelineTests(unittest.TestCase):
         records = [approved_sft_record(i) for i in range(4)]
         records[1]["messages"] = copy.deepcopy(records[0]["messages"])
         with self.assertRaisesRegex(ValueError, "duplicate dialogue content"):
+            prepare_sft_splits(records)
+
+    def test_refuses_raw_source_group_identifiers(self):
+        records = [approved_sft_record(i) for i in range(4)]
+        records[0]["source_group"] = "raw-browser-session-uuid"
+        with self.assertRaisesRegex(ValueError, "privacy-preserving session fingerprint"):
+            prepare_sft_splits(records)
+
+    def test_refuses_unhashed_record_identifiers(self):
+        records = [approved_sft_record(i) for i in range(4)]
+        records[0]["id"] = "raw-database-row-uuid"
+        with self.assertRaisesRegex(ValueError, "hashed DREAM opt-in candidate id"):
             prepare_sft_splits(records)
 
     def test_refuses_non_https_provenance(self):
