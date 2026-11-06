@@ -90,6 +90,31 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("does not match its corpus manifest", result.stderr)
 
+    def test_pretraining_proves_provenance_matches_exact_text_bytes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "train.txt").write_text("DREAM training text. " * 30, encoding="utf-8")
+            (root / "validation.txt").write_text("DREAM validation text. " * 30, encoding="utf-8")
+            manifest_path = write_test_corpus_manifest(root, root / "train.txt", root / "validation.txt")
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            provenance_meta = manifest["splits"]["train"]["provenance"]
+            provenance_path = root / provenance_meta["path"]
+            row = json.loads(provenance_path.read_text(encoding="utf-8").splitlines()[0])
+            row["text_sha256"] = __import__("hashlib").sha256(
+                b"some other text that was never approved"
+            ).hexdigest()
+            provenance_path.write_text(json.dumps(row) + "\\n", encoding="utf-8")
+            provenance_meta["sha256"] = __import__("hashlib").sha256(
+                provenance_path.read_bytes()
+            ).hexdigest()
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+            result = self.run_training(
+                root, root / "tampered-provenance.pt", create_manifest=False
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("record text does not match its license provenance", result.stderr)
+
     def test_resume_requires_the_same_corpus_manifest(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
