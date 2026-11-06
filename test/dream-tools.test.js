@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createDreamToolRegistry, runPublicResearch } from "../lib/dream-tools.js";
+import { createDreamToolRegistry, runPublicKnowledgeSearch, runPublicResearch } from "../lib/dream-tools.js";
 
 const principal = {
   id: "test-public-research",
@@ -170,4 +170,27 @@ test("research orchestration combines encyclopedia excerpts with scholarly metad
   assert.equal(result.scholarlyResearch.results.length, 1);
   assert.equal(result.scholarlyResearch.results[0].provider, "Crossref");
   assert.deepEqual(result.providerAvailability, { encyclopedia: "available", scholarly: "available" });
+});
+
+test("automatic chat research can use the audited encyclopedia tool without scholarly provider calls", async () => {
+  let calls = 0;
+  const registry = createDreamToolRegistry({
+    audit: () => {},
+    fetchImpl: async url => {
+      calls += 1;
+      const parsed = new URL(url);
+      if (parsed.searchParams.get("list") === "search") {
+        return responseWith([{ pageid: 7, title: "Manchester City F.C.", snippet: "An English football club." }]);
+      }
+      return responseWithPages({ "7": {
+        pageid: 7, extract: "Manchester City F.C. is a football club in Manchester.",
+        fullurl: "https://en.wikipedia.org/wiki/Manchester_City_F.C."
+      }});
+    }
+  });
+  const result = await runPublicKnowledgeSearch("Manchester City", registry);
+  assert.equal(calls, 2);
+  assert.equal(result.provider, "Wikipedia");
+  assert.equal(result.results.length, 1);
+  assert.equal(result.results[0].title, "Manchester City F.C.");
 });
