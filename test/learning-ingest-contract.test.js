@@ -19,7 +19,7 @@ test("learning ingest stores the source-group fingerprint, never the raw UUID", 
     "utf8"
   );
   const start = source.indexOf('.from("dream_ai_training_examples").insert({');
-  const end = source.indexOf('}).select("id").single()', start);
+  const end = source.indexOf("\n  });", start);
   assert.notEqual(start, -1);
   assert.notEqual(end, -1);
   const insertPayload = source.slice(start, end);
