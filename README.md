@@ -193,7 +193,7 @@ The runner records checkpoint and benchmark hashes, language metadata and prompt
 For multilingual pretraining, prepare the training text with one `<|language:TAG|>` marker on its own line before each document (for example, `<|language:en|>` and `<|language:sw|>`). Then opt into uniform per-language window sampling:
 
 ```sh
-python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --language-sampling balanced
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --corpus-manifest data/prepared/manifest.json --language-sampling balanced
 ```
 
 Balanced mode requires at least `block_size + 2` tokens for every tagged language. Validation loss remains proportional to the held-out validation corpus. The selected sampling mode is recorded in checkpoints and cannot be silently changed when resuming; Python RNG state is saved so balanced sampling can resume reproducibly.
