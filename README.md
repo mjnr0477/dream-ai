@@ -34,6 +34,9 @@ The report includes deterministic exact-match results by category and language, 
 
 ## Free GPU and deployment path
 
+The optional helper `scripts/kaggle-run-dream-training.sh` pulls the existing Kaggle kernel metadata, preserves its private dataset input, pushes DREAM's current training notebook with GPU enabled, waits for completion and downloads the artifact ZIP. It requires a locally configured Kaggle CLI credential file; it never stores or prints the API token.
+
+
 See [training/FREE_GPU_AND_RENDER.md](training/FREE_GPU_AND_RENDER.md) for the current free-compute options and the supported split: Kaggle GPU for training, a separate model runtime for inference, and Render for the Node chat application. Render Free is not a GPU training host.
 
 ## Verified self-improvement
