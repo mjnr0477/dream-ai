@@ -210,12 +210,12 @@ def verify_pretraining_corpus_manifest(manifest_path, train_path, validation_pat
                 cursor = text_end
                 if index < len(ordered_segments) - 1:
                     text_handle.seek(cursor)
-                    if text_handle.read(2) != b"\\n\\n":
+                    if text_handle.read(2) != b"\n\n":
                         raise SystemExit(f"Pretraining {split_name} text/provenance separator is invalid.")
                     cursor += 2
                 else:
                     text_handle.seek(cursor)
-                    if text_handle.read() != b"\\n":
+                    if text_handle.read() != b"\n":
                         raise SystemExit(f"Pretraining {split_name} text/provenance ending is invalid.")
         if sorted(split_record_ids) != split.get("record_ids"):
             raise SystemExit(f"Pretraining {split_name} record identifiers do not match the manifest.")
