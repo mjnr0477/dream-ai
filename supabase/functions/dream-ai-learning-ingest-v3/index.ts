@@ -91,5 +91,5 @@ Deno.serve(async (req: Request) => {
     return Response.json({ error: "Could not save this example" }, { status: 500 });
   }
 
-  return Response.json({ accepted: true, id: data.id, status: "pending" }, { status: 201 });
+  return Response.json({ accepted: true, status: "pending" }, { status: 201 });
 });
