@@ -137,7 +137,7 @@ class DreamAIOptinPipelineTests(unittest.TestCase):
     def test_refuses_non_https_provenance(self):
         records = [approved_sft_record(i) for i in range(4)]
         records[0]["source_url"] = "http://example.com/source"
-        with self.assertRaisesRegex(ValueError, "HTTPS"):
+        with self.assertRaisesRegex(ValueError, "https"):
             prepare_sft_splits(records)
 
 
