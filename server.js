@@ -357,8 +357,8 @@ async function handleLearningExample(req, res) {
   if (!["general", "coding", "learning"].includes(mode) ||
       !prompt || prompt.length > 8000 ||
       !responseText || responseText.length > 16000 ||
-      !["dream-learning-opt-in-v1", "dream-learning-opt-in-v2"].includes(consentVersion) ||
-      (consentVersion === "dream-learning-opt-in-v2" && !validSourceGroupId)) {
+      !["dream-learning-opt-in-v1", "dream-learning-opt-in-v2", "dream-learning-opt-in-v3"].includes(consentVersion) ||
+      ((consentVersion === "dream-learning-opt-in-v2" || consentVersion === "dream-learning-opt-in-v3") && !validSourceGroupId)) {
     return json(res, 400, { error: "A valid single question, answer and learning-consent version are required." });
   }
   const endpoint = process.env.DREAM_LEARNING_INGEST_URL;
@@ -387,7 +387,7 @@ async function handleLearningExample(req, res) {
       },
       body: JSON.stringify({
         mode, prompt, response: responseText, consentVersion,
-        ...(consentVersion === "dream-learning-opt-in-v2" ? { sourceGroupId } : {})
+        ...(consentVersion !== "dream-learning-opt-in-v1" ? { sourceGroupId } : {})
       }),
       redirect: "error",
       signal: controller.signal
