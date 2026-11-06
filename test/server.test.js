@@ -603,6 +603,7 @@ test("learning contribution terms page explains the independent review gate", as
   const html = await response.text();
   assert.match(html, /Only the single question and the corresponding DREAM AI answer/);
   assert.match(html, /only after separate human review/);
+  assert.match(html, /non-exclusive, worldwide, royalty-free permission/);
   assert.match(html, /not automatically approve an example/);
   assert.match(html, /raw identifier is not saved in the database/);
   assert.match(html, /non-exclusive, worldwide, royalty-free permission/);
