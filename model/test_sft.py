@@ -45,7 +45,10 @@ def run_with_sft_gate(command, *args, **kwargs):
                     "sha256": hashlib.sha256(train_bytes).hexdigest(),
                     "possible_pii_findings": 0,
                     "unreviewed_records": 0,
+                    "error_count": 0,
+                    "parse_errors": 0,
                     "finding_counts": {},
+                    "errors": [],
                 },
                 "validation": {
                     "records": count_records(validation_bytes),
