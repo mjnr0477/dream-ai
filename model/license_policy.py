@@ -78,12 +78,12 @@ def _has_separate_commercial_permission(record: dict) -> bool:
     )
 
 
-def _is_dream_v2_contribution(record: dict) -> bool:
+def _is_dream_v3_contribution(record: dict) -> bool:
     return (
-        record.get("license") == "DREAM AI Contributor Permission v2"
+        record.get("license") == "DREAM AI Contributor Permission v3"
         and record.get("license_url") == "https://dream-ai-live.onrender.com/learning-data-terms.html"
         and record.get("rights_basis") == "explicit-permission"
-        and record.get("consent_version") == "dream-learning-opt-in-v2"
+        and record.get("consent_version") == "dream-learning-opt-in-v3"
         and record.get("consented") is True
         and _timestamp_present(record.get("consented_at"))
         and _timestamp_present(record.get("human_reviewed_at"))
@@ -96,7 +96,7 @@ def classify_record_license(record: dict) -> dict:
     if not isinstance(record, dict):
         return {"status": "review_required", "code": "invalid_record", "attribution_required": False}
 
-    if _is_dream_v2_contribution(record):
+    if _is_dream_v3_contribution(record):
         return {
             "status": "allowed",
             "code": "dream_explicit_contributor_permission_v2",
