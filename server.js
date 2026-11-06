@@ -456,7 +456,10 @@ const server = http.createServer(async (req, res) => {
       name: "DREAM AI",
       version: "0.3.0",
       modelConfigured: runtime.configured,
-      modelReady: runtime.ready
+      modelReady: runtime.ready,
+      provider: runtime.provider || null,
+      modelName: runtime.modelName || null,
+      modelStatus: runtime.status || (runtime.ready ? "ready" : "unavailable")
     });
   }
   if (req.method === "GET" && url.pathname === "/api/capabilities") {
