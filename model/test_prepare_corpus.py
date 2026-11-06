@@ -333,6 +333,65 @@ class CorpusPreparationTests(unittest.TestCase):
                 self.assertNotEqual(result.returncode, 0)
                 self.assertIn(message, result.stderr)
 
+    def test_rejects_noncommercial_license_even_when_all_review_flags_are_true(self):
+        rows = self.make_records()
+        rows[0]["license"] = "CC-BY-NC-SA-4.0"
+        rows[0]["license_url"] = "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_prepare(Path(directory), rows)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("noncommercial_restriction", result.stderr)
+
+    def test_manifest_records_license_policy_version_and_decisions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_prepare(Path(directory), self.make_records())
+            self.assertEqual(result.returncode, 0, result.stderr)
+            manifest = json.loads((Path(directory) / "prepared" / "manifest.json").read_text())
+            self.assertEqual(manifest["license_policy_version"], "dream-commercial-training-license-policy-v1")
+            self.assertEqual(manifest["license_policy_counts"], {"cc0_1_0": 6})
+
+    def test_written_provenance_sidecars_preserve_attribution_without_text_or_raw_ids(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            rows = self.make_records()
+            rows[0]["source_url"] += "?private-token=do-not-copy"
+            result = self.run_prepare(root, rows)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            prepared = root / "prepared"
+            manifest = json.loads((prepared / "manifest.json").read_text(encoding="utf-8"))
+            for split in ("train", "validation", "test"):
+                meta = manifest["splits"][split]["provenance"]
+                path = prepared / meta["path"]
+                raw = path.read_bytes()
+                self.assertEqual(meta["records"], manifest["splits"][split]["records"])
+                self.assertEqual(meta["sha256"], hashlib.sha256(raw).hexdigest())
+                self.assertFalse(meta["contains_training_text"])
+                self.assertFalse(meta["contains_raw_record_or_group_ids"])
+                entries = [json.loads(line) for line in raw.decode("utf-8").splitlines() if line]
+                for entry in entries:
+                    self.assertIn("source_url", entry)
+                    self.assertIn("license_url", entry)
+                    self.assertIn("license_policy_code", entry)
+                    self.assertIn("attribution_required", entry)
+                    self.assertNotIn("text", entry)
+                    self.assertNotIn("id", entry)
+                    self.assertNotIn("source_group", entry)
+                    self.assertNotIn("private-token", entry)
+                    self.assertNotIn("record-0", json.dumps(entry))
+
+    def test_separate_commercial_permission_can_clear_a_restrictive_license(self):
+        rows = self.make_records()
+        rows[0].update({
+            "license": "CC-BY-NC-SA-4.0",
+            "license_url": "https://creativecommons.org/licenses/by-nc-sa/4.0/",
+            "rights_basis": "explicit-permission",
+            "permission_scope": "Worldwide permission for commercial AI model training.",
+            "permission_evidence_url": "https://example.org/permission/record-0",
+        })
+        with tempfile.TemporaryDirectory() as directory:
+            result = self.run_prepare(Path(directory), rows)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_rejects_too_few_independent_sources(self):
         rows = self.make_records(count=3)
         for row in rows:
