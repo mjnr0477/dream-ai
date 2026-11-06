@@ -57,6 +57,12 @@ jobs:
           python -m py_compile
           data/import_oasst1_candidates.py
           data/import_oasst1_sft_candidates.py
+      - name: Compile DREAM opt-in pipeline tools
+        run: >-
+          python -m py_compile
+          data/dream_ai_optin_pipeline.py
+          data/export_dream_ai_optins.py
+          data/prepare_dream_ai_sft_splits.py
       - name: Compile multilingual corpus exporter
         run: python -m py_compile data/export_fineweb2_sample.py
       - name: Test opt-in learning export and SFT split gates
