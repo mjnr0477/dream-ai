@@ -80,7 +80,7 @@ python data/verify_dream_ai_sft_audits.py \
   --output data/dream-ai-optin-sft-prepared/audit-gate.json
 ```
 
-The audit gate passes only when both reports match the exact split-file hashes in the manifest and contain zero parse errors, findings, possible-PII flags and unreviewed records. Any finding blocks fine-tuning until the underlying candidate is resolved and the splits and audits are regenerated.
+The audit gate passes only when both reports match the exact split-file hashes in the manifest and contain zero parse errors, findings, possible-PII flags and unreviewed records. Any finding blocks fine-tuning until the underlying candidate is resolved and the splits and audits are regenerated. `model/sft.py` requires the resulting `audit-gate.json` via `--sft-audit-gate` and independently rechecks both split hashes, record counts and clean status before training or resuming.
 
 Then use a genuinely pretrained DREAM checkpoint and its exact pretraining manifest and held-out test file with `model/sft.py`, passing `--sft-audit-gate data/dream-ai-optin-sft-prepared/audit-gate.json`. The trainer requires this gate, checks that its hashes and counts match the exact files it reads, and records the gate hash in the resumable checkpoint. Follow `model/BASELINE.md` for the required arguments, checkpoint audit, task evaluation, multilingual evaluation and release-gate checks. An SFT candidate does not become active automatically.
 
