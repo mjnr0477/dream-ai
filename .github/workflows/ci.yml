@@ -59,6 +59,8 @@ jobs:
           data/import_oasst1_sft_candidates.py
       - name: Compile multilingual corpus exporter
         run: python -m py_compile data/export_fineweb2_sample.py
+      - name: Test opt-in learning export and SFT split gates
+        run: python -m unittest discover -s data -p 'test_dream_ai_optin_pipeline.py' -v
       - name: Estimate DREAM model parameter and memory budget
         run: python model/estimate_model.py --out /tmp/dream-model-budget.json
       - name: Validate training notebook structure and Python cells
