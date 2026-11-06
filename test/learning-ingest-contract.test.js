@@ -9,11 +9,12 @@ test("learning ingest preserves v1 compatibility and requires v2 session groupin
   );
   assert.match(source, /dream-learning-opt-in-v1/);
   assert.match(source, /dream-learning-opt-in-v2/);
+  assert.match(source, /dream-learning-opt-in-v3/);
   assert.match(source, /UUID_V4\.test\(sourceGroupId\)/);
   assert.match(source, /source_group_sha256:\s*await digest\("dream-ai-session-group-v1\\0"\s*\+\s*sourceGroupId\)/);
 });
 
-test("learning ingest stores the source-group fingerprint, never the raw UUID", async () => {
+test("learning ingest stores v3 session grouping without returning raw group ids", async () => {
   const source = await readFile(
     new URL("../supabase/functions/dream-ai-learning-ingest-v3/index.ts", import.meta.url),
     "utf8"
