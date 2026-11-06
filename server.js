@@ -7,6 +7,7 @@ import { generateDreamReply, getDreamRuntimeStatus } from "./lib/dream-engine.js
 import { parseCodeArtifactsIfPresent } from "./lib/code-artifacts.js";
 import { getDreamCapabilities } from "./lib/capabilities.js";
 import { runPublicResearch } from "./lib/dream-tools.js";
+import { shouldAutoResearch, buildResearchContext } from "./lib/auto-research.js";
 import { ClientConcurrencyLimiter } from "./lib/client-limiter.js";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
@@ -287,7 +288,32 @@ async function handleChat(req, res) {
 
   activeChats += 1;
   try {
-    const result = await generateDreamReply(messages, mode, process.env, memoryContext);
+    let researchContext = "";
+    let automaticResearch = null;
+    const latestQuestion = messages.at(-1).content;
+    if (shouldAutoResearch(latestQuestion, mode)) {
+      try {
+        // Current public-source connectors support stable reference knowledge,
+        // not live scores, breaking news or other time-sensitive facts.
+        const research = await runPublicResearch(
+          latestQuestion.trim().replace(/\s+/g, " ").slice(0, 200)
+        );
+        const prepared = buildResearchContext(research);
+        if (prepared.context && prepared.sources.length) {
+          researchContext = prepared.context;
+          automaticResearch = {
+            sourceCount: prepared.sources.length,
+            sources: prepared.sources
+          };
+        }
+      } catch (error) {
+        // Research is optional: normal chat remains available on provider failure.
+        console.info("DREAM automatic research unavailable:", error.message);
+      }
+    }
+    const result = await generateDreamReply(
+      messages, mode, process.env, memoryContext, researchContext
+    );
     let artifacts = null;
     if (mode === "coding") {
       try {
@@ -300,6 +326,7 @@ async function handleChat(req, res) {
       reply: result.reply,
       mode,
       source: result.source,
+      ...(automaticResearch ? { autoResearch: automaticResearch } : {}),
       ...(artifacts ? { artifacts } : {})
     });
   } catch (error) {
