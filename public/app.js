@@ -638,7 +638,7 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
     renderAssistantContent(replyNode, data.reply, data.artifacts);
     appendAutoResearchSources(replyNode, data.autoResearch);
     statusText.textContent = data.autoResearch?.sourceCount
-      ? `DREAM AI · consulted ${data.autoResearch.sourceCount} public sources`
+      ? `${data.source === "dream-model" ? "Native model connected" : "Application online"} · consulted ${data.autoResearch.sourceCount} public sources`
       : data.source === "dream-model"
         ? "DREAM native model connected"
         : "Application online · native model not connected";
