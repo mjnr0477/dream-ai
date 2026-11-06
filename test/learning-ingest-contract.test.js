@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-test("learning ingest preserves v1 compatibility and requires v2 session grouping", async () => {
+test("learning ingest preserves v1 compatibility and requires v2/v3 session grouping", async () => {
   const source = await readFile(
     new URL("../supabase/functions/dream-ai-learning-ingest-v3/index.ts", import.meta.url),
     "utf8"
