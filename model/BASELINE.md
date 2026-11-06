@@ -61,7 +61,7 @@ The server binds to localhost by default, serializes model generation to bound i
 Train a BPE checkpoint by selecting the tokenizer explicitly:
 
 ```sh
-python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --tokenizer bpe --vocab-size 1024 --steps 2000 --out checkpoints/dream-bpe.pt
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --corpus-manifest data/prepared/manifest.json --tokenizer bpe --vocab-size 1024 --steps 2000 --out checkpoints/dream-bpe.pt
 python model/audit_checkpoint.py --checkpoint checkpoints/dream-bpe.pt
 python model/evaluate.py --checkpoint checkpoints/dream-bpe.pt --data data/prepared/test.txt --out eval-results/dream-bpe.json
 python model/generate.py --checkpoint checkpoints/dream-bpe.pt --prompt "USER: Habari dunia.\\nASSISTANT:"
