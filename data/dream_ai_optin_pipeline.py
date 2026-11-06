@@ -313,8 +313,10 @@ def prepare_sft_splits(records, min_source_groups=4):
         raise RuntimeError("internal error: source-group leakage across SFT splits")
 
     def encode_jsonl(items):
+        # Match write_jsonl byte-for-byte so downstream audit hashes bind
+        # to the exact files the SFT trainer receives.
         return "".join(
-            json.dumps(row, ensure_ascii=False, sort_keys=True, separators=(",", ":")) + "\n"
+            json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n"
             for row in items
         ).encode("utf-8")
 
