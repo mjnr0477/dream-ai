@@ -147,6 +147,16 @@ test("learning contribution requires a valid temporary source group for v2 conse
   assert.equal(malformed.status, 400);
 });
 
+test("learning contribution rejects malformed consent-version types instead of downgrading them", async () => {
+  const response = await postLearning({
+    mode: "general",
+    prompt: "Explain photosynthesis.",
+    response: "Photosynthesis is how plants convert light energy into chemical energy.",
+    consentVersion: { version: "dream-learning-opt-in-v2" }
+  });
+  assert.equal(response.status, 400);
+});
+
 test("learning contribution rejects unknown consent versions", async () => {
   const response = await postLearning({
     mode: "general",
