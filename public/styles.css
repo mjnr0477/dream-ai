@@ -85,3 +85,5 @@
 .code-editor-actions{justify-content:flex-end;padding:8px 10px;border-top:1px solid #303b52;background:#141d2d}
 
 .code-editor-actions[hidden]{display:none}
+
+.auto-research-sources{margin-top:12px;padding:10px 12px;border:1px solid #2a3850;border-radius:10px;background:#101827;color:#a6b4c9;font-size:11px}.auto-research-sources strong{display:block;color:#c8d4e8;font-size:10px;margin-bottom:6px}.auto-research-links{display:flex;flex-wrap:wrap;gap:7px 12px}.auto-research-links a{color:#b8acff;text-decoration:none}.auto-research-links a:hover{text-decoration:underline}
