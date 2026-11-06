@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#080b14">
+  <meta name="description" content="How optional DREAM AI learning contributions are handled.">
+  <title>DREAM AI — Learning contribution terms</title>
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    .terms-shell{width:min(760px,100%);margin:0 auto;padding:38px 22px 64px}
+    .terms-card{border:1px solid var(--line);border-radius:18px;background:var(--panel);padding:clamp(20px,5vw,34px)}
+    .terms-shell h1{font:600 clamp(30px,6vw,45px)/1.1 "Space Grotesk",sans-serif;letter-spacing:-.045em}
+    .terms-shell h2{font:600 17px "Space Grotesk",sans-serif;margin:26px 0 8px}
+    .terms-shell p,.terms-shell li{color:#aab7cb;line-height:1.75}
+    .terms-shell a{color:#b8acff}
+    .terms-back{display:inline-block;margin-bottom:18px;text-decoration:none;color:#b8acff}
+    .terms-highlight{border-left:3px solid var(--purple);padding:10px 15px;background:#17172a;border-radius:0 10px 10px 0}
+  </style>
+</head>
+<body>
+  <main class="terms-shell">
+    <a class="terms-back" href="/">← Back to DREAM AI</a>
+    <article class="terms-card">
+      <p class="hero-kicker">OPTIONAL CONTRIBUTION · VERSION 2</p>
+      <h1>Learning contribution terms</h1>
+      <p>Sharing is optional. DREAM AI does not upload an exchange for learning merely because you use chat.</p>
+
+      <div class="terms-highlight">
+        <strong>What happens when you press the contribution button</strong>
+        <p>Only the single question and the corresponding DREAM AI answer shown beside that button are submitted. Your other chat messages, saved browser memory, account identity and conversation history are not included.</p>
+      </div>
+
+      <h2>Possible use</h2>
+      <p>The submitted exchange is stored as a private, pending candidate. It may be considered for improving and training DREAM AI only after separate human review. Reviewers must independently check the content's rights and permission, privacy, safety and quality. A contribution click does not automatically approve an example or start training.</p>
+      <p>Contributions are not intended for public display or training another provider's model. They are kept in the private DREAM AI learning store for this project.</p>
+
+      <h2>Temporary session grouping</h2>
+      <p>A temporary random identifier is used to group exchanges shared during the same browser-tab session. This helps keep related examples together when creating training and validation datasets. The raw identifier is not saved in the database; the ingestion service stores a one-way SHA-256 fingerprint instead. This fingerprint is pseudonymous, not anonymous, and is not an account or person identifier.</p>
+
+      <h2>What you should not submit</h2>
+      <ul>
+        <li>Passwords, API keys, private access codes or other secrets.</li>
+        <li>Personal, confidential, sensitive or identifying information about yourself or another person.</li>
+        <li>Third-party copyrighted or licensed material unless you have permission for this specific use.</li>
+        <li>Content you do not have the right to contribute.</li>
+      </ul>
+
+      <h2>Human review and model training</h2>
+      <p>Candidate examples remain excluded from training until a human reviewer separately confirms permission, privacy, quality and explicit training approval. Approved examples are split into separate training and validation groups before supervised fine-tuning. A model checkpoint is evaluated separately before it can be considered for release.</p>
+      <p>Not every submitted exchange will be approved or used. The project may reject examples that are unsafe, inaccurate, low quality, duplicated, private, unlicensed or unsuitable for training.</p>
+
+      <h2>Important limitation</h2>
+      <p>Once information has been incorporated into a trained model, removing its influence may not be straightforward and can require further model training. Do not contribute anything that you need to remain confidential or that you would not be comfortable contributing to the development of DREAM AI.</p>
+
+      <h2>Your choice</h2>
+      <p>You can continue using DREAM AI without contributing any examples. The contribution button is a separate, voluntary action for one exchange at a time.</p>
+      <p><a href="/">Return to DREAM AI</a></p>
+    </article>
+  </main>
+</body>
+</html>
