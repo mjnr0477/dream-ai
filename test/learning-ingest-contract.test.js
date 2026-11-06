@@ -28,3 +28,12 @@ test("learning ingest stores the source-group fingerprint, never the raw UUID", 
   assert.match(source, /review_status:\s*"pending"/);
   assert.match(source, /status:\s*"pending"/);
 });
+
+test("learning ingest does not return database row identifiers to the browser", async () => {
+  const source = await readFile(
+    new URL("../supabase/functions/dream-ai-learning-ingest-v3/index.ts", import.meta.url),
+    "utf8"
+  );
+  assert.match(source, /return Response\.json\(\{ accepted: true, status: "pending" \}/);
+  assert.doesNotMatch(source, /accepted:\s*true,\s*id:\s*data\.id/);
+});
