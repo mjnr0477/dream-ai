@@ -337,7 +337,7 @@ class DreamSFTTests(unittest.TestCase):
             capture_output=True, text=True, timeout=30
         )
         self.assertNotEqual(leaked.returncode, 0)
-        self.assertIn("matches training or validation", leaked.stderr)
+        self.assertIn("exact held-out test corpus", leaked.stderr)
 
         valid_eval = subprocess.run(
             [
