@@ -1,21 +1,36 @@
 """End-to-end smoke tests for DREAM's own training/checkpoint pipeline."""
+import json
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 
+from corpus_manifest_test_utils import write_test_corpus_manifest
+
 SCRIPT = Path(__file__).with_name("train.py")
 EVALUATOR = Path(__file__).with_name("evaluate.py")
 
 
 class DreamTrainingSmokeTests(unittest.TestCase):
-    def run_training(self, root, checkpoint, extra=()):
+    def run_training(self, root, checkpoint, extra=(), create_manifest=True,
+                     license_name="CC0-1.0",
+                     license_url="https://creativecommons.org/publicdomain/zero/1.0/",
+                     rights_basis="original-authorship"):
+        root = Path(root)
+        manifest_path = root / "manifest.json"
+        if create_manifest:
+            write_test_corpus_manifest(
+                root, root / "train.txt", root / "validation.txt",
+                license_name=license_name, license_url=license_url,
+                rights_basis=rights_basis
+            )
         return subprocess.run(
             [
                 sys.executable, str(SCRIPT),
                 "--data", str(root / "train.txt"),
                 "--validation-data", str(root / "validation.txt"),
+                "--corpus-manifest", str(manifest_path),
                 "--out", str(checkpoint),
                 "--steps", "2",
                 "--batch-size", "2",
@@ -30,6 +45,70 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             ],
             capture_output=True, text=True, timeout=120
         )
+
+    def test_pretraining_requires_a_corpus_manifest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "train.txt").write_text("DREAM training text. " * 20, encoding="utf-8")
+            (root / "validation.txt").write_text("DREAM validation text. " * 20, encoding="utf-8")
+            result = subprocess.run(
+                [
+                    sys.executable, str(SCRIPT),
+                    "--data", str(root / "train.txt"),
+                    "--validation-data", str(root / "validation.txt"),
+                    "--out", str(root / "missing-manifest.pt"),
+                    "--steps", "1", "--block-size", "8"
+                ],
+                capture_output=True, text=True, timeout=30
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("--corpus-manifest", result.stderr)
+
+    def test_pretraining_blocks_noncommercial_license_manifest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "train.txt").write_text("DREAM training text. " * 30, encoding="utf-8")
+            (root / "validation.txt").write_text("DREAM validation text. " * 30, encoding="utf-8")
+            result = self.run_training(
+                root, root / "blocked.pt",
+                license_name="CC-BY-NC-SA-4.0",
+                license_url="https://creativecommons.org/licenses/by-nc-sa/4.0/",
+                rights_basis="open-license"
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("noncommercial_restriction", result.stderr)
+
+    def test_pretraining_rejects_text_changed_after_manifest_generation(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "train.txt").write_text("DREAM training text. " * 30, encoding="utf-8")
+            (root / "validation.txt").write_text("DREAM validation text. " * 30, encoding="utf-8")
+            write_test_corpus_manifest(root, root / "train.txt", root / "validation.txt")
+            with (root / "train.txt").open("a", encoding="utf-8") as handle:
+                handle.write("Unmanifested text must never be trained.")
+            result = self.run_training(root, root / "tampered.pt", create_manifest=False)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("does not match its corpus manifest", result.stderr)
+
+    def test_resume_requires_the_same_corpus_manifest(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "train.txt").write_text("DREAM training text. " * 30, encoding="utf-8")
+            (root / "validation.txt").write_text("DREAM validation text. " * 30, encoding="utf-8")
+            checkpoint = root / "manifest-resume.pt"
+            first = self.run_training(root, checkpoint)
+            self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+            manifest_path = root / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["post-training-edit"] = True
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            resumed = self.run_training(
+                root, checkpoint,
+                extra=("--resume", str(checkpoint)),
+                create_manifest=False
+            )
+            self.assertNotEqual(resumed.returncode, 0)
+            self.assertIn("corpus manifest does not match", resumed.stderr)
 
     def test_train_checkpoint_and_resume(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -167,11 +246,13 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             root = Path(directory)
             corpus = root / "same.txt"
             corpus.write_text("DREAM text sample. " * 40, encoding="utf-8")
+            manifest = write_test_corpus_manifest(root, corpus, corpus)
             result = subprocess.run(
                 [
                     sys.executable, str(SCRIPT),
                     "--data", str(corpus),
                     "--validation-data", str(corpus),
+                    "--corpus-manifest", str(manifest),
                     "--out", str(root / "bad.pt"),
                     "--steps", "1",
                     "--block-size", "8"
