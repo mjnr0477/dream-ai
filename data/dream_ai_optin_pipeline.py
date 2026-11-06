@@ -136,7 +136,7 @@ def export_optin_rows(rows):
             language = "und"
 
         dialogue_key = hashlib.sha256(
-            (mode + "\n" + _normalized(prompt) + "\n" + _normalized(response)).encode("utf-8")
+            (_normalized(prompt) + "\n" + _normalized(response)).encode("utf-8")
         ).hexdigest()
         if dialogue_key in seen_dialogues:
             skipped["duplicate_dialogue"] += 1
@@ -190,6 +190,16 @@ def _validate_sft_record(record, line_number):
         raise ValueError(f"record {line_number}: id must be a hashed DREAM opt-in candidate id")
     if not SFT_SOURCE_GROUP.fullmatch(record["source_group"]):
         raise ValueError(f"record {line_number}: source_group must be a privacy-preserving session fingerprint")
+    if record.get("consent_version") != CONSENT_VERSION:
+        raise ValueError(f"record {line_number}: consent_version must be {CONSENT_VERSION}")
+    if (
+        record["source"] != SOURCE_LABEL
+        or record["license"] != LICENSE_LABEL
+        or record["source_url"] != SOURCE_URL
+        or record["license_url"] != PERMISSION_URL
+        or record["rights_basis"] != "explicit-permission"
+    ):
+        raise ValueError(f"record {line_number}: DREAM AI contributor terms and explicit permission are required")
     _https_url(record["source_url"], "source_url")
     _https_url(record["license_url"], "license_url")
     if record["rights_basis"] not in ALLOWED_RIGHTS_BASIS:
