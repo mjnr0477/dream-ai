@@ -82,7 +82,7 @@ python data/verify_dream_ai_sft_audits.py \
 
 The audit gate passes only when both reports match the exact split-file hashes in the manifest and contain zero parse errors, findings, possible-PII flags and unreviewed records. Any finding blocks fine-tuning until the underlying candidate is resolved and the splits and audits are regenerated.
 
-Then use a genuinely pretrained DREAM checkpoint and its exact pretraining manifest and held-out test file with `model/sft.py`. Follow `model/BASELINE.md` for the required arguments, checkpoint audit, task evaluation, multilingual evaluation and release-gate checks. An SFT candidate does not become active automatically.
+Then use a genuinely pretrained DREAM checkpoint and its exact pretraining manifest and held-out test file with `model/sft.py`, passing `--sft-audit-gate data/dream-ai-optin-sft-prepared/audit-gate.json`. The trainer requires this gate, checks that its hashes and counts match the exact files it reads, and records the gate hash in the resumable checkpoint. Follow `model/BASELINE.md` for the required arguments, checkpoint audit, task evaluation, multilingual evaluation and release-gate checks. An SFT candidate does not become active automatically.
 
 Only use a **private** Kaggle Dataset for approved training records. Never upload service-role/secret keys, raw session IDs, user account details or the full database export. Kaggle is a temporary notebook training environment, not an always-on GPU server. Download the checkpoint, manifests and evaluation reports before the session expires.
 
