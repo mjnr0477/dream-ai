@@ -167,6 +167,28 @@ class CorpusAuditTests(unittest.TestCase):
             self.assertGreater(report["error_count"], 0)
             self.assertFalse(report["approval_granted"])
 
+    def test_noncommercial_license_is_reported_without_approving_data(self):
+        row = self.record()
+        row["license"] = "CC-BY-NC-SA-4.0"
+        row["license_url"] = "https://creativecommons.org/licenses/by-nc-sa/4.0/"
+        with tempfile.TemporaryDirectory() as directory:
+            result, report = self.run_audit(Path(directory), [row])
+            self.assertEqual(result.returncode, 1)
+            self.assertGreater(report["error_count"], 0)
+            self.assertIn("license_noncommercial_restriction", report["finding_counts"])
+            self.assertFalse(report["approval_granted"])
+
+    def test_sharealike_license_is_held_for_review(self):
+        row = self.record()
+        row["license"] = "CC-BY-SA-4.0"
+        row["license_url"] = "https://creativecommons.org/licenses/by-sa/4.0/"
+        with tempfile.TemporaryDirectory() as directory:
+            result, report = self.run_audit(Path(directory), [row])
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("license_share_alike_obligations_require_review", report["finding_counts"])
+            self.assertEqual(report["license_policy_status_counts"], {"review_required": 1})
+            self.assertFalse(report["approval_granted"])
+
     def test_duplicate_record_ids_are_errors(self):
         with tempfile.TemporaryDirectory() as directory:
             result, report = self.run_audit(
