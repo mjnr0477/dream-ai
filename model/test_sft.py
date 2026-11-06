@@ -11,7 +11,7 @@ import torch
 
 from dream_bpe import DreamBPETokenizer
 from dream_transformer import DreamConfig, DreamTransformer, DreamByteTokenizer
-from sft import load_examples, record_signatures
+from sft import load_examples, record_signatures, verify_sft_audit_gate
 
 SCRIPT = Path(__file__).with_name("sft.py")
 
@@ -20,8 +20,102 @@ def source_group_fingerprint(value):
     return hashlib.sha256(f"dream-source-group-id-v1\0{value}".encode("utf-8")).hexdigest()
 EVALUATOR = Path(__file__).with_name("evaluate.py")
 
+SUBPROCESS_RUN = subprocess.run
+
+
+def run_with_sft_gate(command, *args, **kwargs):
+    command = list(command)
+    if len(command) > 1 and command[1] == str(SCRIPT):
+        train_path = Path(command[command.index("--train-data") + 1])
+        validation_path = Path(command[command.index("--validation-data") + 1])
+        train_bytes = train_path.read_bytes()
+        validation_bytes = validation_path.read_bytes()
+
+        def count_records(raw):
+            return sum(1 for line in raw.splitlines() if line.strip())
+
+        gate_path = train_path.with_name("test-sft-audit-gate.json")
+        gate = {
+            "schema": "dream-sft-audit-gate-v1",
+            "passed": True,
+            "dataset_sha256": hashlib.sha256(train_bytes + validation_bytes).hexdigest(),
+            "splits": {
+                "train": {
+                    "records": count_records(train_bytes),
+                    "sha256": hashlib.sha256(train_bytes).hexdigest(),
+                    "possible_pii_findings": 0,
+                    "unreviewed_records": 0,
+                    "finding_counts": {},
+                },
+                "validation": {
+                    "records": count_records(validation_bytes),
+                    "sha256": hashlib.sha256(validation_bytes).hexdigest(),
+                    "possible_pii_findings": 0,
+                    "unreviewed_records": 0,
+                    "finding_counts": {},
+                },
+            },
+        }
+        gate_path.write_text(json.dumps(gate), encoding="utf-8")
+        if "--sft-audit-gate" not in command:
+            command.extend(["--sft-audit-gate", str(gate_path)])
+    return SUBPROCESS_RUN(command, *args, **kwargs)
+
+
 
 class DreamSFTTests(unittest.TestCase):
+    def test_sft_rejects_audit_gate_bound_to_different_train_bytes(self):
+        train_path = self.root / "audit-train.jsonl"
+        validation_path = self.root / "audit-validation.jsonl"
+        self.write_records(train_path, "audit-train")
+        self.write_records(validation_path, "audit-validation")
+        gate_path = self.root / "stale-audit-gate.json"
+        gate_path.write_text(json.dumps({
+            "schema": "dream-sft-audit-gate-v1",
+            "passed": True,
+            "dataset_sha256": "a" * 64,
+            "splits": {
+                "train": {
+                    "records": 3, "sha256": "b" * 64,
+                    "possible_pii_findings": 0, "unreviewed_records": 0,
+                    "finding_counts": {}
+                },
+                "validation": {
+                    "records": 3, "sha256": hashlib.sha256(validation_path.read_bytes()).hexdigest(),
+                    "possible_pii_findings": 0, "unreviewed_records": 0,
+                    "finding_counts": {}
+                }
+            }
+        }), encoding="utf-8")
+        with self.assertRaisesRegex(SystemExit, "train file does not match"):
+            verify_sft_audit_gate(gate_path, train_path, validation_path)
+
+    def test_sft_rejects_audit_gate_with_unresolved_findings(self):
+        train_path = self.root / "clean-train.jsonl"
+        validation_path = self.root / "clean-validation.jsonl"
+        self.write_records(train_path, "clean-train")
+        self.write_records(validation_path, "clean-validation")
+        gate_path = self.root / "finding-audit-gate.json"
+        gate = {
+            "schema": "dream-sft-audit-gate-v1",
+            "passed": True,
+            "dataset_sha256": "a" * 64,
+            "splits": {}
+        }
+        for name, path in (("train", train_path), ("validation", validation_path)):
+            raw = path.read_bytes()
+            gate["splits"][name] = {
+                "records": sum(1 for line in raw.splitlines() if line.strip()),
+                "sha256": hashlib.sha256(raw).hexdigest(),
+                "possible_pii_findings": 0,
+                "unreviewed_records": 0,
+                "finding_counts": {"possible_email": 1} if name == "validation" else {}
+            }
+        gate_path.write_text(json.dumps(gate), encoding="utf-8")
+        with self.assertRaisesRegex(SystemExit, "validation audit contains unresolved findings"):
+            verify_sft_audit_gate(gate_path, train_path, validation_path)
+
+
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.root = Path(self.temp.name)
@@ -159,7 +253,7 @@ class DreamSFTTests(unittest.TestCase):
                     "tokenizer": tokenizer.to_dict(),
                     "training": {"completed_steps": 2, "initialization": "random"}}, bpe_base)
         output = self.root / "dream-bpe-instruct.pt"
-        result = subprocess.run([
+        result = run_with_sft_gate([
             sys.executable, str(SCRIPT), "--checkpoint", str(bpe_base),
             "--train-data", str(train_path), "--validation-data", str(val_path),
             "--pretraining-manifest", str(self.manifest),
