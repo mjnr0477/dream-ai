@@ -22,6 +22,7 @@ import torch
 
 from checkpoint_tokenizer import load_tokenizer
 from dream_transformer import DreamConfig, DreamTransformer
+from license_policy import require_commercial_training_license
 
 
 def sha256(path):
@@ -167,6 +168,10 @@ def load_examples(path, tokenizer, block_size):
                 f"Invalid rights_basis at line {line_number}; expected one of "
                 + ", ".join(sorted(ALLOWED_RIGHTS_BASIS))
             )
+        try:
+            require_commercial_training_license(item, line_number)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
         try:
             parsed_source_date = date.fromisoformat(item["source_date"])
             if parsed_source_date.isoformat() != item["source_date"]:
