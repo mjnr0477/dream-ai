@@ -14,11 +14,11 @@ from datetime import date, datetime
 from urllib.parse import urlparse
 
 
-CONSENT_VERSION = "dream-learning-opt-in-v2"
+CONSENT_VERSION = "dream-learning-opt-in-v3"
 SOURCE_URL = "https://dream-ai-live.onrender.com"
 PERMISSION_URL = "https://dream-ai-live.onrender.com/learning-data-terms.html"
 SOURCE_LABEL = "DREAM AI opt-in exchange"
-LICENSE_LABEL = "DREAM AI Contributor Permission v2"
+LICENSE_LABEL = "DREAM AI Contributor Permission v3"
 ALLOWED_RIGHTS_BASIS = {
     "original-authorship", "public-domain", "open-license", "explicit-permission"
 }
