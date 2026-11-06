@@ -50,6 +50,12 @@ def approved_sft_record(index, group=None):
 
 
 class DreamAIOptinPipelineTests(unittest.TestCase):
+    def test_malformed_mode_is_safely_downgraded_to_general(self):
+        row = optin_row(mode={"unexpected": "object"})
+        candidates, report = export_optin_rows([row])
+        self.assertEqual(report["exported"], 1)
+        self.assertEqual(candidates[0]["dream_mode"], "general")
+
     def test_exports_only_v2_consented_pending_rows_as_unapproved_sft_candidates(self):
         candidates, report = export_optin_rows([optin_row()])
         self.assertEqual(report["exported"], 1)
