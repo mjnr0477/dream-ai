@@ -55,7 +55,7 @@ Deno.serve(async (req: Request) => {
       return Response.json({ error: "A valid temporary session group is required" }, { status: 400 });
     }
     metadata = {
-      source_group_sha256: await digest("dream-ai-session-group-v1\\0" + sourceGroupId)
+      source_group_sha256: await digest("dream-ai-session-group-v1\0" + sourceGroupId)
     };
   }
 
@@ -65,7 +65,7 @@ Deno.serve(async (req: Request) => {
     { auth: { persistSession: false, autoRefreshToken: false } }
   );
 
-  const contentHash = await digest(mode + "\\n" + prompt + "\\n" + response);
+  const contentHash = await digest(mode + "\n" + prompt + "\n" + response);
   const { data, error } = await supabase.from("dream_ai_training_examples").insert({
     mode,
     input_text: prompt,
