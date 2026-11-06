@@ -627,7 +627,7 @@ test("learning contribution terms page explains the independent review gate", as
   assert.match(html, /not automatically approve an example/);
   assert.match(html, /raw identifier is not saved in the database/);
   assert.match(html, /non-exclusive, worldwide, royalty-free permission/);
-  assert.match(html, /have permission from its rights-holder/);
+  assert.match(html, /permission from the rights-holder/);
   assert.match(html, /free or paid offerings/);
   assert.match(html, /services that DREAM AI may operate/);
   assert.match(html, /question and any other material you supply/);
