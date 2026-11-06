@@ -6,6 +6,7 @@ import net from "node:net";
 
 let port;
 let modelPort;
+let learningIpCounter = 210;
 let base;
 let server;
 let model;
@@ -72,7 +73,10 @@ before(async () => {
       DREAM_MODEL_URL: `http://127.0.0.1:${modelPort}/v1`,
       DREAM_MODEL_NAME: "dream-test-model",
       DREAM_MODEL_TOKEN: "",
-      DREAM_API_RATE_LIMIT: "3"
+      DREAM_API_RATE_LIMIT: "3",
+      DREAM_LEARNING_INGEST_URL: "",
+      DREAM_LEARNING_INGEST_TOKEN: "",
+      DREAM_LEARNING_SUPABASE_ANON_KEY: ""
     },
     stdio: "ignore"
   });
@@ -109,7 +113,7 @@ async function postLearning(payload, rawBody) {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      "cf-connecting-ip": "198.51.100.230"
+      "cf-connecting-ip": `198.51.100.${learningIpCounter++}`
     },
     body: rawBody ?? JSON.stringify(payload)
   });
