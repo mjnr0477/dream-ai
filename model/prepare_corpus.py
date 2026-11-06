@@ -70,9 +70,22 @@ def _attribution_url(value: str) -> str:
 
 def write_provenance_file(path: Path, rows) -> dict:
     """Write a text-free, hash-identified source/rights ledger for one split."""
+    text_segments = {}
+    cursor = 0
+    for index, row in enumerate(rows):
+        text_bytes = row["text"].strip().encode("utf-8")
+        end = cursor + len(text_bytes)
+        text_segments[row["id"]] = {
+            "text_byte_start": cursor,
+            "text_byte_end": end,
+            "text_sha256": hashlib.sha256(text_bytes).hexdigest(),
+        }
+        cursor = end + (2 if index < len(rows) - 1 else 1)
+
     payloads = []
     for row in sorted(rows, key=lambda item: identifier_fingerprint("record", item["id"])):
         payloads.append({
+            **text_segments[row["id"]],
             "record_id_sha256": identifier_fingerprint("record", row["id"]),
             "source_group_sha256": identifier_fingerprint("source-group", row["source_group"]),
             "source": row["source"],
@@ -109,6 +122,7 @@ def write_provenance_file(path: Path, rows) -> dict:
         "sha256": sha256(path),
         "contains_training_text": False,
         "contains_raw_record_or_group_ids": False,
+        "offset_semantics": "utf8-byte-start-inclusive-end-exclusive-v1",
     }
 
 
