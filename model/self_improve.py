@@ -266,12 +266,24 @@ def main():
             "validation_data_sha256": __import__("hashlib").sha256(validation_data.read_bytes()).hexdigest(),
             "pretraining_test_sha256": baseline_eval_report["evaluation_corpus_sha256"],
             "training_steps": args.steps,
+            "baseline_evaluation": {
+                "bits_per_byte": baseline_eval_report["bits_per_byte"],
+                "checkpoint_sha256": baseline_eval_report["checkpoint_sha256"],
+            },
+            "candidate_evaluation": {
+                "bits_per_byte": candidate_eval_report["bits_per_byte"],
+                "checkpoint_sha256": candidate_eval_report["checkpoint_sha256"],
+            },
+            "baseline_task_evaluation": baseline_tasks,
+            "candidate_task_evaluation": candidate_tasks,
             "decision": gate,
             "promoted": False,
         }
 
         if gate["promote"]:
-            shutil.copy2(source, backup_path)
+            previous_active = active if active.is_file() else source
+            if previous_active != backup_path:
+                shutil.copy2(previous_active, backup_path)
             staged = active.with_suffix(active.suffix + ".tmp")
             shutil.copy2(candidate, staged)
             os.replace(staged, active)
@@ -280,7 +292,8 @@ def main():
             report["previous_checkpoint"] = str(backup_path)
         else:
             report["candidate_checkpoint_retained"] = False
-            report["active_checkpoint_unchanged"] = str(source)
+            unchanged = active if active.is_file() else source
+            report["active_checkpoint_unchanged"] = str(unchanged)
 
         temporary_report = report_path.with_suffix(report_path.suffix + ".tmp")
         temporary_report.write_text(
