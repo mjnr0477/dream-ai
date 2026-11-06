@@ -68,7 +68,7 @@ Deno.serve(async (req: Request) => {
   const contentHash = await digest(consentVersion === "dream-learning-opt-in-v2"
     ? mode + "\n" + prompt + "\n" + response + "\n" + consentVersion + "\n" + String(metadata.source_group_sha256)
     : mode + "\n" + prompt + "\n" + response);
-  const { data, error } = await supabase.from("dream_ai_training_examples").insert({
+  const { error } = await supabase.from("dream_ai_training_examples").insert({
     mode,
     input_text: prompt,
     target_text: response,
@@ -81,7 +81,7 @@ Deno.serve(async (req: Request) => {
     status: "pending",
     content_sha256: contentHash,
     metadata
-  }).select("id").single();
+  });
 
   if (error?.code === "23505") {
     return Response.json({ accepted: true, duplicate: true }, { status: 200 });
