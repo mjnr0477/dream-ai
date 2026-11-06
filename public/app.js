@@ -601,7 +601,7 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         messages: includeHistory ? messages.slice(-12) : [{ role: "user", content }],
-        mode: activeMode,
+        mode: requestMode,
         memoryContext: userMemory
       })
     });
