@@ -55,8 +55,8 @@ def write_test_corpus_manifest(
         if not text_path.is_file():
             raise FileNotFoundError(text_path)
         raw_text = text_path.read_bytes()
-        if not raw_text.endswith(b"\\n"):
-            raw_text += b"\\n"
+        if not raw_text.endswith(b"\n"):
+            raw_text += b"\n"
             text_path.write_bytes(raw_text)
         all_bytes.extend(raw_text)
         record_text_bytes = raw_text[:-1]
