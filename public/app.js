@@ -28,7 +28,7 @@ function getLearningSessionGroupId() {
     sessionStorage.setItem(LEARNING_SESSION_GROUP_KEY, value);
     return value;
   } catch (error) {
-    if (error instanceof DOMException && error.name === "SecurityError") {
+    if (error?.name === "SecurityError") {
       throw new Error("This browser blocked temporary session storage. You can still use DREAM AI without sharing training examples.");
     }
     throw error;
