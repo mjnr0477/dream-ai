@@ -348,10 +348,18 @@ async function handleLearningExample(req, res) {
   const mode = body.mode;
   const prompt = typeof body.prompt === "string" ? body.prompt.trim() : "";
   const responseText = typeof body.response === "string" ? body.response.trim() : "";
+  const consentVersion = typeof body.consentVersion === "string"
+    ? body.consentVersion
+    : "dream-learning-opt-in-v1";
+  const sourceGroupId = body.sourceGroupId;
+  const validSourceGroupId = typeof sourceGroupId === "string" &&
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sourceGroupId);
   if (!["general", "coding", "learning"].includes(mode) ||
       !prompt || prompt.length > 8000 ||
-      !responseText || responseText.length > 16000) {
-    return json(res, 400, { error: "A valid single question and answer are required." });
+      !responseText || responseText.length > 16000 ||
+      !["dream-learning-opt-in-v1", "dream-learning-opt-in-v2"].includes(consentVersion) ||
+      (consentVersion === "dream-learning-opt-in-v2" && !validSourceGroupId)) {
+    return json(res, 400, { error: "A valid single question, answer and learning-consent version are required." });
   }
   const endpoint = process.env.DREAM_LEARNING_INGEST_URL;
   const token = process.env.DREAM_LEARNING_INGEST_TOKEN;
@@ -378,8 +386,8 @@ async function handleLearningExample(req, res) {
         "x-dream-learning-token": token
       },
       body: JSON.stringify({
-        mode, prompt, response: responseText,
-        consentVersion: "dream-learning-opt-in-v1"
+        mode, prompt, response: responseText, consentVersion,
+        ...(consentVersion === "dream-learning-opt-in-v2" ? { sourceGroupId } : {})
       }),
       redirect: "error",
       signal: controller.signal
