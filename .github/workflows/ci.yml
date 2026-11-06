@@ -126,12 +126,49 @@ jobs:
           --audit /tmp/dream-smoke-checkpoint-audit.json
           --evaluation /tmp/dream-smoke-eval.json
           --out /tmp/dream-smoke-release-gate.json
+      - name: Audit synthetic SFT splits and create a hash-bound manifest
+        run: |
+          python model/audit_corpus.py --input data/sft-smoke-train.jsonl --out /tmp/dream-smoke-sft-train-audit.json
+          python model/audit_corpus.py --input data/sft-smoke-validation.jsonl --out /tmp/dream-smoke-sft-validation-audit.json
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          def split(path):
+              raw = Path(path).read_bytes()
+              return {
+                  "records": sum(1 for line in raw.splitlines() if line.strip()),
+                  "sha256": hashlib.sha256(raw).hexdigest(),
+              }
+
+          train = split("data/sft-smoke-train.jsonl")
+          validation = split("data/sft-smoke-validation.jsonl")
+          dataset_hash = hashlib.sha256(
+              Path("data/sft-smoke-train.jsonl").read_bytes()
+              + Path("data/sft-smoke-validation.jsonl").read_bytes()
+          ).hexdigest()
+          manifest = {
+              "schema": "dream-sft-splits-v1",
+              "dataset_sha256": dataset_hash,
+              "splits": {"train": train, "validation": validation},
+          }
+          Path("/tmp/dream-smoke-sft-manifest.json").write_text(
+              json.dumps(manifest, indent=2) + "\\n", encoding="utf-8"
+          )
+          PY
+          python data/verify_dream_ai_sft_audits.py
+          --manifest /tmp/dream-smoke-sft-manifest.json
+          --train-audit /tmp/dream-smoke-sft-train-audit.json
+          --validation-audit /tmp/dream-smoke-sft-validation-audit.json
+          --output /tmp/dream-smoke-sft-audit-gate.json
       - name: Fine-tune DREAM on synthetic assistant-only examples
         run: >-
           python model/sft.py
           --checkpoint /tmp/dream-smoke-small.pt
           --train-data data/sft-smoke-train.jsonl
           --validation-data data/sft-smoke-validation.jsonl
+          --sft-audit-gate /tmp/dream-smoke-sft-audit-gate.json
           --pretraining-manifest /tmp/dream-smoke-data/manifest.json
           --pretraining-test-data /tmp/dream-smoke-data/test.txt
           --out /tmp/dream-smoke-instruct.pt
