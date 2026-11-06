@@ -147,6 +147,26 @@ test("learning contribution requires a valid temporary source group for v2 conse
   assert.equal(malformed.status, 400);
 });
 
+test("learning contribution v3 requires a valid temporary source group", async () => {
+  const missing = await postLearning({
+    mode: "general",
+    prompt: "Explain photosynthesis.",
+    response: "Photosynthesis is how plants convert light energy into chemical energy.",
+    consentVersion: "dream-learning-opt-in-v3"
+  });
+  assert.equal(missing.status, 400);
+
+  const accepted = await postLearning({
+    mode: "general",
+    prompt: "Explain photosynthesis.",
+    response: "Photosynthesis is how plants convert light energy into chemical energy.",
+    consentVersion: "dream-learning-opt-in-v3",
+    sourceGroupId: "123e4567-e89b-42d3-a456-426614174000"
+  });
+  assert.equal(accepted.status, 503);
+  assert.match((await accepted.json()).error, /not configured/i);
+});
+
 test("learning contribution rejects malformed consent-version types instead of downgrading them", async () => {
   const response = await postLearning({
     mode: "general",
@@ -608,4 +628,7 @@ test("learning contribution terms page explains the independent review gate", as
   assert.match(html, /raw identifier is not saved in the database/);
   assert.match(html, /non-exclusive, worldwide, royalty-free permission/);
   assert.match(html, /have permission from its rights-holder/);
+  assert.match(html, /free or paid offerings/);
+  assert.match(html, /services that DREAM AI may operate/);
+  assert.match(html, /VERSION 3/);
 });
