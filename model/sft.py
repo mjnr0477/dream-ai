@@ -256,8 +256,12 @@ def main():
         raise SystemExit("SFT training and validation content hashes must differ.")
 
     base = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
-    base_training = base.get("training", {})
-    base_sft_training = base.get("sft_training", {})
+    base_training = base.get("training")
+    if not isinstance(base_training, dict):
+        base_training = {}
+    base_sft_training = base.get("sft_training")
+    if not isinstance(base_sft_training, dict):
+        base_sft_training = {}
     base_steps = base_training.get("completed_steps", 0)
     if not isinstance(base_steps, int) or isinstance(base_steps, bool) or base_steps < 1:
         base_steps = base_sft_training.get("completed_steps", 0)
