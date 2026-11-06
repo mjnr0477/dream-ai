@@ -11,8 +11,8 @@ const mobileHistoryButton = document.querySelector("#mobile-history");
 const sidebarBackdrop = document.querySelector("#sidebar-backdrop");
 const STORAGE_KEY = "dream-ai-conversations-v1";
 const MEMORY_KEY = "dream-ai-user-memory-v1";
-const LEARNING_SESSION_GROUP_KEY = "dream-ai-learning-session-group-v2";
-const LEARNING_CONSENT_VERSION = "dream-learning-opt-in-v2";
+const LEARNING_SESSION_GROUP_KEY = "dream-ai-learning-session-group-v3";
+const LEARNING_CONSENT_VERSION = "dream-learning-opt-in-v3";
 
 function getLearningSessionGroupId() {
   try {
@@ -678,7 +678,7 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
     const share = document.createElement("button");
     share.type = "button";
     share.textContent = "Contribute this exchange for DREAM training review";
-    share.title = "Optional: only this question and answer is submitted. It may be used to train DREAM after separate human rights, privacy, safety and quality review. Chat history and saved memory are not uploaded.";
+    share.title = "Optional: only this question and answer is submitted. It may train DREAM for free or paid services, but only after separate human rights, privacy, safety and quality review. Chat history and saved memory are not uploaded.";
     share.addEventListener("click", async () => {
       if (share.disabled) return;
       share.disabled = true;
@@ -716,7 +716,7 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
     contributionTerms.rel = "noopener";
     const consentNote = document.createElement("small");
     consentNote.className = "learning-consent-note";
-    consentNote.textContent = "Only this exchange is sent. It may train DREAM only after separate human review.";
+    consentNote.textContent = "Only this exchange is sent. It may be used to train DREAM for free or paid services, after separate human review.";
     tools.append(copy, share, contributionTerms, consentNote);
     replyNode.parentElement.append(tools);
     messages.push({ role: "assistant", content: data.reply, ...(Array.isArray(data.artifacts) ? { artifacts: data.artifacts } : {}) });
