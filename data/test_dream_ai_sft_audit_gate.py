@@ -22,6 +22,9 @@ def report(count, digest):
         "error_count": 0,
         "unreviewed_records": 0,
         "possible_pii_findings": 0,
+        "unreviewed_records": 0,
+        "error_count": 0,
+        "parse_errors": 0,
         "finding_counts": {},
         "errors": [],
     }
