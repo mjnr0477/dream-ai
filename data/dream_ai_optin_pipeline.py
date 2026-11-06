@@ -192,6 +192,8 @@ def _validate_sft_record(record, line_number):
         raise ValueError(f"record {line_number}: source_group must be a privacy-preserving session fingerprint")
     if record.get("consent_version") != CONSENT_VERSION:
         raise ValueError(f"record {line_number}: consent_version must be {CONSENT_VERSION}")
+    _https_url(record["source_url"], "source_url")
+    _https_url(record["license_url"], "license_url")
     if (
         record["source"] != SOURCE_LABEL
         or record["license"] != LICENSE_LABEL
@@ -200,8 +202,6 @@ def _validate_sft_record(record, line_number):
         or record["rights_basis"] != "explicit-permission"
     ):
         raise ValueError(f"record {line_number}: DREAM AI contributor terms and explicit permission are required")
-    _https_url(record["source_url"], "source_url")
-    _https_url(record["license_url"], "license_url")
     if record["rights_basis"] not in ALLOWED_RIGHTS_BASIS:
         raise ValueError(f"record {line_number}: invalid rights_basis")
     try:
