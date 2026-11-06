@@ -27,6 +27,8 @@ REVIEW_FLAGS = (
 )
 SOURCE_GROUP_HASH = re.compile(r"^[a-f0-9]{64}$")
 RECORD_ID = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
+SFT_RECORD_ID = re.compile(r"^dream-optin-[a-f0-9]{64}$")
+SFT_SOURCE_GROUP = re.compile(r"^dream-ai-session-[a-f0-9]{64}$")
 LANGUAGE_TAG = re.compile(r"^(?:und|[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*)$")
 
 
@@ -184,8 +186,10 @@ def _validate_sft_record(record, line_number):
         value = record.get(field)
         if not isinstance(value, str) or not value.strip():
             raise ValueError(f"record {line_number}: missing {field}")
-    if not RECORD_ID.fullmatch(record["id"]):
-        raise ValueError(f"record {line_number}: invalid id")
+    if not SFT_RECORD_ID.fullmatch(record["id"]):
+        raise ValueError(f"record {line_number}: id must be a hashed DREAM opt-in candidate id")
+    if not SFT_SOURCE_GROUP.fullmatch(record["source_group"]):
+        raise ValueError(f"record {line_number}: source_group must be a privacy-preserving session fingerprint")
     _https_url(record["source_url"], "source_url")
     _https_url(record["license_url"], "license_url")
     if record["rights_basis"] not in ALLOWED_RIGHTS_BASIS:
