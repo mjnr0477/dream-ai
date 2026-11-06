@@ -21,6 +21,7 @@ def optin_row(record_id="11111111-1111-4111-8111-111111111111", **overrides):
         "consented": True,
         "consent_version": "dream-learning-opt-in-v2",
         "consented_at": "2026-11-06T10:00:00Z",
+        "consented_at": "2026-11-06T10:00:00Z",
         "review_status": "pending",
         "status": "pending",
         "created_at": "2026-11-06T10:00:00Z",
@@ -167,6 +168,20 @@ class DreamAIOptinPipelineTests(unittest.TestCase):
         records[0]["license_url"] = "https://example.org/other-license"
         with self.assertRaisesRegex(ValueError, "DREAM AI contributor terms"):
             prepare_sft_splits(records)
+
+    def test_export_skips_v2_rows_without_a_consent_timestamp(self):
+        row = optin_row(consented_at=None)
+        candidates, report = export_optin_rows([row])
+        self.assertEqual(candidates, [])
+        self.assertEqual(report["skipped_reasons"].get("missing_consented_at"), 1)
+
+    def test_sft_split_requires_consent_and_human_review_timestamps(self):
+        for field in ("consented_at", "human_reviewed_at"):
+            records = [approved_sft_record(i) for i in range(4)]
+            records[0].pop(field)
+            with self.subTest(field=field):
+                with self.assertRaisesRegex(ValueError, field):
+                    prepare_sft_splits(records)
 
     def test_refuses_raw_source_group_identifiers(self):
         records = [approved_sft_record(i) for i in range(4)]
