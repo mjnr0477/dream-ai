@@ -21,7 +21,6 @@ def optin_row(record_id="11111111-1111-4111-8111-111111111111", **overrides):
         "consented": True,
         "consent_version": "dream-learning-opt-in-v2",
         "consented_at": "2026-11-06T10:00:00Z",
-        "consented_at": "2026-11-06T10:00:00Z",
         "review_status": "pending",
         "status": "pending",
         "created_at": "2026-11-06T10:00:00Z",
@@ -41,6 +40,9 @@ def approved_sft_record(index, group=None):
         "source_url": "https://dream-ai-live.onrender.com",
         "rights_basis": "explicit-permission",
         "consent_version": "dream-learning-opt-in-v2",
+        "consented": True,
+        "consented_at": "2026-11-06T10:00:00+00:00",
+        "human_reviewed_at": "2026-11-06T11:00:00+00:00",
         "source_date": "2026-11-06",
         "language": "en",
         "rights_confirmed": True,
@@ -68,6 +70,8 @@ class DreamAIOptinPipelineTests(unittest.TestCase):
         row = candidates[0]
         self.assertEqual(row["source_group"], "dream-ai-session-" + SESSION_HASH)
         self.assertEqual(row["source_date"], "2026-11-06")
+        self.assertIs(row["consented"], True)
+        self.assertEqual(row["consented_at"], "2026-11-06T10:00:00+00:00")
         self.assertTrue(row["id"].startswith("dream-optin-"))
         self.assertNotEqual(row["id"], "11111111-1111-4111-8111-111111111111")
         self.assertNotIn("11111111-1111-4111-8111-111111111111", str(row))
