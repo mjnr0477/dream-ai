@@ -710,7 +710,11 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
         statusText.textContent = error.message || "Could not submit this example.";
       }
     });
-    tools.append(copy, share);
+    const contributionTerms = document.createElement("a");
+    contributionTerms.href = "/learning-data-terms.html";
+    contributionTerms.textContent = "Contribution terms";
+    contributionTerms.rel = "noopener";
+    tools.append(copy, share, contributionTerms);
     replyNode.parentElement.append(tools);
     messages.push({ role: "assistant", content: data.reply, ...(Array.isArray(data.artifacts) ? { artifacts: data.artifacts } : {}) });
     persistActiveChat();
