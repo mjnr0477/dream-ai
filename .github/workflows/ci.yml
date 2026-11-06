@@ -50,6 +50,8 @@ jobs:
           python-version: "3.11"
       - name: Install model dependencies
         run: python -m pip install --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple -r model/requirements.txt
+      - name: Validate Kaggle launcher shell syntax
+        run: bash -n scripts/kaggle-run-dream-training.sh
       - name: Compile Python sources
         run: python -m compileall -q model
       - name: Compile corpus importers
@@ -70,6 +72,7 @@ jobs:
           for notebook in (
               Path("training/dream_train_colab.ipynb"),
               Path("training/dream_train_kaggle.ipynb"),
+              Path("training/dream_self_improve_kaggle.ipynb"),
           ):
               document = json.loads(notebook.read_text(encoding="utf-8"))
               assert document["nbformat"] == 4 and document["cells"]
