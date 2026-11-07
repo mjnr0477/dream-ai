@@ -89,3 +89,25 @@ Only use a **private** Kaggle Dataset for approved training records. Never uploa
 ## Current state and non-claims
 
 The previously submitted v1 contribution remains pending and is not eligible for this exporter. The pipeline does not train from a single opt-in. No production-trained DREAM checkpoint or automatic self-training job is claimed by this workflow.
+
+
+## 6. Continue-training the currently hosted DREAM adapter
+
+The native DREAM transformer workflow above is separate from the adapter currently used by the public app. The hosted adapter is a DREAM-specific LoRA adapter on top of `Qwen/Qwen3-1.7B`. To make incremental improvements to that live adapter without changing the active model prematurely, use:
+
+`training/dream_ai_adapter_self_train_kaggle.ipynb`
+
+Prepare a **private** Kaggle Dataset with exactly these four files from the reviewed SFT preparation directory:
+
+- `train.jsonl`
+- `validation.jsonl`
+- `manifest.json`
+- `audit-gate.json`
+
+Add the notebook secret `HF_TOKEN` with read/write access to the private `msjnr0477/dream-ai-adapter` repository. The notebook checks the exact split hashes, the passing audit gate, v3 consent, all four approval flags, provenance, session-group separation and minimum sample thresholds before loading the model. It requires at least 32 approved examples across at least 8 independent session groups. Pending examples and old v1/v2 contributions are not eligible.
+
+The notebook continues training only the LoRA weights, compares validation loss before and after, and writes an evaluation comparison for human review. If validation loss materially regresses, it refuses to upload the candidate. A passing candidate is saved under `candidates/<candidate-id>/` in the existing private Hugging Face repository. The active adapter at the repository root is not changed, and the Render/Hugging Face runtime does not pick up the candidate automatically.
+
+**Promotion is a separate release decision.** Review the before/after task responses for factuality, reasoning, coding, language quality, privacy and safety; run broader evaluations; then deliberately promote a passing candidate. Lower validation loss alone is not proof of improved reasoning or general intelligence.
+
+Kaggle GPU sessions are manually started and temporary. This creates a repeatable, gated self-improvement cycle, not an always-running autonomous training service. The two pending examples currently recorded in the learning store are not approved and are far below the notebook's minimum training threshold.
