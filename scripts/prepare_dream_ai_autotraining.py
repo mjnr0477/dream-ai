@@ -93,6 +93,7 @@ def previous_success(base_url: str, key: str, dataset_sha256: str) -> dict | Non
 def eligible_rows(rows: list[dict]) -> tuple[list[dict], dict]:
     valid = []
     skipped = {
+        "not_explicit_v3_approved": 0,
         "missing_review_metadata": 0,
         "missing_source_group": 0,
         "missing_human_review_timestamp": 0,
@@ -100,6 +101,15 @@ def eligible_rows(rows: list[dict]) -> tuple[list[dict], dict]:
         "invalid_review_flags": 0,
     }
     for row in rows:
+        if (
+            row.get("consented") is not True
+            or row.get("consent_version") != CONSENT_VERSION
+            or row.get("status") != "approved"
+            or row.get("review_status") != "approved"
+            or not row.get("reviewed_at")
+        ):
+            skipped["not_explicit_v3_approved"] += 1
+            continue
         metadata = row.get("metadata")
         if isinstance(metadata, str):
             try:
