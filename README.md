@@ -32,6 +32,17 @@ python model/evaluate_tasks.py \
 
 The report includes deterministic exact-match results by category and language, model/checkpoint hashes and every generated answer. This 15-task starter set is a debugging aid, not a comprehensive reasoning, factuality, safety or multilingual benchmark; its score cannot establish production readiness or superiority over other models. Expand it with independently authored and reviewed tests before making capability claims.
 
+## Free GPU and deployment path
+
+The optional helper `scripts/kaggle-run-dream-training.sh` pulls the existing Kaggle kernel metadata, preserves its private dataset input, pushes DREAM's current training notebook with GPU enabled, waits for completion and downloads the artifact ZIP. It requires a locally configured Kaggle CLI credential file; it never stores or prints the API token.
+
+
+See [training/FREE_GPU_AND_RENDER.md](training/FREE_GPU_AND_RENDER.md) for the current free-compute options and the supported split: Kaggle GPU for training, a separate model runtime for inference, and Render for the Node chat application. Render Free is not a GPU training host.
+
+## Verified self-improvement
+
+DREAM can run repeatable, guarded instruction-tuning cycles from explicitly approved feedback using `python model/self_improve.py`. The controller audits and evaluates each candidate against the unchanged held-out corpus and the authored task diagnostic before promotion, keeps a rollback checkpoint, and leaves the active model untouched on failure. See [model/SELF_IMPROVEMENT.md](model/SELF_IMPROVEMENT.md). This is controlled continual fine-tuning, not unrestricted autonomous learning or a claim of frontier-level capability.
+
 ## Native DREAM model
 
 See [model/BASELINE.md](model/BASELINE.md) for the architecture, commands and release gates. For free-tier training, use the [DREAM from-scratch Colab notebook](https://colab.research.google.com/github/mjnr0477/dream-ai/blob/main/training/dream_train_colab.ipynb) or the [Kaggle training notebook](https://github.com/mjnr0477/dream-ai/blob/main/training/dream_train_kaggle.ipynb). Both require a real, reviewed corpus; GPU access is not guaranteed. Download the checkpoint and evaluation report before the session ends.
@@ -48,7 +59,8 @@ See [model/BASELINE.md](model/BASELINE.md) for the architecture, commands and re
 - `model/audit_checkpoint.py`: read-only preflight audit for checkpoint tokenizer/configuration, trained-step metadata, exact tensor keys/shapes/dtypes, finite weights, strict state loading and SHA-256 identity.
 - `model/serve.py`: serves DREAM checkpoints through a local HTTP API; `/health` reports the checkpoint SHA-256, completed training steps, tokenizer and architecture so benchmark results can be tied to the exact native model; the JSON protocol does not call an external AI.
 - `Dockerfile.model-cpu` and `model/DEPLOYMENT.md`: reproducible CPU container and secure instructions for connecting a trained native checkpoint to the Render web application. This is an initial integration path, not a GPU-scale production deployment.
-- `training/dream_train_kaggle.ipynb`: Kaggle notebook workflow for the same native from-scratch training pipeline. Attach a private Kaggle Dataset containing the reviewed corpus as an input; checkpoints and the artifact ZIP are written under `/kaggle/working`. Kaggle's free GPU availability is limited and may queue; see the [Kaggle notebook guide](https://www.kaggle.com/docs/notebooks) and [GPU usage guidance](https://www.kaggle.com/docs/efficient-gpu-usage).
+- `training/dream_train_kaggle.ipynb`: Kaggle notebook workflow for the same native from-scratch training pipeline.
+- `training/dream_self_improve_kaggle.ipynb`: Kaggle notebook for repeated, verified instruction-tuning cycles from approved SFT data. Attach a private Kaggle Dataset containing the reviewed corpus as an input; checkpoints and the artifact ZIP are written under `/kaggle/working`. Kaggle's free GPU availability is limited and may queue; see the [Kaggle notebook guide](https://www.kaggle.com/docs/notebooks) and [GPU usage guidance](https://www.kaggle.com/docs/efficient-gpu-usage).
 - `scripts/run-evals.mjs`: verifies native runtime identity and checkpoint provenance before running the human-reviewed benchmark, then records a run ID, checkpoint hash, training steps, architecture, tokenizer and latency with every result. The summarizer refuses to combine rows from different runs or checkpoints.
 - `model/test_*.py`: tests cover transformer behavior (including cached-vs-full generation equivalence, context-window fallback and strict UTF-8 output validation), corpus preparation, training/checkpoint resume, SFT masking and provenance, notebook code cells, and the local authenticated HTTP API. CI also runs a full tiny pretraining → held-out evaluation → SFT → held-out evaluation sequence.
 - `data/export_fineweb2_sample.py` and `model/import_fineweb2_candidates.py`: deterministic, confidence-filtered FineWeb2 streaming export with provenance-preserving, unapproved candidate conversion; source-page rights still require review.

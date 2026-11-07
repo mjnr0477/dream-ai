@@ -312,9 +312,19 @@ def main():
     )
 
     base = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
-    base_steps = base.get("training", {}).get("completed_steps", 0)
-    if not isinstance(base_steps, int) or base_steps < 1:
-        raise SystemExit("SFT requires a DREAM checkpoint with completed pretraining steps.")
+    base_training = base.get("training")
+    if not isinstance(base_training, dict):
+        base_training = {}
+    base_sft_training = base.get("sft_training")
+    if not isinstance(base_sft_training, dict):
+        base_sft_training = {}
+    base_steps = base_training.get("completed_steps", 0)
+    if not isinstance(base_steps, int) or isinstance(base_steps, bool) or base_steps < 1:
+        base_steps = base_sft_training.get("completed_steps", 0)
+    if not isinstance(base_steps, int) or isinstance(base_steps, bool) or base_steps < 1:
+        raise SystemExit(
+            "SFT requires a DREAM checkpoint with verified pretraining or instruction-tuning steps."
+        )
     config = DreamConfig(**base["config"])
     try:
         tokenizer = load_tokenizer(base, config)
@@ -360,6 +370,11 @@ def main():
         or any(not isinstance(group, str) or not group for group in pretraining_test_groups)
     ):
         raise SystemExit("Pretraining manifest has invalid held-out test provenance.")
+    previous_test_hash = base_sft_training.get("pretraining_test_sha256")
+    if previous_test_hash and previous_test_hash != pretraining_test_hash:
+        raise SystemExit(
+            "Continued SFT must use the exact same held-out pretraining test corpus."
+        )
     pretraining_test_path = Path(args.pretraining_test_data)
     if sha256(pretraining_test_path) != pretraining_test_hash:
         raise SystemExit(
@@ -443,6 +458,7 @@ def main():
         output.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "model_state": {key: value.detach().cpu() for key, value in model.state_dict().items()},
+            **({"training": base_training} if isinstance(base_training, dict) and base_training else {}),
             "optimizer_state": optimizer.state_dict(),
             "torch_rng_state": torch.get_rng_state().cpu(),
             "python_rng_state": random.getstate(),
@@ -453,6 +469,8 @@ def main():
             "sft_training": {
                 "method": "assistant-response-only-supervised-finetuning",
                 "completed_steps": completed_steps,
+                "iteration": int(base_sft_training.get("iteration", 0)) + 1,
+                "parent_checkpoint_sha256": sha256(args.checkpoint),
                 "train_data": str(train_path),
                 "train_sha256": train_hash,
                 "validation_data": str(validation_path),
