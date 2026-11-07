@@ -11,7 +11,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", required=True, help="Human-approved SFT JSONL from review_candidates.py")
     parser.add_argument("--output-dir", default="data/dream-ai-sft-prepared")
-    parser.add_argument("--min-source-groups", type=int, default=4)
+    parser.add_argument("--min-source-groups", type=int, default=8)
     parser.add_argument("--overwrite", action="store_true", help="Replace existing files in output-dir")
     args = parser.parse_args()
 
