@@ -578,7 +578,7 @@ async function sendResearch(text, isRetry = false) {
     replyNode.append(heading);
     const note = document.createElement("p");
     note.className = "research-note";
-    note.textContent = "Results may include Wikipedia excerpts, Wikidata public entity records, GDELT headlines from the last seven days, optional general web-index results, and Crossref/OpenAlex scholarly metadata. Search results are leads, not proof. Check primary sources and publication full texts before treating important claims as established.";
+    note.textContent = "Results may include Wikipedia excerpts, Wikidata public entity records, GDELT headlines from the last seven days, optional Brave LLM Context web passages, and Crossref and OpenAlex scholarly metadata. Search results are leads, not proof. Check primary sources and publication full texts before treating important claims as established.";
     replyNode.append(note);
     const transcript = [];
     for (const result of results) {
