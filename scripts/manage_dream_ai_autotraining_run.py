@@ -95,11 +95,26 @@ def finish(run_id: str, candidate_path: Path):
         raise RuntimeError("Candidate manifest does not have the expected non-active status.")
     if manifest.get("audit_gate_passed") is not True:
         raise RuntimeError("Candidate manifest does not confirm the audit gate.")
+    run_rows = api(
+        "GET",
+        "dream_ai_training_runs",
+        key,
+        filters={"select": "id,status,metrics", "id": f"eq.{run_id}", "limit": "2"},
+    )
+    if not isinstance(run_rows, list) or len(run_rows) != 1:
+        raise RuntimeError("Could not identify the expected DREAM AI training run.")
+    run_metrics = run_rows[0].get("metrics") or {}
+    if isinstance(run_metrics, str):
+        run_metrics = json.loads(run_metrics)
+    if run_rows[0].get("status") != "running":
+        raise RuntimeError("Training run is not in the running state.")
+    if run_metrics.get("dataset_sha256") != manifest.get("dataset_sha256"):
+        raise RuntimeError("Candidate dataset fingerprint does not match its registered run.")
     artifact = f"https://huggingface.co/{HF_REPO}/tree/main/candidates/{manifest['candidate_id']}"
     metrics = dict(manifest)
     metrics["artifact_uri"] = artifact
     metrics["registered_automatically"] = True
-    api(
+    updated_runs = api(
         "PATCH",
         "dream_ai_training_runs",
         key,
@@ -111,6 +126,8 @@ def finish(run_id: str, candidate_path: Path):
         },
         filters={"id": f"eq.{run_id}"},
     )
+    if not isinstance(updated_runs, list) or len(updated_runs) != 1:
+        raise RuntimeError("Supabase did not confirm the training-run update.")
     versions = api(
         "POST",
         "dream_ai_model_versions",
