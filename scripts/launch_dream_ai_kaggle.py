@@ -228,14 +228,14 @@ def main() -> int:
             "manifest.json,10\naudit-gate.json,10\n"
         )
         assert missing_required_files(sample) == []
-        private_listing = "ref,isPrivate\\ntest-user/test-dataset,true\\n"
+        private_listing = "ref,isPrivate\ntest-user/test-dataset,true\n"
         verify_private_dataset(private_listing, "test-user", "test-user/test-dataset")
         assert private_dataset_refs(
-            "ref,isPrivate\\ntest-user/test-dataset,true\\ntest-user/public-data,false\\n",
+            "ref,isPrivate\ntest-user/test-dataset,true\ntest-user/public-data,false\n",
             "test-user",
         ) == ["test-user/test-dataset"]
         try:
-            verify_private_dataset("ref,isPrivate\\ntest-user/test-dataset,false\\n", "test-user", "test-user/test-dataset")
+            verify_private_dataset("ref,isPrivate\ntest-user/test-dataset,false\n", "test-user", "test-user/test-dataset")
         except RuntimeError:
             pass
         else:
