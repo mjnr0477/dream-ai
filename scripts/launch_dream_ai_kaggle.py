@@ -40,6 +40,24 @@ def missing_required_files(csv_text: str) -> list[str]:
     return [name for name in REQUIRED_FILES if names.count(name) != 1]
 
 
+
+def verify_private_dataset(csv_text: str, username: str, dataset_id: str) -> None:
+    rows = list(csv.DictReader(csv_text.splitlines()))
+    matches = []
+    for row in rows:
+        ref = next((row[key] for key in ("ref", "Ref", "datasetRef", "dataset_ref") if row.get(key)), "")
+        if ref.strip().lower() == dataset_id.strip().lower():
+            matches.append(row)
+    if len(matches) != 1:
+        raise RuntimeError("Kaggle could not uniquely confirm this dataset under your own account.")
+    owner = dataset_id.split("/", 1)[0]
+    if owner.lower() != username.strip().lower():
+        raise RuntimeError("The training dataset must be owned by the authenticated Kaggle account.")
+    row = matches[0]
+    privacy = next((row[key] for key in ("isPrivate", "is_private", "private") if key in row), None)
+    if str(privacy).strip().lower() not in ("true", "1", "yes"):
+        raise RuntimeError("Kaggle did not confirm that the dataset is private; refusing to attach training data.")
+
 def build_kernel_metadata(username: str, dataset_id: str) -> dict:
     if not re.fullmatch(r"[A-Za-z0-9_-]+", username.strip()):
         raise ValueError("KAGGLE_USERNAME is missing or invalid.")
@@ -102,6 +120,12 @@ def launch() -> int:
         raise FileNotFoundError(f"Training notebook not found: {NOTEBOOK}")
     configure_kaggle_credentials(username, key)
     dataset_id = validate_dataset_id(dataset_id)
+
+    own_datasets = run(
+        ["kaggle", "datasets", "list", "--mine", "--csv", "--page-size", "100"],
+        capture=True,
+    )
+    verify_private_dataset(own_datasets.stdout, username, dataset_id)
 
     listing = run(
         ["kaggle", "datasets", "files", dataset_id, "--csv", "--page-size", "200"],
@@ -167,6 +191,14 @@ def main() -> int:
             "manifest.json,10\naudit-gate.json,10\n"
         )
         assert missing_required_files(sample) == []
+        private_listing = "ref,isPrivate\\ntest-user/test-dataset,true\\n"
+        verify_private_dataset(private_listing, "test-user", "test-user/test-dataset")
+        try:
+            verify_private_dataset("ref,isPrivate\\ntest-user/test-dataset,false\\n", "test-user", "test-user/test-dataset")
+        except RuntimeError:
+            pass
+        else:
+            raise AssertionError("public dataset was accepted")
         try:
             validate_dataset_id("not-a-dataset-id")
         except ValueError:
