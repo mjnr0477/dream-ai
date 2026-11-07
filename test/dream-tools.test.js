@@ -34,6 +34,7 @@ test("public knowledge search is registered as a bounded read-only tool", () => 
 
 test("recent news search is registered as a bounded read-only tool", async () => {
   const seen = [];
+  const publishedAt = new Date(Date.now() - 60_000).toUTCString();
   const registry = createDreamToolRegistry({
     audit: () => {},
     fetchImpl: async (url, options) => {
@@ -41,7 +42,7 @@ test("recent news search is registered as a bounded read-only tool", async () =>
       return new Response(`<rss><channel><item>
         <title><![CDATA[Manchester City latest report]]></title>
         <link>https://news.google.com/rss/articles/CBMiExample</link>
-        <pubDate>Sun, 08 Nov 2026 10:30:00 GMT</pubDate>
+        <pubDate>${publishedAt}</pubDate>
         <source url="https://example.com">Example Sport</source>
       </item></channel></rss>`, { status: 200 });
     }
