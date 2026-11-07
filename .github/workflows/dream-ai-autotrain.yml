@@ -18,7 +18,7 @@ jobs:
     timeout-minutes: 180
     env:
       DREAM_AI_SUPABASE_URL: https://ldpcawixzxcolbmakrfc.supabase.co
-      DREAM_AI_SUPABASE_SERVICE_ROLE_KEY: \${{ secrets.DREAM_AI_SUPABASE_SERVICE_ROLE_KEY }}
+      DREAM_AI_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.DREAM_AI_SUPABASE_SERVICE_ROLE_KEY }}
 
     steps:
       - name: Check out DREAM AI
@@ -57,8 +57,8 @@ jobs:
       - name: Validate API credentials
         if: steps.prepare.outputs.eligible == 'true'
         env:
-          KAGGLE_JSON: \${{ secrets.KAGGLE_JSON }}
-          HF_TOKEN: \${{ secrets.HF_TOKEN }}
+          KAGGLE_JSON: ${{ secrets.KAGGLE_JSON }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           python - <<'PY'
           import json, os
@@ -77,7 +77,7 @@ jobs:
         if: steps.prepare.outputs.eligible == 'true'
         id: kaggle
         env:
-          KAGGLE_JSON: \${{ secrets.KAGGLE_JSON }}
+          KAGGLE_JSON: ${{ secrets.KAGGLE_JSON }}
         run: |
           mkdir -p "$HOME/.kaggle"
           python - <<'PY'
@@ -95,8 +95,8 @@ jobs:
       - name: Create or update the private Kaggle input dataset
         if: steps.prepare.outputs.eligible == 'true'
         env:
-          HF_TOKEN: \${{ secrets.HF_TOKEN }}
-          KAGGLE_USERNAME: \${{ steps.kaggle.outputs.username }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          KAGGLE_USERNAME: ${{ steps.kaggle.outputs.username }}
         run: |
           DATASET_DIR="$RUNNER_TEMP/dream-ai-kaggle-dataset"
           mkdir -p "$DATASET_DIR"
@@ -122,7 +122,7 @@ jobs:
           DATASET_REF="$KAGGLE_USERNAME/dream-ai-auto-training-input"
           if kaggle datasets status "$DATASET_REF" >/dev/null 2>&1; then
             kaggle datasets version -p "$DATASET_DIR" \
-              -m "Reviewed DREAM AI data \${{ steps.prepare.outputs.dataset_sha256 }}" \
+              -m "Reviewed DREAM AI data ${{ steps.prepare.outputs.dataset_sha256 }}" \
               -q -t -r skip
           else
             kaggle datasets create -p "$DATASET_DIR" -q -t -r skip
@@ -144,7 +144,7 @@ jobs:
       - name: Prepare private Kaggle GPU notebook
         if: steps.prepare.outputs.eligible == 'true'
         env:
-          KAGGLE_USERNAME: \${{ steps.kaggle.outputs.username }}
+          KAGGLE_USERNAME: ${{ steps.kaggle.outputs.username }}
         run: |
           KERNEL_DIR="$RUNNER_TEMP/dream-ai-kernel"
           mkdir -p "$KERNEL_DIR"
@@ -178,7 +178,7 @@ jobs:
       - name: Launch private Kaggle T4 training
         if: steps.prepare.outputs.eligible == 'true'
         env:
-          KAGGLE_USERNAME: \${{ steps.kaggle.outputs.username }}
+          KAGGLE_USERNAME: ${{ steps.kaggle.outputs.username }}
         run: |
           kaggle kernels push -p "$RUNNER_TEMP/dream-ai-kernel" \
             --accelerator NvidiaTeslaT4 --timeout 7200
@@ -187,7 +187,7 @@ jobs:
       - name: Wait for Kaggle training
         if: steps.prepare.outputs.eligible == 'true'
         env:
-          KAGGLE_USERNAME: \${{ steps.kaggle.outputs.username }}
+          KAGGLE_USERNAME: ${{ steps.kaggle.outputs.username }}
         run: |
           KERNEL_REF="$KAGGLE_USERNAME/dream-ai-auto-train"
           COMPLETED=0
@@ -212,7 +212,7 @@ jobs:
       - name: Download and verify the private candidate
         if: steps.prepare.outputs.eligible == 'true'
         env:
-          KAGGLE_USERNAME: \${{ steps.kaggle.outputs.username }}
+          KAGGLE_USERNAME: ${{ steps.kaggle.outputs.username }}
         run: |
           OUTPUT_DIR="$RUNNER_TEMP/dream-ai-kaggle-output"
           mkdir -p "$OUTPUT_DIR"
@@ -223,7 +223,7 @@ jobs:
           test -n "$MANIFEST" && test -s "$MANIFEST"
           test -n "$WEIGHTS" && test -s "$WEIGHTS"
           test -n "$CONFIG" && test -s "$CONFIG"
-          python - "$MANIFEST" "\${{ steps.prepare.outputs.dataset_sha256 }}" <<'PY'
+          python - "$MANIFEST" "${{ steps.prepare.outputs.dataset_sha256 }}" <<'PY'
           import json, sys
           from pathlib import Path
           manifest = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
@@ -242,7 +242,7 @@ jobs:
         run: |
           MANIFEST="$(cat "$RUNNER_TEMP/dream-ai-candidate-manifest-path.txt")"
           python scripts/manage_dream_ai_autotraining_run.py finish \
-            --run-id "\${{ steps.run.outputs.run_id }}" \
+            --run-id "${{ steps.run.outputs.run_id }}" \
             --candidate-manifest "$MANIFEST"
 
       - name: Mark failed run in the DREAM AI registry
@@ -250,5 +250,5 @@ jobs:
         continue-on-error: true
         run: |
           python scripts/manage_dream_ai_autotraining_run.py fail \
-            --run-id "\${{ steps.run.outputs.run_id }}" \
+            --run-id "${{ steps.run.outputs.run_id }}" \
             --reason "GitHub Actions or Kaggle training/evaluation step failed."
