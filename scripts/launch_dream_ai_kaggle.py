@@ -58,6 +58,20 @@ def verify_private_dataset(csv_text: str, username: str, dataset_id: str) -> Non
     if str(privacy).strip().lower() not in ("true", "1", "yes"):
         raise RuntimeError("Kaggle did not confirm that the dataset is private; refusing to attach training data.")
 
+
+def private_dataset_refs(csv_text: str, username: str) -> list[str]:
+    refs = []
+    for row in csv.DictReader(csv_text.splitlines()):
+        ref = next((row[key] for key in ("ref", "Ref", "datasetRef", "dataset_ref") if row.get(key)), "")
+        privacy = next((row[key] for key in ("isPrivate", "is_private", "private") if key in row), None)
+        if (
+            ref and "/" in ref
+            and ref.split("/", 1)[0].strip().lower() == username.strip().lower()
+            and str(privacy).strip().lower() in ("true", "1", "yes")
+        ):
+            refs.append(ref.strip())
+    return sorted(set(refs))
+
 def build_kernel_metadata(username: str, dataset_id: str) -> dict:
     if not re.fullmatch(r"[A-Za-z0-9_-]+", username.strip()):
         raise ValueError("KAGGLE_USERNAME is missing or invalid.")
@@ -104,14 +118,8 @@ def launch() -> int:
     username = os.environ.get("KAGGLE_USERNAME", "").strip()
     key = os.environ.get("KAGGLE_KEY", "").strip()
     dataset_id = os.environ.get("DREAM_AI_KAGGLE_DATASET", "").strip()
-    if not username or not key or not dataset_id:
-        missing = [
-            name for name, value in (
-                ("KAGGLE_USERNAME", username),
-                ("KAGGLE_KEY", key),
-                ("DREAM_AI_KAGGLE_DATASET", dataset_id),
-            ) if not value
-        ]
+    if not username or not key:
+        missing = [name for name, value in (("KAGGLE_USERNAME", username), ("KAGGLE_KEY", key)) if not value]
         print("WAITING_FOR_SETUP: missing " + ", ".join(missing))
         print("No training was started and no model files were changed.")
         return 0
@@ -119,18 +127,42 @@ def launch() -> int:
     if not NOTEBOOK.is_file():
         raise FileNotFoundError(f"Training notebook not found: {NOTEBOOK}")
     configure_kaggle_credentials(username, key)
-    dataset_id = validate_dataset_id(dataset_id)
 
     own_datasets = run(
         ["kaggle", "datasets", "list", "--mine", "--csv", "--page-size", "100"],
         capture=True,
     )
-    verify_private_dataset(own_datasets.stdout, username, dataset_id)
+    private_refs = private_dataset_refs(own_datasets.stdout, username)
+    if dataset_id:
+        dataset_id = validate_dataset_id(dataset_id)
+        verify_private_dataset(own_datasets.stdout, username, dataset_id)
+        listing = run(
+            ["kaggle", "datasets", "files", dataset_id, "--csv", "--page-size", "200"],
+            capture=True,
+        )
+    else:
+        matching = []
+        for candidate_ref in private_refs:
+            candidate_files = run(
+                ["kaggle", "datasets", "files", candidate_ref, "--csv", "--page-size", "200"],
+                capture=True,
+            )
+            try:
+                candidate_missing = missing_required_files(candidate_files.stdout)
+            except ValueError:
+                continue
+            if not candidate_missing:
+                matching.append((candidate_ref, candidate_files))
+        if not matching:
+            print("WAITING_FOR_PRIVATE_REVIEWED_DATASET: no private dataset with all four required files was found.")
+            print("No training was started and no model files were changed.")
+            return 0
+        if len(matching) > 1:
+            choices = ", ".join(item[0] for item in matching)
+            raise RuntimeError("More than one matching private dataset exists; set DREAM_AI_KAGGLE_DATASET to select one: " + choices)
+        dataset_id, listing = matching[0]
+        print("AUTO_DISCOVERED_PRIVATE_DATASET:", dataset_id)
 
-    listing = run(
-        ["kaggle", "datasets", "files", dataset_id, "--csv", "--page-size", "200"],
-        capture=True,
-    )
     missing = missing_required_files(listing.stdout)
     if missing:
         raise RuntimeError("Dataset must contain exactly one copy of: " + ", ".join(missing))
@@ -198,6 +230,10 @@ def main() -> int:
         assert missing_required_files(sample) == []
         private_listing = "ref,isPrivate\\ntest-user/test-dataset,true\\n"
         verify_private_dataset(private_listing, "test-user", "test-user/test-dataset")
+        assert private_dataset_refs(
+            "ref,isPrivate\\ntest-user/test-dataset,true\\ntest-user/public-data,false\\n",
+            "test-user",
+        ) == ["test-user/test-dataset"]
         try:
             verify_private_dataset("ref,isPrivate\\ntest-user/test-dataset,false\\n", "test-user", "test-user/test-dataset")
         except RuntimeError:
