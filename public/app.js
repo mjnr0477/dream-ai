@@ -677,7 +677,9 @@ async function sendResearch(text, isRetry = false) {
       metadata.textContent = [
         result.provider || "Public source",
         result.domain || "",
-        result.publishedAt || "",
+        result.seenAt ? "Seen: " + result.seenAt : "",
+        result.sourceAge ? "Source age: " + result.sourceAge : "",
+        result.fetchedContentAt ? "Page fetched: " + result.fetchedContentAt : "",
         result.entityId || ""
       ].filter(Boolean).join(" · ");
       item.append(link, metadata);
@@ -693,7 +695,9 @@ async function sendResearch(text, isRetry = false) {
         "Provider: " + (result.provider || "Unknown"),
         "Title: " + (result.title || "Not supplied"),
         "Description/snippet: " + (detailText || "No description returned"),
-        "Published/seen date: " + (result.publishedAt || "Not supplied"),
+        "First/last seen at: " + (result.seenAt || "Not supplied"),
+        "Source age: " + (result.sourceAge || "Not supplied"),
+        "Search index fetched page at: " + (result.fetchedContentAt || "Not supplied"),
         "Source URL: " + sourceUrl.href
       ].join("\n"));
     }
