@@ -210,7 +210,7 @@ def _validate_sft_record(record, line_number):
     if record.get("consent_version") != CONSENT_VERSION:
         raise ValueError(f"record {line_number}: consent_version must be {CONSENT_VERSION}")
     if record.get("consented") is not True:
-        raise ValueError(f"record {line_number}: explicit v2 contribution consent is required")
+        raise ValueError(f"record {line_number}: explicit v3 contribution consent is required")
     try:
         _source_timestamp(record.get("consented_at"), "consented_at")
     except ValueError as exc:
