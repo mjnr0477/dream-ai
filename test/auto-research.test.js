@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildLiveNewsContext, buildResearchContext, isTimeSensitiveResearchIntent, shouldAutoResearch } from "../lib/auto-research.js";
+import { buildLiveNewsContext, buildResearchContext, isTimeSensitiveResearchIntent, isUnsupportedLiveDataIntent, shouldAutoResearch } from "../lib/auto-research.js";
 
 test("automatically researches stable factual questions in normal chat", () => {
   assert.equal(shouldAutoResearch("Tell me about Manchester City"), true);
@@ -26,7 +26,11 @@ test("does not research creative, personal, short or specialist-mode requests", 
 
 test("routes recent news and sports questions to the recent-news search, not static references", () => {
   assert.equal(isTimeSensitiveResearchIntent("What is the latest news on Manchester City's performance?"), true);
-  assert.equal(isTimeSensitiveResearchIntent("What is the live score?"), true);
+  assert.equal(isTimeSensitiveResearchIntent("What is the live score?"), false);
+  assert.equal(isUnsupportedLiveDataIntent("What is the live score?"), true);
+  assert.equal(isUnsupportedLiveDataIntent("What is the current weather?"), true);
+  assert.equal(isUnsupportedLiveDataIntent("What is the USD exchange rate right now?"), true);
+  assert.equal(isUnsupportedLiveDataIntent("What was Manchester City's latest result?"), false);
   assert.equal(isTimeSensitiveResearchIntent("Who won yesterday?"), true);
   assert.equal(isTimeSensitiveResearchIntent("What is the weather today?"), false);
   assert.equal(isTimeSensitiveResearchIntent("What is the exchange rate right now?"), false);
