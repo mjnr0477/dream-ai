@@ -121,11 +121,16 @@ function renderHistory() {
 
 function appendAutoResearchSources(container, autoResearch) {
   const sources = Array.isArray(autoResearch?.sources) ? autoResearch.sources.slice(0, 5) : [];
+  const allowedHosts = new Set([
+    "en.wikipedia.org", "doi.org", "openalex.org",
+    "www.ncbi.nlm.nih.gov", "arxiv.org"
+  ]);
   const safeSources = sources.filter(source => {
     if (!source || typeof source.title !== "string" || typeof source.url !== "string") return false;
     try {
       const url = new URL(source.url);
-      return url.protocol === "https:" && url.hostname === "en.wikipedia.org";
+      return url.protocol === "https:" && allowedHosts.has(url.hostname) &&
+        !url.username && !url.password && !url.port;
     } catch { return false; }
   });
   if (!safeSources.length) return;
@@ -133,7 +138,7 @@ function appendAutoResearchSources(container, autoResearch) {
   const panel = document.createElement("section");
   panel.className = "auto-research-sources";
   const heading = document.createElement("strong");
-  heading.textContent = "Public knowledge sources consulted";
+  heading.textContent = "Evidence sources consulted";
   const list = document.createElement("div");
   list.className = "auto-research-links";
   for (const source of safeSources) {
@@ -141,7 +146,9 @@ function appendAutoResearchSources(container, autoResearch) {
     link.href = source.url;
     link.target = "_blank";
     link.rel = "noopener noreferrer";
-    link.textContent = source.title;
+    link.textContent = source.kind === "scholarly-metadata"
+      ? `${source.provider || "Scholarly record"} · ${source.title}`
+      : `${source.title} · Wikipedia`;
     list.append(link);
   }
   panel.append(heading, list);
