@@ -363,32 +363,102 @@ function addMessage(role, content, artifacts = null) {
   const avatar = document.createElement("div");
   avatar.className = "avatar";
   avatar.textContent = role === "user" ? "Y" : "✳";
+  const main = document.createElement("div");
+  main.className = "message-main";
   const body = document.createElement("div");
   body.className = "message-content";
   if (role === "assistant") renderAssistantContent(body, content, artifacts);
   else body.textContent = content;
-  row.append(avatar, body);
+  main.append(body);
+  row.append(avatar, main);
   conversation.append(row);
-  if (role === "assistant" && content && !/thinking/i.test(content)) {
-    const tools = document.createElement("div");
-    tools.className = "message-tools";
-    const copy = document.createElement("button");
-    copy.type = "button";
-    copy.textContent = "Copy response";
-    copy.addEventListener("click", async () => {
-      try { await navigator.clipboard.writeText(content); copy.textContent = "Copied"; }
-      catch { copy.textContent = "Copy unavailable"; }
-    });
-    tools.append(copy);
-    row.append(tools);
-  }
   row.scrollIntoView({ behavior: "smooth", block: "end" });
   return body;
 }
 
+function appendAssistantActions(replyNode, replyText, prompt = "", mode = "general") {
+  const host = replyNode?.parentElement;
+  if (!host || host.querySelector(".message-tools")) return;
+
+  const tools = document.createElement("div");
+  tools.className = "message-tools";
+  const copy = document.createElement("button");
+  copy.type = "button";
+  copy.className = "message-tool-copy";
+  copy.textContent = "Copy answer";
+  copy.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(replyText);
+      copy.textContent = "Copied";
+    } catch {
+      copy.textContent = "Copy unavailable";
+    }
+  });
+  tools.append(copy);
+
+  const cleanPrompt = typeof prompt === "string" ? prompt.trim() : "";
+  if (cleanPrompt) {
+    const share = document.createElement("button");
+    share.type = "button";
+    share.className = "message-tool-share";
+    share.textContent = "Share with AI";
+    share.title = "Optional: submit only this question and answer for DREAM AI training review. It is not used for training until a human approves it.";
+    share.addEventListener("click", async () => {
+      if (share.disabled) return;
+      share.disabled = true;
+      share.textContent = "Sharing…";
+      try {
+        const sourceGroupId = getLearningSessionGroupId();
+        const learningResponse = await fetch("/api/learning/examples", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            mode,
+            prompt: cleanPrompt,
+            response: replyText,
+            consentVersion: LEARNING_CONSENT_VERSION,
+            sourceGroupId
+          })
+        });
+        const learningData = await learningResponse.json();
+        if (!learningResponse.ok || learningData.accepted !== true) {
+          throw new Error(learningData.error || "Submission failed.");
+        }
+        share.textContent = learningData.status === "already-submitted"
+          ? "Already shared"
+          : "Shared for review ✓";
+        share.title = "This exchange is pending human review. It has not been automatically approved or used to train the model.";
+      } catch (error) {
+        share.disabled = false;
+        share.textContent = "Retry sharing";
+        statusText.textContent = error.message || "Could not submit this example.";
+      }
+    });
+    tools.append(share);
+
+    const note = document.createElement("small");
+    note.className = "learning-consent-note";
+    note.append(document.createTextNode("Optional · one exchange only · human review before training · "));
+    const terms = document.createElement("a");
+    terms.href = "/learning-data-terms.html";
+    terms.textContent = "Terms";
+    terms.rel = "noopener";
+    note.append(terms);
+    host.append(tools, note);
+  } else {
+    host.append(tools);
+  }
+}
+
 function renderMessages() {
   conversation.replaceChildren();
-  for (const item of messages) addMessage(item.role, item.content, item.artifacts);
+  messages.forEach((item, index) => {
+    const replyNode = addMessage(item.role, item.content, item.artifacts);
+    if (item.role === "assistant" && item.content && !/thinking/i.test(item.content)) {
+      const previousUser = messages.slice(0, index).reverse().find(message => message.role === "user");
+      appendAssistantActions(replyNode, item.content, previousUser?.content || "", activeMode);
+    }
+  });
   welcome.hidden = messages.length > 0;
 }
 
@@ -666,59 +736,7 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
       : data.source === "dream-model"
         ? "DREAM native model connected"
         : "Application online · native model not connected";
-    const tools = document.createElement("div");
-    tools.className = "message-tools";
-    const copy = document.createElement("button");
-    copy.type = "button";
-    copy.textContent = "Copy response";
-    copy.addEventListener("click", async () => {
-      try { await navigator.clipboard.writeText(data.reply); copy.textContent = "Copied"; }
-      catch { copy.textContent = "Copy unavailable"; }
-    });
-    const share = document.createElement("button");
-    share.type = "button";
-    share.textContent = "Contribute this exchange for DREAM training review";
-    share.title = "Optional: only this question and answer is submitted. It may train DREAM for free or paid services, but only after separate human rights, privacy, safety and quality review. Chat history and saved memory are not uploaded.";
-    share.addEventListener("click", async () => {
-      if (share.disabled) return;
-      share.disabled = true;
-      share.textContent = "Submitting…";
-      try {
-        const sourceGroupId = getLearningSessionGroupId();
-        const learningResponse = await fetch("/api/learning/examples", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            mode: requestMode,
-            prompt: content,
-            response: data.reply,
-            consentVersion: LEARNING_CONSENT_VERSION,
-            sourceGroupId
-          })
-        });
-        const learningData = await learningResponse.json();
-        if (!learningResponse.ok || learningData.accepted !== true) {
-          throw new Error(learningData.error || "Submission failed.");
-        }
-        share.textContent = learningData.status === "already-submitted"
-          ? "Already submitted"
-          : "Submitted for review ✓";
-        share.title = "Pending human review. This exchange is not automatically approved or used for training.";
-      } catch (error) {
-        share.disabled = false;
-        share.textContent = "Try sharing again";
-        statusText.textContent = error.message || "Could not submit this example.";
-      }
-    });
-    const contributionTerms = document.createElement("a");
-    contributionTerms.href = "/learning-data-terms.html";
-    contributionTerms.textContent = "Contribution terms";
-    contributionTerms.rel = "noopener";
-    const consentNote = document.createElement("small");
-    consentNote.className = "learning-consent-note";
-    consentNote.textContent = "Only this exchange is sent. It may be used to train DREAM for free or paid services, after separate human review.";
-    tools.append(copy, share, contributionTerms, consentNote);
-    replyNode.parentElement.append(tools);
+    appendAssistantActions(replyNode, data.reply, content, requestMode);
     messages.push({ role: "assistant", content: data.reply, ...(Array.isArray(data.artifacts) ? { artifacts: data.artifacts } : {}) });
     persistActiveChat();
     if (data.mode === "starter") {
