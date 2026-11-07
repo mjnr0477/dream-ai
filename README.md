@@ -13,7 +13,7 @@ DREAM has its own decoder-only transformer architecture, byte-tokenizer default,
 ## Current application
 
 - Responsive mobile-first chat workspace.
-- General, coding, learning and public-source Research modes. Research combines limited English Wikipedia excerpts with Crossref/OpenAlex publication metadata and source links; this is not general web browsing, full-text paper access or a trained model capability.
+- General, coding, learning and public-source Research modes. Stable factual chat can use limited English Wikipedia excerpts plus Crossref/OpenAlex publication metadata. Time-sensitive general-chat questions are routed to a best-effort Google News RSS search that supplies recent headlines, publishers and publication timestamps. This is not general web browsing, full-text paper access, a guaranteed breaking-news service or a live sports scoreboard.
 - Browser-local conversation history, export and copy.
 - Node API with bounded request validation, two-request model concurrency protection with retry guidance, and health status.
 - Provider-independent DREAM engine adapter.
@@ -136,7 +136,7 @@ Kaggle documents free P100 notebook accelerators, but GPU access can be limited 
 - `GET /api/health/live` is a fast process-only liveness probe and does not depend on model availability. It is suitable for the hosting platform health check.
 - `GET /api/health` reports application availability separately from model configuration and live native-checkpoint readiness. A ready runtime must identify as the native DREAM transformer and report positive completed training steps plus a 64-character checkpoint SHA-256. This is a runtime/provenance check, not a quality certification.
 - `GET /api/capabilities` returns a versioned, server-owned capability contract. It distinguishes implemented application features from tools that are not configured or not implemented; it never advertises disabled tools as ready. Tool execution is disabled by default and external actions require approval.
-- `POST /api/chat` — supported chat modes: `general`, `coding`, `learning`.
+- `POST /api/chat` — supported chat modes: `general`, `coding`, `learning`. General-mode stable factual queries can consult Wikipedia plus Crossref/OpenAlex metadata. General-mode time-sensitive news and sports questions use the recent-news search route; the result is capped at five dated headlines, carries exact Google News links, and is not a live match clock or official score feed. Weather, traffic, stock-price, exchange-rate and open-now queries are not served by this news feed and must not be guessed.
 - `POST /api/research` — a separate public-source search mode that returns up to five linked English Wikipedia results (with short article introductions when available) plus Crossref and OpenAlex bibliographic records. Scholarly records contain metadata only, not abstracts or full text, and do not verify study findings. Queries are limited to 200 characters, each upstream request times out after seven seconds, concurrency is capped at two, and no user-supplied URL is fetched. Automatic stable-fact chat can use the same evidence bundle; its context is limited to five sources and clearly labels metadata-only records. DREAM synthesis requires a connected native checkpoint and is instructed to cite only supplied URLs, distinguish uncertainty and treat retrieved text as untrusted data. This is limited retrieval, not general web search or live reporting.
 
 ## User-controlled memory
