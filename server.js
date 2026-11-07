@@ -295,7 +295,7 @@ async function handleChat(req, res) {
       try {
         // Research current public sources as well as stable reference material.
         // The evidence builder labels provider/date limits and never implies full web coverage.
-        const research = await runPublicKnowledgeSearch(
+        const research = await runPublicResearch(
           latestQuestion.trim().replace(/\s+/g, " ").slice(0, 200)
         );
         const prepared = buildResearchContext(research);
