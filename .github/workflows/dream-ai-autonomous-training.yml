@@ -29,7 +29,7 @@ jobs:
         run: python scripts/launch_dream_ai_kaggle.py --check
 
       - name: Install Kaggle CLI
-        run: python -m pip install --disable-pip-version-check 'kaggle>=1.7,<2'
+        run: python -m pip install --disable-pip-version-check 'kaggle>=2.2.5,<3'
 
       - name: Check readiness and launch a reviewed training cycle
         env:
