@@ -145,8 +145,9 @@ def launch() -> int:
             json.dumps(metadata, indent=2) + "\n", encoding="utf-8"
         )
 
-        # Kaggle Secrets cannot be configured by the CLI. Register the private
-        # kernel without executing it so the owner can attach HF_TOKEN first.
+        # The current Kaggle CLI runs a notebook when it is first pushed.
+        # Cell 1 checks HF_TOKEN before loading a model or starting training.
+        # The owner can add that Kaggle Secret after this first registration run.
         probe = subprocess.run(
             ["kaggle", "kernels", "status", kernel_id],
             text=True,
@@ -154,10 +155,14 @@ def launch() -> int:
             stderr=subprocess.STDOUT,
         )
         if probe.returncode != 0:
-            print("REGISTERING_PRIVATE_KERNEL_WITHOUT_RUNNING")
-            run(["kaggle", "kernels", "push", "--path", str(workdir), "--no-run"])
+            print("CREATING_PRIVATE_KAGGLE_KERNEL")
+            run([
+                "kaggle", "kernels", "push", "--path", str(workdir),
+                "--accelerator", "NvidiaTeslaT4", "--timeout", "3600",
+            ])
             print("ACTION_REQUIRED: open this Kaggle notebook and add Kaggle Secret HF_TOKEN.")
-            print("The next scheduled run can then launch training automatically.")
+            print("The initial run stops at the notebook token check if the secret is absent.")
+            print("Then rerun this GitHub workflow to start training.")
             return 0
 
         status = probe.stdout.strip()
