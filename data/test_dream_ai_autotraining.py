@@ -4,6 +4,7 @@ import hashlib
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 import uuid
 from pathlib import Path
 
@@ -138,7 +139,7 @@ class DreamAutoTrainingTests(unittest.TestCase):
             "base_model": auto_training.BASE_MODEL,
             "metrics": valid_metrics,
         }
-        with unittest.mock.patch.object(auto_training, "fetch_all", return_value=[row]):
+        with patch.object(auto_training, "fetch_all", return_value=[row]):
             self.assertEqual(
                 auto_training.latest_candidate_parent("https://example.supabase.co", "key"),
                 "candidates/" + candidate_id,
