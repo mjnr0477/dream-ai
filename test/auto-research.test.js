@@ -28,6 +28,7 @@ test("routes recent news and sports questions to the recent-news search, not sta
   assert.equal(isTimeSensitiveResearchIntent("What is the latest news on Manchester City's performance?"), true);
   assert.equal(isTimeSensitiveResearchIntent("What is the live score?"), false);
   assert.equal(isUnsupportedLiveDataIntent("What is the live score?"), true);
+  assert.equal(isUnsupportedLiveDataIntent("Show me live Manchester City scores."), true);
   assert.equal(isUnsupportedLiveDataIntent("What is the current weather?"), true);
   assert.equal(isUnsupportedLiveDataIntent("What is the USD exchange rate right now?"), true);
   assert.equal(isUnsupportedLiveDataIntent("Write me a story about the live score"), false);
