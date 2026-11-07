@@ -145,8 +145,15 @@ def sync_file(path: Path, base_url: str, key: str) -> dict:
             if row.get("content_sha256") != fingerprint:
                 raise ValueError(f"Content fingerprint mismatch at line {line_no}.")
             metadata = row.get("metadata")
+            if isinstance(metadata, str):
+                try:
+                    metadata = json.loads(metadata)
+                except json.JSONDecodeError as exc:
+                    raise ValueError(f"Stored metadata is invalid at line {line_no}.") from exc
             if not isinstance(metadata, dict):
-                metadata = {}
+                raise ValueError(f"Stored provenance metadata is missing at line {line_no}.")
+            if metadata.get("source_group_sha256") != item["source_group_sha256"]:
+                raise ValueError(f"Source-session fingerprint mismatch at line {line_no}.")
 
             if row.get("status") == "approved" and row.get("review_status") == "approved":
                 existing = metadata.get("review")
