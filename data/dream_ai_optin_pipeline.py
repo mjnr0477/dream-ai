@@ -332,6 +332,8 @@ def prepare_sft_splits(records, min_source_groups=4, min_validation_records=1):
     for group in group_order[validation_count:]:
         if validation_record_count >= min_validation_records:
             break
+        if len(validation_groups) >= len(group_order) - 1:
+            break
         validation_groups.add(group)
         validation_record_count += group_record_counts[group]
     if validation_record_count < min_validation_records:
