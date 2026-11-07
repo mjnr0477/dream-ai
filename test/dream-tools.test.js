@@ -169,7 +169,11 @@ test("research orchestration combines encyclopedia excerpts with scholarly metad
   assert.equal(result.results.length, 1);
   assert.equal(result.scholarlyResearch.results.length, 1);
   assert.equal(result.scholarlyResearch.results[0].provider, "Crossref");
-  assert.deepEqual(result.providerAvailability, { encyclopedia: "available", scholarly: "available" });
+  assert.deepEqual(result.providerAvailability, {
+    encyclopedia: "available",
+    globalPublicSources: "available",
+    scholarly: "available"
+  });
 });
 
 test("automatic chat research can use the audited encyclopedia tool without scholarly provider calls", async () => {
