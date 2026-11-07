@@ -7,7 +7,7 @@ import { generateDreamReply, getDreamRuntimeStatus, isDreamEngineConfigured } fr
 import { parseCodeArtifactsIfPresent } from "./lib/code-artifacts.js";
 import { getDreamCapabilities } from "./lib/capabilities.js";
 import { runPublicLiveNewsSearch, runPublicResearch } from "./lib/dream-tools.js";
-import { shouldAutoResearch, buildResearchContext, isTimeSensitiveResearchIntent, buildLiveNewsContext } from "./lib/auto-research.js";
+import { shouldAutoResearch, buildResearchContext, isTimeSensitiveResearchIntent, isUnsupportedLiveDataIntent, buildLiveNewsContext } from "./lib/auto-research.js";
 import { ClientConcurrencyLimiter } from "./lib/client-limiter.js";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
@@ -291,6 +291,14 @@ async function handleChat(req, res) {
     let researchContext = "";
     let automaticResearch = null;
     const latestQuestion = messages.at(-1).content;
+    if (isUnsupportedLiveDataIntent(latestQuestion, mode)) {
+      return json(res, 200, {
+        reply: "I can't verify that live value yet. DREAM AI does not currently have a dedicated live-data feed for live match scores, weather, exchange rates, market prices, traffic or opening status. Recent news headlines cannot confirm those live values, so I won't guess.",
+        mode,
+        source: "live-data-unavailable",
+        autoResearch: { sourceCount: 0, sources: [], kind: "live-data-unavailable" }
+      });
+    }
     const needsRecentNews = isTimeSensitiveResearchIntent(latestQuestion, mode);
     const needsReferenceResearch = shouldAutoResearch(latestQuestion, mode);
     if (isDreamEngineConfigured(process.env) && (needsRecentNews || needsReferenceResearch)) {
@@ -315,6 +323,14 @@ async function handleChat(req, res) {
         // The DREAM prompt explicitly forbids guessing when current evidence is absent.
         console.info("DREAM automatic research unavailable:", error.message);
       }
+    }
+    if (needsRecentNews && !automaticResearch) {
+      return json(res, 200, {
+        reply: "I couldn't retrieve recent news sources for that question right now, so I can't verify the latest developments. I won't fall back to old training knowledge or guess. Please try again shortly.",
+        mode,
+        source: "recent-news-unavailable",
+        autoResearch: { sourceCount: 0, sources: [], kind: "recent-news-unavailable" }
+      });
     }
     const result = await generateDreamReply(
       messages, mode, process.env, memoryContext, researchContext
