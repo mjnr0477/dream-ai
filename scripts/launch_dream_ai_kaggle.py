@@ -1,0 +1,186 @@
+#!/usr/bin/env python3
+"""Safely launch DREAM AI's reviewed Kaggle adapter-training notebook."""
+from __future__ import annotations
+
+import argparse
+import csv
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+NOTEBOOK = ROOT / "training" / "dream_ai_adapter_self_train_kaggle.ipynb"
+REQUIRED_FILES = ("train.jsonl", "validation.jsonl", "manifest.json", "audit-gate.json")
+KERNEL_SLUG = "dream-ai-autonomous-adapter-training"
+
+
+def validate_dataset_id(value: str) -> str:
+    value = value.strip()
+    if not re.fullmatch(r"[A-Za-z0-9_-]+/[A-Za-z0-9_-]+", value):
+        raise ValueError("DREAM_AI_KAGGLE_DATASET must be in owner/dataset-slug form.")
+    return value
+
+
+def missing_required_files(csv_text: str) -> list[str]:
+    rows = list(csv.DictReader(csv_text.splitlines()))
+    if not rows:
+        raise ValueError("Kaggle returned no dataset file rows.")
+    names = []
+    for row in rows:
+        name = next((row[key] for key in ("name", "Name", "fileName", "filename") if row.get(key)), None)
+        if name:
+            names.append(Path(name).name)
+    duplicates = [name for name in REQUIRED_FILES if names.count(name) > 1]
+    if duplicates:
+        raise ValueError("Dataset has duplicate required basenames: " + ", ".join(duplicates))
+    return [name for name in REQUIRED_FILES if names.count(name) != 1]
+
+
+def build_kernel_metadata(username: str, dataset_id: str) -> dict:
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", username.strip()):
+        raise ValueError("KAGGLE_USERNAME is missing or invalid.")
+    return {
+        "id": f"{username.strip()}/{KERNEL_SLUG}",
+        "title": "DREAM AI Autonomous Adapter Training",
+        "code_file": "dream_ai_adapter_self_train_kaggle.ipynb",
+        "language": "python",
+        "kernel_type": "notebook",
+        "is_private": "true",
+        "enable_gpu": "true",
+        "enable_internet": "true",
+        "dataset_sources": [validate_dataset_id(dataset_id)],
+        "competition_sources": [],
+        "kernel_sources": [],
+        "model_sources": [],
+    }
+
+
+def configure_kaggle_credentials(username: str, key: str) -> None:
+    if not username.strip() or not key.strip():
+        raise ValueError("KAGGLE_USERNAME and KAGGLE_KEY GitHub Actions secrets are required.")
+    config_dir = Path(os.environ.get("KAGGLE_CONFIG_DIR", Path.home() / ".kaggle"))
+    config_dir.mkdir(parents=True, exist_ok=True)
+    credentials = config_dir / "kaggle.json"
+    credentials.write_text(
+        json.dumps({"username": username.strip(), "key": key.strip()}), encoding="utf-8"
+    )
+    credentials.chmod(0o600)
+    os.environ["KAGGLE_CONFIG_DIR"] = str(config_dir)
+
+
+def run(command: list[str], *, capture: bool = False) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        command,
+        check=True,
+        text=True,
+        stdout=subprocess.PIPE if capture else None,
+        stderr=subprocess.PIPE if capture else None,
+    )
+
+
+def launch() -> int:
+    username = os.environ.get("KAGGLE_USERNAME", "").strip()
+    key = os.environ.get("KAGGLE_KEY", "").strip()
+    dataset_id = os.environ.get("DREAM_AI_KAGGLE_DATASET", "").strip()
+    if not username or not key or not dataset_id:
+        missing = [
+            name for name, value in (
+                ("KAGGLE_USERNAME", username),
+                ("KAGGLE_KEY", key),
+                ("DREAM_AI_KAGGLE_DATASET", dataset_id),
+            ) if not value
+        ]
+        print("WAITING_FOR_SETUP: missing " + ", ".join(missing))
+        print("No training was started and no model files were changed.")
+        return 0
+
+    if not NOTEBOOK.is_file():
+        raise FileNotFoundError(f"Training notebook not found: {NOTEBOOK}")
+    configure_kaggle_credentials(username, key)
+    dataset_id = validate_dataset_id(dataset_id)
+
+    listing = run(
+        ["kaggle", "datasets", "files", dataset_id, "--csv", "--page-size", "200"],
+        capture=True,
+    )
+    missing = missing_required_files(listing.stdout)
+    if missing:
+        raise RuntimeError("Dataset must contain exactly one copy of: " + ", ".join(missing))
+
+    metadata = build_kernel_metadata(username, dataset_id)
+    kernel_id = metadata["id"]
+    with tempfile.TemporaryDirectory(prefix="dream-ai-kaggle-") as temp:
+        workdir = Path(temp)
+        notebook_name = "dream_ai_adapter_self_train_kaggle.ipynb"
+        (workdir / notebook_name).write_bytes(NOTEBOOK.read_bytes())
+        (workdir / "kernel-metadata.json").write_text(
+            json.dumps(metadata, indent=2) + "\n", encoding="utf-8"
+        )
+
+        # Kaggle Secrets cannot be configured by the CLI. Register the private
+        # kernel without executing it so the owner can attach HF_TOKEN first.
+        probe = subprocess.run(
+            ["kaggle", "kernels", "status", kernel_id],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        if probe.returncode != 0:
+            print("REGISTERING_PRIVATE_KERNEL_WITHOUT_RUNNING")
+            run(["kaggle", "kernels", "push", "--path", str(workdir), "--no-run"])
+            print("ACTION_REQUIRED: open this Kaggle notebook and add Kaggle Secret HF_TOKEN.")
+            print("The next scheduled run can then launch training automatically.")
+            return 0
+
+        status = probe.stdout.strip()
+        print("KAGGLE_KERNEL_STATUS:", status)
+        if re.search(r"running|queued|initializing", status, flags=re.IGNORECASE):
+            print("SKIPPED: this Kaggle kernel is already active.")
+            return 0
+
+        print("DATASET_PREFLIGHT: PASSED")
+        print("KERNEL:", kernel_id)
+        print("DATASET:", dataset_id)
+        print("PRODUCTION_ADAPTER: protected; notebook uploads candidates only")
+        run([
+            "kaggle", "kernels", "push", "--path", str(workdir),
+            "--accelerator", "NvidiaTeslaT4", "--timeout", "3600",
+        ])
+        print("KAGGLE_TRAINING_LAUNCH: SUBMITTED")
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--check", action="store_true", help="test helper logic without Kaggle credentials")
+    args = parser.parse_args()
+    if args.check:
+        metadata = build_kernel_metadata("test-user", "test-user/test-dataset")
+        assert metadata["is_private"] == "true"
+        assert metadata["dataset_sources"] == ["test-user/test-dataset"]
+        sample = (
+            "name,size\ntrain.jsonl,10\nvalidation.jsonl,10\n"
+            "manifest.json,10\naudit-gate.json,10\n"
+        )
+        assert missing_required_files(sample) == []
+        try:
+            validate_dataset_id("not-a-dataset-id")
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("invalid dataset id was accepted")
+        print("LAUNCHER SELF-CHECK: PASSED")
+        return 0
+    try:
+        return launch()
+    except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as exc:
+        print(f"AUTONOMOUS_LAUNCH_BLOCKED: {exc}", file=sys.stderr)
+        return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
