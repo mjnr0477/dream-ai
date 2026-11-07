@@ -744,13 +744,17 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
     if (!response.ok) throw new Error(data.error || "The request failed.");
     renderAssistantContent(replyNode, data.reply, data.artifacts);
     appendAutoResearchSources(replyNode, data.autoResearch);
-    statusText.textContent = data.autoResearch?.sourceCount
-      ? data.autoResearch.kind === "recent-news"
-        ? `Recent news checked · ${data.autoResearch.sourceCount} sources consulted`
-        : `${data.source === "dream-model" ? "Native model connected" : "Application online"} · consulted ${data.autoResearch.sourceCount} public sources`
-      : data.source === "dream-model"
-        ? "DREAM native model connected"
-        : "Application online · native model not connected";
+    statusText.textContent = data.source === "live-data-unavailable"
+      ? "Live-data feed not connected"
+      : data.source === "recent-news-unavailable"
+        ? "Recent news source unavailable · retry"
+        : data.autoResearch?.sourceCount
+          ? data.autoResearch.kind === "recent-news"
+            ? `Recent news checked · ${data.autoResearch.sourceCount} sources consulted`
+            : `${data.source === "dream-model" ? "Native model connected" : "Application online"} · consulted ${data.autoResearch.sourceCount} public sources`
+          : data.source === "dream-model"
+            ? "DREAM native model connected"
+            : "Application online · native model not connected";
     appendAssistantActions(replyNode, data.reply, content, requestMode);
     messages.push({ role: "assistant", content: data.reply, ...(Array.isArray(data.artifacts) ? { artifacts: data.artifacts } : {}) });
     persistActiveChat();
