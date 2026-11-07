@@ -493,6 +493,51 @@ class DreamSFTTests(unittest.TestCase):
         )
         self.assertEqual(valid_eval.returncode, 0, valid_eval.stdout + valid_eval.stderr)
 
+    def test_sft_time_budget_saves_checkpoint_and_resume_continues(self):
+        train_path = self.root / "timeboxed-train.jsonl"
+        val_path = self.root / "timeboxed-validation.jsonl"
+        self.write_records(train_path, "timeboxed-train")
+        self.write_records(val_path, "timeboxed-validation")
+        output = self.root / "dream-timeboxed-instruct.pt"
+
+        first = run_with_sft_gate([
+            sys.executable, str(SCRIPT),
+            "--checkpoint", str(self.base),
+            "--train-data", str(train_path),
+            "--validation-data", str(val_path),
+            "--pretraining-manifest", str(self.manifest),
+            "--pretraining-test-data", str(self.test_data),
+            "--out", str(output),
+            "--steps", "5", "--max-seconds", "0.000001",
+            "--batch-size", "2", "--grad-accum-steps", "1",
+            "--eval-every", "100", "--eval-batches", "1",
+            "--checkpoint-every", "100"
+        ], capture_output=True, text=True, timeout=120)
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        saved = torch.load(output, map_location="cpu", weights_only=True)
+        self.assertEqual(saved["sft_training"]["completed_steps"], 1)
+        self.assertEqual(saved["sft_training"]["stop_reason"], "time_budget")
+        self.assertAlmostEqual(saved["sft_training"]["max_seconds"], 0.000001)
+
+        resumed = run_with_sft_gate([
+            sys.executable, str(SCRIPT),
+            "--checkpoint", str(self.base),
+            "--train-data", str(train_path),
+            "--validation-data", str(val_path),
+            "--pretraining-manifest", str(self.manifest),
+            "--pretraining-test-data", str(self.test_data),
+            "--out", str(output),
+            "--steps", "1",
+            "--batch-size", "2", "--grad-accum-steps", "1",
+            "--eval-every", "100", "--eval-batches", "1",
+            "--checkpoint-every", "100",
+            "--resume", str(output)
+        ], capture_output=True, text=True, timeout=120)
+        self.assertEqual(resumed.returncode, 0, resumed.stdout + resumed.stderr)
+        saved = torch.load(output, map_location="cpu", weights_only=True)
+        self.assertEqual(saved["sft_training"]["completed_steps"], 2)
+        self.assertEqual(saved["sft_training"]["stop_reason"], "step_limit")
+
     def test_rejects_overlapping_source_groups(self):
         train_path = self.root / "train.jsonl"
         val_path = self.root / "validation.jsonl"
