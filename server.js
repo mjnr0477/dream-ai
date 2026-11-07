@@ -293,7 +293,7 @@ async function handleChat(req, res) {
     const latestQuestion = messages.at(-1).content;
     if (isUnsupportedLiveDataIntent(latestQuestion, mode)) {
       return json(res, 200, {
-        reply: "I can't verify that live value yet. DREAM AI does not currently have a dedicated live-data feed for live match scores, weather, exchange rates, market prices, traffic or opening status. Recent news headlines cannot confirm those live values, so I won't guess.",
+        reply: "I can't verify that live value yet. DREAM AI does not currently have a dedicated live-data feed for live match scores, fixtures, lineups, standings, weather, exchange rates, market prices, traffic or opening status. Recent news headlines cannot confirm those live values, so I won't guess.",
         mode,
         source: "live-data-unavailable",
         autoResearch: { sourceCount: 0, sources: [], kind: "live-data-unavailable" }
