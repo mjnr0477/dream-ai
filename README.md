@@ -34,12 +34,13 @@ The report includes deterministic exact-match results by category and language, 
 
 ## Native DREAM model
 
-See [model/BASELINE.md](model/BASELINE.md) for the architecture, commands and release gates. For free-tier training, use the [DREAM from-scratch Colab notebook](https://colab.research.google.com/github/mjnr0477/dream-ai/blob/main/training/dream_train_colab.ipynb) or the [Kaggle training notebook](https://github.com/mjnr0477/dream-ai/blob/main/training/dream_train_kaggle.ipynb). Both require a real, reviewed corpus; GPU access is not guaranteed. Download the checkpoint and evaluation report before the session ends.
+See [model/BASELINE.md](model/BASELINE.md) for the architecture, commands and release gates. For free-tier training, use the [DREAM from-scratch Colab notebook](https://colab.research.google.com/github/mjnr0477/dream-ai/blob/main/training/dream_train_colab.ipynb) or the [Kaggle training notebook](https://github.com/mjnr0477/dream-ai/blob/main/training/dream_train_kaggle.ipynb). Both require a real, reviewed corpus; GPU access is not guaranteed. The daily notebook budget is up to 240 seconds of pretraining plus up to 60 seconds of SFT when eligible reviewed SFT data exists. Colab persists checkpoints in Google Drive. Kaggle sessions are temporary: keep the output bundle private and attach the previous `dream-training-artifacts.zip` as an input on the next session to resume.
 
 - `model/dream_transformer.py`: DREAM's own transformer blocks, causal attention, embeddings, UTF-8 byte tokenizer, inference-time key/value caching when the sequence fits the context window, and UTF-8-constrained output-byte sampling.
 - `model/dream_bpe.py`: deterministic byte-fallback BPE tokenizer, integrated with native pretraining, SFT, checkpoint auditing, evaluation, generation and serving. Existing byte-tokenizer checkpoints remain supported.
 - `model/benchmark_multilingual_tokenizer.py`: measures BPE token efficiency per language on held-out UTF-8 text, checks train/test text overlap and verifies exact Unicode round trips. This measures compression only, not language understanding.
-- `model/train.py`: requires a verified `dream-corpus-v1` manifest binding the exact train/validation/test text files to their text-free license provenance sidecars; arbitrary text files cannot be passed directly. It trains from random initialization and optionally uses activation checkpointing to reduce GPU memory at the cost of extra recomputation; the setting is recorded and enforced on resume.
+- `model/train.py`: requires a verified `dream-corpus-v1` manifest binding the exact train/validation/test text files to their text-free license provenance sidecars; arbitrary text files cannot be passed directly. It trains from random initialization and optionally uses activation checkpointing to reduce GPU memory at the cost of extra recomputation; the setting is recorded and enforced on resume. `--max-seconds 240` stops at a completed optimizer step, evaluates and atomically saves the resumable model, optimizer and RNG state; a later run can resume the same checkpoint. `0` disables the time limit.
+- `model/sft.py`: applies the same resumable `--max-seconds` limit to assistant-only instruction tuning while still requiring the exact hash-bound SFT privacy audit gate and disjoint source-group splits.
 - `model/evaluate.py`: reconstructs the checkpoint tokenizer and reports held-out cross-entropy per token and per represented UTF-8 byte, bits-per-byte, perplexity-per-byte, corpus/checkpoint hashes and a sample generation.
 - `model/evaluate_multilingual.py`: verifies manifest hashes, source-group isolation and declared per-language train/validation/test coverage, then evaluates each language-specific held-out test file independently for pretrained or SFT checkpoints. Reports whether each language has at least three independent source groups and coverage in all three splits; legacy manifests are explicitly marked as lacking this evidence. No pooled score is emitted.
 - `model/generate.py`: local checkpoint inference.
@@ -62,7 +63,7 @@ Install and run the model locally:
 python -m pip install -r model/requirements.txt
 python -m unittest discover -s model -p 'test_*.py'
 python model/prepare_corpus.py --input data/approved-records.jsonl
-python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --corpus-manifest data/prepared/manifest.json --steps 2000 --eval-batches 10 --batch-size 4 --grad-accum-steps 8 --gradient-checkpointing
+python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --corpus-manifest data/prepared/manifest.json --steps 2000 --max-seconds 240 --eval-batches 10 --batch-size 4 --grad-accum-steps 8 --gradient-checkpointing
 # Resume an interrupted run from its latest atomic checkpoint:
 python model/train.py --data data/prepared/train.txt --validation-data data/prepared/validation.txt --corpus-manifest data/prepared/manifest.json --steps 2000 --resume checkpoints/dream-small.pt
 python model/audit_checkpoint.py --checkpoint checkpoints/dream-small.pt --out eval-results/checkpoint-audit.json
@@ -70,7 +71,7 @@ python model/evaluate.py --checkpoint checkpoints/dream-small.pt --data data/pre
 # Report held-out metrics separately for every language in the corpus manifest:
 python model/evaluate_multilingual.py --checkpoint checkpoints/dream-small.pt --manifest data/prepared/manifest.json --out eval-results/dream-multilingual.json
 # Then instruction-tune on separate, reviewed conversation JSONL files:
-python model/sft.py --checkpoint checkpoints/dream-small.pt --train-data data/sft-train.jsonl --validation-data data/sft-validation.jsonl --sft-audit-gate eval-results/sft-audit-gate.json --pretraining-manifest data/prepared/manifest.json --pretraining-test-data data/prepared/test.txt --steps 1000 --batch-size 2 --grad-accum-steps 4 --out checkpoints/dream-instruct.pt
+python model/sft.py --checkpoint checkpoints/dream-small.pt --train-data data/sft-train.jsonl --validation-data data/sft-validation.jsonl --sft-audit-gate eval-results/sft-audit-gate.json --pretraining-manifest data/prepared/manifest.json --pretraining-test-data data/prepared/test.txt --steps 1000 --max-seconds 60 --batch-size 2 --grad-accum-steps 4 --out checkpoints/dream-instruct.pt
 python model/generate.py --checkpoint checkpoints/dream-small.pt --prompt "USER: Hello DREAM.\nASSISTANT:"
 ```
 
