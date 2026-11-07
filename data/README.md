@@ -49,6 +49,14 @@ Use `docs/dream-ai-optin-sft-workflow.md` for the exact sequence: private export
 
 Do not export Dream Education learner tables or expose any of the Dream AI training tables to anonymous/authenticated API roles. A contribution click is not training approval. Do not upload raw database exports, service-role keys or secrets to Kaggle.
 
+## DREAM hosted-adapter continuation sessions
+
+The public chat runtime's current adapter is distinct from the native from-scratch DREAM transformer. The optional Kaggle notebook `training/dream_ai_adapter_self_train_kaggle.ipynb` continues only the LoRA adapter on the existing `Qwen/Qwen3-1.7B` base; it does not train that foundation model and does not replace the independent native DREAM research model.
+
+Each adapter session limits optimizer training to four minutes. After validation loss passes its non-regression gate, it saves a private continuation bundle under `training-progress/<dataset-hash>-<audit-hash>-<parent-adapter-hash>/` in the private Hugging Face adapter repository. The bundle carries adapter weights, optimizer state and PyTorch CPU/GPU RNG state. A later run resumes only when the exact reviewed dataset, audit gate and parent adapter hashes match. Changing any of those identities creates a different continuation path; the trainer will not silently mix datasets or parent versions.
+
+The human-reviewed candidate is uploaded separately to `candidates/<candidate-id>/`. Neither the continuation bundle nor the candidate modifies the active adapter files at the repository root. Production promotion remains a separate human release decision after reviewing task-level outputs, factuality, reasoning, coding, language quality, privacy and safety. Model loading, evaluation and upload time are additional to the four-minute optimizer budget; this is not an always-running GPU service.
+
 ## FineWeb2 multilingual candidate import
 
 The official [HuggingFaceFW/FineWeb-2 dataset card](https://huggingface.co/datasets/HuggingFaceFW/fineweb-2) describes a multilingual Common Crawl-derived collection, its ODC-By 1.0 collection license, source metadata and known limitations. The dataset is very large; do not attempt to download the full corpus to a phone or a small free service. Start with a small, language-balanced local export.
