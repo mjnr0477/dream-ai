@@ -552,7 +552,7 @@ async function sendResearch(text, isRetry = false) {
   input.style.height = "auto";
   send.disabled = true;
   send.textContent = "…";
-  const replyNode = addMessage("assistant", "Searching public knowledge…");
+  const replyNode = addMessage("assistant", "Searching global public sources…");
   try {
     const response = await fetch("/api/research", {
       method: "POST",
