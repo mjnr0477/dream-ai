@@ -15,6 +15,8 @@ test("creator identity is included in every system prompt", () => {
     assert.match(prompt, /Creator: Mathias Simiyu/);
     assert.match(prompt, /I am DREAM AI, an independent AI project created by Mathias Simiyu/);
     assert.match(prompt, /Do not confuse DREAM AI with the separate projects/);
+    assert.match(prompt, /fresh retrieved evidence/);
+    assert.match(prompt, /private dossiers/);
   }
 });
 
