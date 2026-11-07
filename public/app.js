@@ -123,7 +123,7 @@ function appendAutoResearchSources(container, autoResearch) {
   const sources = Array.isArray(autoResearch?.sources) ? autoResearch.sources.slice(0, 5) : [];
   const allowedHosts = new Set([
     "en.wikipedia.org", "doi.org", "openalex.org",
-    "www.ncbi.nlm.nih.gov", "arxiv.org"
+    "www.ncbi.nlm.nih.gov", "arxiv.org", "news.google.com"
   ]);
   const safeSources = sources.filter(source => {
     if (!source || typeof source.title !== "string" || typeof source.url !== "string") return false;
@@ -148,7 +148,9 @@ function appendAutoResearchSources(container, autoResearch) {
     link.rel = "noopener noreferrer";
     link.textContent = source.kind === "scholarly-metadata"
       ? `${source.provider || "Scholarly record"} · ${source.title}`
-      : `${source.title} · Wikipedia`;
+      : source.kind === "news"
+        ? `${source.publisher || "Recent news"} · ${source.title}`
+        : `${source.title} · Wikipedia`;
     list.append(link);
   }
   panel.append(heading, list);
@@ -743,7 +745,9 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
     renderAssistantContent(replyNode, data.reply, data.artifacts);
     appendAutoResearchSources(replyNode, data.autoResearch);
     statusText.textContent = data.autoResearch?.sourceCount
-      ? `${data.source === "dream-model" ? "Native model connected" : "Application online"} · consulted ${data.autoResearch.sourceCount} public sources`
+      ? data.autoResearch.kind === "recent-news"
+        ? `Recent news checked · ${data.autoResearch.sourceCount} sources consulted`
+        : `${data.source === "dream-model" ? "Native model connected" : "Application online"} · consulted ${data.autoResearch.sourceCount} public sources`
       : data.source === "dream-model"
         ? "DREAM native model connected"
         : "Application online · native model not connected";
