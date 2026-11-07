@@ -13,6 +13,7 @@ sys.path.insert(0, str(ROOT / "model"))
 sys.path.insert(0, str(ROOT / "scripts"))
 
 from dream_ai_optin_pipeline import export_optin_rows, prepare_sft_splits
+import prepare_dream_ai_autotraining as auto_training
 from prepare_dream_ai_autotraining import eligible_rows
 from audit_corpus import audit
 from verify_dream_ai_sft_audits import verify_audit_reports
@@ -120,6 +121,49 @@ class DreamAutoTrainingTests(unittest.TestCase):
         self.assertTrue(gate["passed"])
         self.assertEqual(gate["splits"]["train"]["error_count"], 0)
         self.assertEqual(gate["splits"]["validation"]["error_count"], 0)
+
+    def test_next_cycle_uses_latest_validated_candidate_as_parent(self):
+        candidate_id = "20261107T120000Z-abcdef123456"
+        valid_metrics = {
+            "audit_gate_passed": True,
+            "baseline_validation_loss": 1.0,
+            "candidate_validation_loss": 0.99,
+        }
+        row = {
+            "model_name": candidate_id,
+            "artifact_uri": (
+                "https://huggingface.co/msjnr0477/dream-ai-adapter/tree/main/"
+                "candidates/" + candidate_id
+            ),
+            "base_model": auto_training.BASE_MODEL,
+            "metrics": valid_metrics,
+        }
+        with unittest.mock.patch.object(auto_training, "fetch_all", return_value=[row]):
+            self.assertEqual(
+                auto_training.latest_candidate_parent("https://example.supabase.co", "key"),
+                "candidates/" + candidate_id,
+            )
+
+    def test_rejects_candidate_with_validation_regression_as_training_parent(self):
+        candidate_id = "20261107T120000Z-abcdef123456"
+        row = {
+            "model_name": candidate_id,
+            "artifact_uri": (
+                "https://huggingface.co/msjnr0477/dream-ai-adapter/tree/main/"
+                "candidates/" + candidate_id
+            ),
+            "base_model": auto_training.BASE_MODEL,
+            "metrics": {
+                "audit_gate_passed": True,
+                "baseline_validation_loss": 1.0,
+                "candidate_validation_loss": 1.2,
+            },
+        }
+        with unittest.mock.patch.object(auto_training, "fetch_all", return_value=[row]):
+            self.assertEqual(
+                auto_training.latest_candidate_parent("https://example.supabase.co", "key"),
+                "",
+            )
 
     def test_pending_and_unconsented_rows_are_not_exported_for_training(self):
         rows = fake_rows()
