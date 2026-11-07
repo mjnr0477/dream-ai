@@ -88,7 +88,7 @@ Only use a **private** Kaggle Dataset for approved training records. Never uploa
 
 ## Current state and non-claims
 
-The previously submitted v1 contribution remains pending and is not eligible for this exporter. The pipeline does not train from a single opt-in. No production-trained DREAM checkpoint or automatic self-training job is claimed by this workflow.
+Legacy v1 and v2 contributions remain pending and are not eligible for this exporter. The pipeline does not train from a single opt-in. No production-trained native DREAM checkpoint or always-running automatic training service is claimed by this workflow.
 
 
 ## 6. Continue-training the currently hosted DREAM adapter
@@ -110,4 +110,4 @@ The notebook continues training only the LoRA weights, compares validation loss 
 
 **Promotion is a separate release decision.** Review the before/after task responses for factuality, reasoning, coding, language quality, privacy and safety; run broader evaluations; then deliberately promote a passing candidate. Lower validation loss alone is not proof of improved reasoning or general intelligence.
 
-Kaggle GPU sessions are manually started and temporary. This creates a repeatable, gated self-improvement cycle, not an always-running autonomous training service. The two pending examples currently recorded in the learning store are not approved and are far below the notebook's minimum training threshold.
+Kaggle GPU sessions are manually started and temporary. This creates a repeatable, gated self-improvement cycle, not an always-running autonomous training service. Pending examples currently recorded in the learning store are not approved and do not count toward the notebook's minimum training threshold.
