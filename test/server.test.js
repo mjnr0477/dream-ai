@@ -207,6 +207,16 @@ test("learning contribution keeps legacy v1 clients compatible but accepts valid
   assert.equal(legacyV1.status, 503);
 });
 
+
+test("Deep Research marks unsupported live scores instead of using static research", async () => {
+  const response = await postResearch({ query: "What is the live score right now?" });
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.equal(data.unsupportedLiveData, true);
+  assert.deepEqual(data.results, []);
+  assert.match(data.provider, /DREAM AI/);
+});
+
 test("research endpoint rejects malformed and oversized queries before upstream access", async () => {
   for (const payload of [
     { query: "" },
