@@ -57,11 +57,18 @@ test("optional Brave web search is used only with a server-side key", async () =
     "www.wikidata.org": { search: [] },
     "api.gdeltproject.org": { articles: [] },
     "api.search.brave.com": {
-      web: { results: [{
+      grounding: { generic: [{
         title: "Useful public page",
-        description: "A page found by a public web index.",
+        snippets: ["A first extracted page passage.", "A second relevant passage."],
         url: "https://example.org/reference"
-      }] }
+      }] },
+      sources: {
+        "https://example.org/reference": {
+          hostname: "example.org",
+          age: ["Sunday, November 8, 2026", "2026-11-08", "today", "2026-11-08T10:00:00Z"],
+          fetched_content_timestamp: 1794132000
+        }
+      }
     }
   }, calls);
   const result = await searchGlobalPublicSources(
@@ -72,6 +79,9 @@ test("optional Brave web search is used only with a server-side key", async () =
   assert.equal(result.webResults.length, 1);
   const braveCall = calls.find(call => call.url.hostname === "api.search.brave.com");
   assert.equal(braveCall.options.headers["X-Subscription-Token"], "test-only-secret");
+  assert.equal(braveCall.url.pathname, "/res/v1/llm/context");
+  assert.ok(result.webResults[0].snippet.includes("A first extracted page passage."));
+  assert.equal(result.webResults[0].sourceType, "extracted-web-page-context");
   assert.equal(result.providers.find(p => p.provider === "Brave Search").status, "ok");
 });
 
