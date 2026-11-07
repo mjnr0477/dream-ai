@@ -278,12 +278,14 @@ def _validate_sft_record(record, line_number):
     return canonical
 
 
-def prepare_sft_splits(records, min_source_groups=4):
+def prepare_sft_splits(records, min_source_groups=4, min_validation_records=1):
     """Validate approved SFT records and create deterministic group-isolated splits."""
     if not isinstance(records, (list, tuple)):
         raise TypeError("records must be a list or tuple")
     if not isinstance(min_source_groups, int) or isinstance(min_source_groups, bool) or min_source_groups < 2:
         raise ValueError("min_source_groups must be an integer greater than or equal to 2")
+    if not isinstance(min_validation_records, int) or isinstance(min_validation_records, bool) or min_validation_records < 1:
+        raise ValueError("min_validation_records must be an integer greater than or equal to 1")
 
     seen_ids = set()
     seen_dialogues = set()
@@ -322,6 +324,24 @@ def prepare_sft_splits(records, min_source_groups=4):
     validation_count = max(1, round(len(group_order) * 0.2))
     validation_count = min(validation_count, len(group_order) - 1)
     validation_groups = set(group_order[:validation_count])
+
+    # Keep the held-out split large enough for the downstream trainer without
+    # ever splitting an individual session group across train and validation.
+    group_record_counts = Counter(row["source_group"] for row in normalized_records)
+    validation_record_count = sum(group_record_counts[group] for group in validation_groups)
+    for group in group_order[validation_count:]:
+        if validation_record_count >= min_validation_records:
+            break
+        if len(validation_groups) >= len(group_order) - 1:
+            break
+        validation_groups.add(group)
+        validation_record_count += group_record_counts[group]
+    if validation_record_count < min_validation_records:
+        raise ValueError(
+            f"at least {min_validation_records} validation records are required while "
+            f"keeping at least one source group for training; maximum available is "
+            f"{validation_record_count}"
+        )
 
     train = sorted(
         (row for row in normalized_records if row["source_group"] not in validation_groups),
@@ -379,7 +399,8 @@ def prepare_sft_splits(records, min_source_groups=4):
         "records": len(normalized_records),
         "source_groups": len(groups),
         "minimum_source_groups": min_source_groups,
-        "split_strategy": "deterministic 80/20 source-group holdout; source groups never cross splits",
+        "minimum_validation_records": min_validation_records,
+        "split_strategy": "deterministic 80/20 source-group holdout with whole-group additions to meet the validation floor; source groups never cross splits",
         "language_split_coverage": coverage,
         "splits": {
             "train": split_meta(train, train_bytes),

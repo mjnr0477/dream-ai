@@ -12,6 +12,7 @@ def main():
     parser.add_argument("--input", required=True, help="Human-approved SFT JSONL from review_candidates.py")
     parser.add_argument("--output-dir", default="data/dream-ai-sft-prepared")
     parser.add_argument("--min-source-groups", type=int, default=8)
+    parser.add_argument("--min-validation-records", type=int, default=4)
     parser.add_argument("--overwrite", action="store_true", help="Replace existing files in output-dir")
     args = parser.parse_args()
 
@@ -24,7 +25,9 @@ def main():
 
     records = read_jsonl(source)
     train, validation, manifest = prepare_sft_splits(
-        records, min_source_groups=args.min_source_groups
+        records,
+        min_source_groups=args.min_source_groups,
+        min_validation_records=args.min_validation_records,
     )
     write_jsonl(targets[0], train)
     write_jsonl(targets[1], validation)
@@ -37,6 +40,7 @@ def main():
         "source_groups": manifest["source_groups"],
         "train_records": len(train),
         "validation_records": len(validation),
+        "minimum_validation_records": manifest["minimum_validation_records"],
         "dataset_sha256": manifest["dataset_sha256"],
         "output_dir": str(output_dir)
     }, indent=2))
