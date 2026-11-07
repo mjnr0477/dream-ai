@@ -9,10 +9,10 @@ test("automatically researches stable factual questions in normal chat", () => {
   assert.equal(shouldAutoResearch("Manchester City team"), true);
 });
 
-test("does not use static research sources for live or time-sensitive questions", () => {
-  assert.equal(shouldAutoResearch("What are the latest Manchester City results?"), false);
-  assert.equal(shouldAutoResearch("What is the score today?"), false);
-  assert.equal(shouldAutoResearch("Who is leading the league right now?"), false);
+test("routes current and time-sensitive questions to fresh public-source research", () => {
+  assert.equal(shouldAutoResearch("What are the latest Manchester City results?"), true);
+  assert.equal(shouldAutoResearch("What is the score today?"), true);
+  assert.equal(shouldAutoResearch("Who is leading the league right now?"), true);
 });
 
 test("does not research creative, personal, short or specialist-mode requests", () => {
