@@ -135,6 +135,37 @@ class DreamTrainingSmokeTests(unittest.TestCase):
             self.assertNotEqual(resumed.returncode, 0)
             self.assertIn("corpus manifest does not match", resumed.stderr)
 
+    def test_time_budget_saves_checkpoint_and_resume_continues(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "train.txt").write_text(
+                "DREAM time-budget training sample with varied words. " * 12,
+                encoding="utf-8"
+            )
+            (root / "validation.txt").write_text(
+                "Independent time-budget validation sample with different words. " * 12,
+                encoding="utf-8"
+            )
+            checkpoint = root / "dream-timeboxed.pt"
+            first = self.run_training(
+                root, checkpoint, extra=("--max-seconds", "0.000001")
+            )
+            self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+            import torch
+            saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
+            self.assertEqual(saved["training"]["completed_steps"], 1)
+            self.assertEqual(saved["training"]["stop_reason"], "time_budget")
+            self.assertAlmostEqual(saved["training"]["max_seconds"], 0.000001)
+
+            resumed = self.run_training(
+                root, checkpoint, create_manifest=False,
+                extra=("--resume", str(checkpoint))
+            )
+            self.assertEqual(resumed.returncode, 0, resumed.stdout + resumed.stderr)
+            saved = torch.load(checkpoint, map_location="cpu", weights_only=True)
+            self.assertEqual(saved["training"]["completed_steps"], 3)
+            self.assertEqual(saved["training"]["stop_reason"], "step_limit")
+
     def test_train_checkpoint_and_resume(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

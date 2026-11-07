@@ -5,6 +5,7 @@ import json
 import math
 import random
 import re
+import time
 from collections import Counter
 from datetime import date
 from pathlib import Path
@@ -308,6 +309,8 @@ def main():
     parser.add_argument("--out", default="checkpoints/dream-small.pt")
     parser.add_argument("--resume", default="", help="Resume from a DREAM checkpoint")
     parser.add_argument("--checkpoint-every", type=int, default=500)
+    parser.add_argument("--max-seconds", type=float, default=0.0,
+                        help="Stop at a completed optimizer step and save a resumable checkpoint; 0 disables the time limit.")
     parser.add_argument("--steps", type=int, default=2000)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--grad-accum-steps", type=int, default=1,
@@ -379,6 +382,8 @@ def main():
         raise SystemExit("learning-rate must be finite and positive.")
     if not math.isfinite(args.max_grad_norm) or args.max_grad_norm <= 0:
         raise SystemExit("max-grad-norm must be finite and positive.")
+    if not math.isfinite(args.max_seconds) or args.max_seconds < 0:
+        raise SystemExit("max-seconds must be finite and non-negative.")
 
     def file_sha256(path):
         digest = hashlib.sha256()
@@ -487,12 +492,14 @@ def main():
         model.train()
         return sum(losses) / len(losses)
 
-    def save_checkpoint(completed_steps, train_loss=None, val_loss=None):
+    def save_checkpoint(completed_steps, train_loss=None, val_loss=None, stop_reason="step_limit"):
         output = Path(args.out)
         output.parent.mkdir(parents=True, exist_ok=True)
         training_meta = {
             "steps": args.steps,
             "completed_steps": completed_steps,
+            "max_seconds": args.max_seconds,
+            "stop_reason": stop_reason,
             "seed": args.seed,
             "corpus": str(Path(args.data)),
             "corpus_sha256": training_hash,
@@ -540,7 +547,9 @@ def main():
         temporary.replace(output)
         print(f"Saved DREAM checkpoint at step {completed_steps}: {output}")
 
-    for step in range(start_step + 1, start_step + args.steps + 1):
+    final_step = start_step + args.steps
+    training_started_at = time.monotonic()
+    for step in range(start_step + 1, final_step + 1):
         model.train()
         optimizer.zero_grad(set_to_none=True)
         micro_losses = []
@@ -556,12 +565,17 @@ def main():
             model.parameters(), args.max_grad_norm, error_if_nonfinite=True
         )
         optimizer.step()
-        final_step = start_step + args.steps
+
+        time_budget_reached = (
+            args.max_seconds > 0
+            and time.monotonic() - training_started_at >= args.max_seconds
+        )
         if (
             step == start_step + 1
             or step % args.eval_every == 0
             or step % args.checkpoint_every == 0
             or step == final_step
+            or time_budget_reached
         ):
             train_loss = estimate(train_data, language_streams)
             val_loss = estimate(val_data)
@@ -571,11 +585,17 @@ def main():
                 "validation_loss": round(val_loss, 4),
                 "perplexity": round(math.exp(min(val_loss, 20)), 3)
             }))
-            if step % args.checkpoint_every == 0 or step == final_step:
-                save_checkpoint(step, train_loss, val_loss)
+            if step % args.checkpoint_every == 0 or step == final_step or time_budget_reached:
+                stop_reason = "time_budget" if time_budget_reached and step < final_step else "step_limit"
+                save_checkpoint(step, train_loss, val_loss, stop_reason=stop_reason)
 
-    if start_step == start_step + args.steps:
-        save_checkpoint(start_step)
+        if time_budget_reached:
+            print(json.dumps({
+                "stop_reason": "time_budget",
+                "completed_steps": step,
+                "configured_max_seconds": args.max_seconds
+            }))
+            break
 
 
 if __name__ == "__main__":
