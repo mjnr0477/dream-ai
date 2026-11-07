@@ -109,6 +109,7 @@ test("automatic research includes current and factual questions but skips creati
   assert.equal(shouldAutoResearch("What is the latest news about Manchester City?"), true);
   assert.equal(shouldAutoResearch("Who is Wangari Maathai and what did she do?"), true);
   assert.equal(shouldAutoResearch("Taylor Swift"), true);
+  assert.equal(shouldAutoResearch("Rihanna"), true);
   assert.equal(shouldAutoResearch("Write me a short story about a footballer."), false);
   assert.equal(shouldAutoResearch("What is a hash map?", "coding"), false);
 });
