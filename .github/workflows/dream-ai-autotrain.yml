@@ -29,8 +29,19 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Check one-time Supabase setup
+        id: setup
+        run: |
+          if [ -z "$DREAM_AI_SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Add DREAM_AI_SUPABASE_SERVICE_ROLE_KEY in repository Actions secrets to enable learning-store checks."
+          else
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Prepare only human-approved v3 examples
         id: prepare
+        if: steps.setup.outputs.configured == 'true'
         run: |
           python scripts/prepare_dream_ai_autotraining.py \
             --output-dir "$RUNNER_TEMP/dream-ai-training-input" \
