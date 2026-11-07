@@ -97,24 +97,31 @@ def build_kernel_metadata(username: str, dataset_id: str) -> dict:
 def configure_kaggle_credentials(username: str, key: str) -> None:
     if not username.strip() or not key.strip():
         raise ValueError("KAGGLE_USERNAME and KAGGLE_KEY GitHub Actions secrets are required.")
-    config_dir = Path(os.environ.get("KAGGLE_CONFIG_DIR", Path.home() / ".kaggle"))
-    config_dir.mkdir(parents=True, exist_ok=True)
-    credentials = config_dir / "kaggle.json"
-    credentials.write_text(
-        json.dumps({"username": username.strip(), "key": key.strip()}), encoding="utf-8"
-    )
-    credentials.chmod(0o600)
-    os.environ["KAGGLE_CONFIG_DIR"] = str(config_dir)
+    # Kaggle's current Settings page issues API tokens, not legacy username/key pairs.
+    # The current Kaggle CLI expects these in KAGGLE_API_TOKEN.
+    os.environ["KAGGLE_API_TOKEN"] = key.strip()
 
 
 def run(command: list[str], *, capture: bool = False) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(
-        command,
-        check=True,
-        text=True,
-        stdout=subprocess.PIPE if capture else None,
-        stderr=subprocess.PIPE if capture else None,
-    )
+    try:
+        return subprocess.run(
+            command,
+            check=True,
+            text=True,
+            stdout=subprocess.PIPE if capture else None,
+            stderr=subprocess.PIPE if capture else None,
+        )
+    except subprocess.CalledProcessError as exc:
+        details = "\\n".join(
+            part.strip() for part in (exc.stdout, exc.stderr) if part and part.strip()
+        )
+        token = os.environ.get("KAGGLE_API_TOKEN", "")
+        if token and details:
+            details = details.replace(token, "[REDACTED]")
+        message = f"Kaggle command failed with exit code {exc.returncode}."
+        if details:
+            message += "\\nKaggle reported: " + details[-4000:]
+        raise RuntimeError(message) from exc
 
 
 def launch() -> int:
