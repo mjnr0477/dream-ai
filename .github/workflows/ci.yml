@@ -64,6 +64,9 @@ jobs:
           data/export_dream_ai_optins.py
           data/prepare_dream_ai_sft_splits.py
           data/verify_dream_ai_sft_audits.py
+          data/sync_dream_ai_reviews_to_supabase.py
+          scripts/prepare_dream_ai_autotraining.py
+          scripts/manage_dream_ai_autotraining_run.py
       - name: Compile multilingual corpus exporter
         run: python -m py_compile data/export_fineweb2_sample.py
       - name: Test opt-in learning export and SFT split gates
@@ -82,6 +85,7 @@ jobs:
               Path("training/dream_train_colab.ipynb"),
               Path("training/dream_train_kaggle.ipynb"),
               Path("training/dream_ai_adapter_self_train_kaggle.ipynb"),
+              Path("training/auto-train-kernel/dream_ai_auto_train.ipynb"),
           ):
               document = json.loads(notebook.read_text(encoding="utf-8"))
               assert document["nbformat"] == 4 and document["cells"]
