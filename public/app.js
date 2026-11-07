@@ -716,7 +716,7 @@ async function sendResearch(text, isRetry = false) {
     }
     if (!transcript.length) {
       const empty = document.createElement("p");
-      empty.textContent = "Try a different search phrase. Public research providers returned no usable records.";
+      empty.textContent = data.unsupportedLiveData ? "A dedicated live-data source is not connected, so this value cannot be verified." : isRecentNewsSearch ? "No recent news reports matched this query. The current status remains unverified." : "Try a different search phrase. Public research providers returned no usable records.";
       replyNode.append(empty);
     } else {
       const actions = document.createElement("div");
