@@ -153,6 +153,64 @@ class DreamAIOptinPipelineTests(unittest.TestCase):
                 manifest["splits"]["validation"]["sha256"]
             )
 
+    def test_validation_floor_is_met_by_adding_whole_groups(self):
+        records = [approved_sft_record(i) for i in range(8)]
+        train, validation, manifest = prepare_sft_splits(
+            records,
+            min_source_groups=8,
+            min_validation_records=4,
+        )
+        train_groups = {row["source_group"] for row in train}
+        validation_groups = {row["source_group"] for row in validation}
+        self.assertGreaterEqual(len(validation), 4)
+        self.assertTrue(train)
+        self.assertFalse(train_groups & validation_groups)
+        self.assertEqual(manifest["minimum_validation_records"], 4)
+        self.assertEqual(len(train) + len(validation), len(records))
+
+    def test_validation_floor_refuses_to_consume_the_last_training_group(self):
+        records = [approved_sft_record(i) for i in range(8)]
+        with self.assertRaisesRegex(
+            ValueError,
+            "at least 8 validation records are required while keeping at least one source group for training",
+        ):
+            prepare_sft_splits(
+                records,
+                min_source_groups=8,
+                min_validation_records=8,
+            )
+
+    def test_training_split_command_outputs_four_validation_examples_by_default(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            input_path = root / "approved.jsonl"
+            input_path.write_text(
+                "".join(json.dumps(approved_sft_record(i)) + "\\n" for i in range(8)),
+                encoding="utf-8",
+            )
+            output_dir = root / "prepared"
+            script = Path(__file__).with_name("prepare_dream_ai_sft_splits.py")
+            result = subprocess.run(
+                [
+                    sys.executable, str(script),
+                    "--input", str(input_path),
+                    "--output-dir", str(output_dir),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            validation_rows = [
+                json.loads(line)
+                for line in (output_dir / "validation.jsonl").read_text(encoding="utf-8").splitlines()
+                if line.strip()
+            ]
+            manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+            self.assertGreaterEqual(len(validation_rows), 4)
+            self.assertEqual(manifest["minimum_source_groups"], 8)
+            self.assertEqual(manifest["minimum_validation_records"], 4)
+
     def test_training_split_command_defaults_to_eight_source_groups(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
