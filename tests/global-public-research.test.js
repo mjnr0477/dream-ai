@@ -134,7 +134,7 @@ test("research context includes source links from all public provider types", ()
     }],
     globalResearch: {
       webResults: [{
-        provider: "Brave Search",
+        provider: "Brave Search LLM Context",
         title: "Web result",
         snippet: "A public web excerpt",
         url: "https://example.org/page"
