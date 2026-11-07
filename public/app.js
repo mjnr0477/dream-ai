@@ -524,10 +524,14 @@ async function checkHealth() {
     const health = await response.json();
     if (!response.ok) throw new Error("Health check failed");
     statusText.textContent = health.modelReady
-      ? "DREAM native model ready"
+      ? health.provider === "openai-compatible"
+        ? "DREAM AI model connected"
+        : "DREAM native model ready"
       : health.modelConfigured
-        ? "Application online · native model unavailable"
-        : "Application online · native model setup needed";
+        ? health.provider === "openai-compatible"
+          ? "Application online · external model unavailable"
+          : "Application online · native model unavailable"
+        : "Application online · model setup needed";
     statusDot.classList.add("online");
   } catch {
     statusText.textContent = "Service connection unavailable";
