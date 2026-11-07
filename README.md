@@ -8,6 +8,8 @@ DREAM has its own decoder-only transformer architecture, byte-tokenizer default,
 
 **No production-trained DREAM checkpoint is being claimed yet.** CI now proves that a tiny model can train from random initialization, complete assistant-only instruction tuning and pass held-out smoke evaluation. Those synthetic tests validate the pipeline only; they do not establish useful model intelligence. The Node web app and model runtime are separate. The Render web service hosts the application; training and inference run on suitable compute that we control.
 
+**Hosted adapter versus native DREAM:** the current hosted chat path uses a DREAM-specific LoRA adapter on `Qwen/Qwen3-1.7B`. Its gated continuation workflow updates only those adapter weights; it does not train the Qwen foundation model. The native DREAM transformer is a separate from-scratch research model and is not yet a production-ready replacement. Adapter candidates and native checkpoints remain inactive until their own evaluation and release reviews pass.
+
 ## Current application
 
 - Responsive mobile-first chat workspace.
