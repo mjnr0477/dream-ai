@@ -74,8 +74,15 @@ class DreamAIAdapterSelfTrainingNotebookTests(unittest.TestCase):
         self.assertIn("status", self.joined)
         self.assertIn('"candidate-not-active"', self.joined)
         self.assertNotIn('path_in_repo="."', self.joined)
-        progress_upload_index = self.joined.index("\\nprogress_uploaded = api.upload_folder(")
-        candidate_upload_index = self.joined.index("\\nuploaded = api.upload_folder(")
+        upload_lines = self.joined.splitlines()
+        progress_upload_index = next(
+            i for i, line in enumerate(upload_lines)
+            if line.strip().startswith("progress_uploaded = api.upload_folder(")
+        )
+        candidate_upload_index = next(
+            i for i, line in enumerate(upload_lines)
+            if line.strip().startswith("uploaded = api.upload_folder(")
+        )
         self.assertLess(progress_upload_index, candidate_upload_index)
 
 
