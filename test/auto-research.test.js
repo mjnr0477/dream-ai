@@ -35,6 +35,71 @@ test("research context accepts only bounded encyclopedia source URLs and text", 
   assert.doesNotMatch(prepared.context, /attacker|javascript:/);
 });
 
+
+test("automatic research context combines encyclopedia excerpts with safe scholarly metadata", () => {
+  const prepared = buildResearchContext({
+    results: [{
+      title: "Climate adaptation",
+      url: "https://en.wikipedia.org/wiki/Climate_adaptation",
+      extract: "Climate adaptation reduces vulnerability to climate change."
+    }],
+    scholarlyResearch: {
+      results: [
+        {
+          provider: "Crossref",
+          title: "Climate adaptation evidence review",
+          authors: ["A. Researcher", "B. Scientist"],
+          publicationDate: "2025-02-01",
+          url: "https://doi.org/10.1234/climate"
+        },
+        {
+          provider: "OpenAlex",
+          title: "Unsafe publication link",
+          authors: [],
+          publicationDate: "2024",
+          url: "https://attacker.example/paper"
+        },
+        {
+          provider: "UnknownProvider",
+          title: "Unknown provider is not trusted",
+          authors: [],
+          publicationDate: "2024",
+          url: "https://openalex.org/W123"
+        }
+      ]
+    }
+  });
+
+  assert.equal(prepared.sources.length, 2);
+  assert.deepEqual(prepared.sources.map(source => source.kind), [
+    "encyclopedia", "scholarly-metadata"
+  ]);
+  assert.equal(prepared.sources[1].provider, "Crossref");
+  assert.match(prepared.context, /Climate adaptation reduces vulnerability/);
+  assert.match(prepared.context, /SCHOLARLY PUBLICATION METADATA ONLY/);
+  assert.match(prepared.context, /AUTHORS: A\. Researcher; B\. Scientist/);
+  assert.match(prepared.context, /PUBLICATION DATE: 2025-02-01/);
+  assert.match(prepared.context, /do not establish a paper's methods, results, or conclusions/);
+  assert.doesNotMatch(prepared.context, /attacker\.example|Unknown provider/);
+});
+
+test("scholarly-only results can support a research context without encyclopedia results", () => {
+  const prepared = buildResearchContext({
+    scholarlyResearch: {
+      results: [{
+        provider: "OpenAlex",
+        title: "Swahili language technology survey",
+        authors: [],
+        publicationDate: "2023",
+        url: "https://openalex.org/W123"
+      }]
+    }
+  });
+  assert.equal(prepared.sources.length, 1);
+  assert.equal(prepared.sources[0].kind, "scholarly-metadata");
+  assert.match(prepared.context, /Swahili language technology survey/);
+});
+
 test("research context enforces a strict evidence size limit", () => {
   const prepared = buildResearchContext({ results: Array.from({ length: 5 }, (_, index) => ({
     title: "Source " + index,
