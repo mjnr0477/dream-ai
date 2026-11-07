@@ -490,6 +490,7 @@ test("capabilities endpoint reports only verified runtime and tool availability"
   assert.equal(Object.hasOwn(data.model, "checkpointSha256"), false);
   assert.deepEqual(data.application.modes, ["general", "coding", "learning", "research"]);
   assert.ok(data.tools.some(tool => tool.id === "public_knowledge_search" && tool.status === "available"));
+  assert.ok(data.tools.some(tool => tool.id === "multi_source_scholarly_research" && tool.status === "available"));
   assert.equal(data.safety.toolExecutionDefault, "disabled");
   assert.equal(data.safety.unrestrictedAccess, false);
   assert.ok(data.tools.some(tool => tool.id === "code_execution" && tool.status === "not-implemented"));
