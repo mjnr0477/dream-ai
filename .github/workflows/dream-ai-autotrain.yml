@@ -115,6 +115,7 @@ jobs:
           cp "$RUNNER_TEMP/dream-ai-training-input/validation.jsonl" "$DATASET_DIR/"
           cp "$RUNNER_TEMP/dream-ai-training-input/manifest.json" "$DATASET_DIR/"
           cp "$RUNNER_TEMP/dream-ai-training-input/audit-gate.json" "$DATASET_DIR/"
+          cp "$RUNNER_TEMP/dream-ai-training-input/parent_adapter_path.txt" "$DATASET_DIR/"
           # Kaggle's API-pushed kernels cannot depend on interactive secrets.
           # This file is stored only in a private, owner-controlled Kaggle dataset.
           printf '%s' "$HF_TOKEN" > "$DATASET_DIR/hf_token.txt"
