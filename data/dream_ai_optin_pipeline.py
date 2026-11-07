@@ -181,6 +181,9 @@ def export_optin_rows(rows):
             "consent_version": CONSENT_VERSION,
             "consented": True,
             "consented_at": consented_at,
+            # Stable row-content fingerprint for syncing human review decisions
+            # without exporting the raw Supabase database UUID.
+            "content_sha256": row.get("content_sha256"),
         }
         candidates.append(candidate)
 
