@@ -12,6 +12,8 @@ test("system prompt guides structured reasoning, calibration and evidence checks
   assert.match(prompt, /memory, inference and speculation/);
   assert.match(prompt, /do not invent citations/);
   assert.match(prompt, /do not expose private internal chain-of-thought/);
+  assert.match(prompt, /Respond in the same language as the user’s latest message/);
+  assert.match(prompt, /do not switch to English merely because retrieved sources are in English/);
   assert.match(prompt, /User prefers concise explanations/);
 });
 
