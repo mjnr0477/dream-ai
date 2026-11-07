@@ -17,7 +17,7 @@ The dataset must contain exactly one each of `train.jsonl`, `validation.jsonl`, 
 
 ## One-time Kaggle setup
 
-The first successful workflow run registers a private Kaggle notebook without executing it. Open the notebook named **DREAM AI Autonomous Adapter Training** in your Kaggle account, then use **Add-ons → Secrets** to add `HF_TOKEN` with a Hugging Face token that can write to the private `msjnr0477/dream-ai-adapter` repository. Kaggle's CLI does not expose secret creation, so this step must be done in Kaggle's UI.
+The first workflow run creates the private Kaggle notebook and submits its first run. If `HF_TOKEN` is not yet attached, the notebook stops at its initial token check before loading the model or training. Open **DREAM AI Autonomous Adapter Training** in Kaggle, then use **Add-ons → Secrets** to add `HF_TOKEN` with a Hugging Face token that can write to the private `msjnr0477/dream-ai-adapter` repository. Kaggle's CLI does not expose secret creation, so this one-time step must be done in Kaggle's UI.
 
 After adding the secret, run the workflow once from **GitHub → Actions → DREAM AI autonomous training trigger → Run workflow**. Later daily runs will submit the notebook automatically when the dataset and credentials are available.
 
