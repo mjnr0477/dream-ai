@@ -42,7 +42,7 @@ The current no-key research path uses public APIs:
 - GDELT DOC 2.0 Article List for recent news headlines within a rolling seven-day window.
 - Crossref and OpenAlex for scholarly publication metadata.
 
-For broad general web-index search, configure `DREAM_BRAVE_SEARCH_API_KEY` as a private server-side environment variable on the deployment. Never put the key in frontend code, a committed `.env` file, notebook output or chat message. If the key is absent, DREAM reports general web-index search as not configured while the no-key providers remain available. Brave documents the web search endpoint and `X-Subscription-Token` header in its [API reference](https://api-dashboard.search.brave.com/api-reference/web/search/get).
+For broad general web-index search, configure `DREAM_BRAVE_SEARCH_API_KEY` as a private server-side environment variable on the deployment. Never put the key in frontend code, a committed `.env` file, notebook output or chat message. If the key is absent, DREAM reports general web-index search as not configured while the no-key providers remain available. Brave's [LLM Context API](https://api-dashboard.search.brave.com/documentation/services/llm-context) returns extracted page passages and source metadata for RAG/AI grounding, authenticated with the `X-Subscription-Token` header.
 
 Public individual research is limited to source-supported public-interest and professional information. It does not create private dossiers or expose sensitive personal data. The application must distinguish verified facts from search snippets and must disclose when live evidence is unavailable.
 
