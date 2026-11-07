@@ -8,8 +8,9 @@ This automation replaces the repeated manual Kaggle training steps with a schedu
 2. Requires a recorded human review of rights, privacy, quality and training approval, plus at least 32 examples from 8 independent source sessions.
 3. Creates deterministic, source-group-isolated train/validation splits and runs the existing privacy, license and provenance audit gates.
 4. Uploads those files to an owner-only private Kaggle dataset and launches a private Tesla T4 notebook.
-5. Continues an interrupted run only when the exact dataset hash, audit-gate hash and parent production-adapter hash match the saved private progress checkpoint.
-6. Uploads a result to candidates/<candidate-id> in the private Hugging Face adapter repository and records the run in Supabase.
+5. Continues an interrupted run only when the exact dataset hash, audit-gate hash and parent-adapter hash match the saved private progress checkpoint.
+6. Starts each new dataset cycle from the latest candidate whose held-out validation passed, so approved learning can accumulate between cycles. The original production adapter remains the rollback baseline and is never changed by this job.
+7. Uploads a result to candidates/<candidate-id> in the private Hugging Face adapter repository and records the run in Supabase.
 
 The live adapter files at the root of msjnr0477/dream-ai-adapter are never replaced by this workflow. A candidate is not active merely because training or validation completed. Independent evaluation and an explicit promotion decision remain required.
 
@@ -49,6 +50,7 @@ The script fetches only pending v3 opt-ins, presents each exchange for the four 
 - The Kaggle notebook runs a bounded four-minute optimizer segment and stores a resumable private checkpoint. If a segment reaches its time budget, a later daily run can resume the exact same run.
 - Kaggle GPU availability, free quotas, GitHub Actions availability and third-party service limits are not guaranteed. This is recurring automation, not an unconditional promise of uninterrupted training forever.
 - The workflow continues to use Qwen3-1.7B as the foundation model and updates a DREAM-specific LoRA adapter. It does not yet train a new foundation model from random initialization.
+- New training cycles continue from the most recent technically validated private candidate and use the cumulative set of approved examples. A candidate remains non-active and cannot become the live adapter automatically.
 
 ## Current starting state
 
