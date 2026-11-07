@@ -245,7 +245,7 @@ def main() -> int:
         assert private_dataset_refs(
             "ref,title,size\ntest-user/test-dataset,Reviewed,10\ntest-user/public-data,Public,10\n",
             "test-user",
-        ) == ["test-user/test-dataset", "test-user/public-data"]
+        ) == ["test-user/public-data", "test-user/test-dataset"]
         try:
             verify_private_dataset(
                 {"info": {"isPrivate": False}}, "test-user", "test-user/test-dataset"
