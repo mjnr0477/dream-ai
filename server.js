@@ -232,6 +232,31 @@ async function handleResearch(req, res) {
   }
   activeResearch += 1;
   try {
+    if (isUnsupportedLiveDataIntent(body.query, "general")) {
+      return json(res, 200, {
+        provider: "DREAM AI",
+        query: body.query.trim(),
+        results: [],
+        scholarlyResearch: { results: [] },
+        recentNewsResearch: null,
+        unsupportedLiveData: true
+      });
+    }
+    if (isTimeSensitiveResearchIntent(body.query, "general")) {
+      const recentNewsResearch = await runPublicLiveNewsSearch(body.query.trim());
+      return json(res, 200, {
+        provider: "Google News RSS",
+        query: body.query.trim(),
+        results: [],
+        scholarlyResearch: { results: [] },
+        recentNewsResearch,
+        providerAvailability: {
+          encyclopedia: "not-searched",
+          scholarly: "not-searched",
+          news: recentNewsResearch.results.length ? "available" : "no-results"
+        }
+      });
+    }
     return json(res, 200, await runPublicResearch(body.query));
   } catch (error) {
     console.error("DREAM public research failed:", error.message);
