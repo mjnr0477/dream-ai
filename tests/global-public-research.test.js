@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { searchGlobalPublicSources } from "../lib/research-global.js";
 import { shouldAutoResearch, buildResearchContext } from "../lib/auto-research.js";
+import { getDreamCapabilities } from "../lib/capabilities.js";
 
 function response(payload) {
   return { ok: true, json: async () => payload };
@@ -155,4 +156,14 @@ test("research context includes source links from all public provider types", ()
   assert.ok(prepared.context.includes("Public figure"));
   assert.ok(prepared.context.includes("A research paper"));
   assert.ok(prepared.sources.every(source => source.url.startsWith("https://")));
+});
+
+test("capabilities disclose general web-index availability truthfully", () => {
+  const withoutKey = getDreamCapabilities({}, {});
+  const webWithoutKey = withoutKey.tools.find(tool => tool.id === "web_research");
+  assert.equal(webWithoutKey.status, "not-configured");
+  const withKey = getDreamCapabilities({}, { DREAM_BRAVE_SEARCH_API_KEY: "configured" });
+  const webWithKey = withKey.tools.find(tool => tool.id === "web_research");
+  assert.equal(webWithKey.status, "available");
+  assert.equal(withKey.application.researchScope, "multi-provider-public-source-discovery-with-web-index");
 });
