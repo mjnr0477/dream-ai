@@ -297,7 +297,7 @@ def prepare(base_url: str, key: str, output_dir: Path) -> dict:
         (prior.get("parent_adapter_path") or "")
     )
     (output_dir / "parent_adapter_path.txt").write_text(
-        parent_adapter_path + "\\n", encoding="utf-8"
+        parent_adapter_path + "\n", encoding="utf-8"
     )
     result.update({
         "eligible": True,
