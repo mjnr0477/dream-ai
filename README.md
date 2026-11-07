@@ -13,7 +13,7 @@ DREAM has its own decoder-only transformer architecture, byte-tokenizer default,
 ## Current application
 
 - Responsive mobile-first chat workspace.
-- General, coding, learning and public-source Research modes. Research currently searches Wikipedia only and returns linked source snippets; it is limited retrieval, not general web browsing or a trained model capability.
+- General, coding, learning and public-source Research modes. Research combines limited English Wikipedia excerpts with Crossref/OpenAlex publication metadata and source links; this is not general web browsing, full-text paper access or a trained model capability.
 - Browser-local conversation history, export and copy.
 - Node API with bounded request validation, two-request model concurrency protection with retry guidance, and health status.
 - Provider-independent DREAM engine adapter.
@@ -137,7 +137,7 @@ Kaggle documents free P100 notebook accelerators, but GPU access can be limited 
 - `GET /api/health` reports application availability separately from model configuration and live native-checkpoint readiness. A ready runtime must identify as the native DREAM transformer and report positive completed training steps plus a 64-character checkpoint SHA-256. This is a runtime/provenance check, not a quality certification.
 - `GET /api/capabilities` returns a versioned, server-owned capability contract. It distinguishes implemented application features from tools that are not configured or not implemented; it never advertises disabled tools as ready. Tool execution is disabled by default and external actions require approval.
 - `POST /api/chat` — supported chat modes: `general`, `coding`, `learning`.
-- `POST /api/research` — a separate public-source search mode that returns up to five linked Wikipedia snippets and, when available, up to 350 characters from each article introduction plus the page's last-modified timestamp. Queries are limited to 200 characters, each upstream request times out after seven seconds, concurrency is capped at two, and no user-supplied URL is fetched. These excerpts are not full articles or independent corroboration; DREAM synthesis requires a connected native checkpoint and is instructed to cite only supplied URLs, distinguish uncertainty and treat retrieved text as untrusted data.
+- `POST /api/research` — a separate public-source search mode that returns up to five linked English Wikipedia results (with short article introductions when available) plus Crossref and OpenAlex bibliographic records. Scholarly records contain metadata only, not abstracts or full text, and do not verify study findings. Queries are limited to 200 characters, each upstream request times out after seven seconds, concurrency is capped at two, and no user-supplied URL is fetched. Automatic stable-fact chat can use the same evidence bundle; its context is limited to five sources and clearly labels metadata-only records. DREAM synthesis requires a connected native checkpoint and is instructed to cite only supplied URLs, distinguish uncertainty and treat retrieved text as untrusted data. This is limited retrieval, not general web search or live reporting.
 
 ## User-controlled memory
 
