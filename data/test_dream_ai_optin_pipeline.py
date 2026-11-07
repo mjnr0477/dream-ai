@@ -158,7 +158,7 @@ class DreamAIOptinPipelineTests(unittest.TestCase):
             root = Path(directory)
             input_path = root / "approved.jsonl"
             input_path.write_text(
-                "".join(json.dumps(approved_sft_record(i)) + "\\n" for i in range(7)),
+                "".join(json.dumps(approved_sft_record(i)) + "\n" for i in range(7)),
                 encoding="utf-8",
             )
             script = Path(__file__).with_name("prepare_dream_ai_sft_splits.py")
