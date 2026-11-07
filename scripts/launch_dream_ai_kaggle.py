@@ -41,33 +41,36 @@ def missing_required_files(csv_text: str) -> list[str]:
 
 
 
-def verify_private_dataset(csv_text: str, username: str, dataset_id: str) -> None:
-    rows = list(csv.DictReader(csv_text.splitlines()))
-    matches = []
-    for row in rows:
-        ref = next((row[key] for key in ("ref", "Ref", "datasetRef", "dataset_ref") if row.get(key)), "")
-        if ref.strip().lower() == dataset_id.strip().lower():
-            matches.append(row)
-    if len(matches) != 1:
-        raise RuntimeError("Kaggle could not uniquely confirm this dataset under your own account.")
+def verify_private_dataset(metadata: dict, username: str, dataset_id: str) -> None:
     owner = dataset_id.split("/", 1)[0]
     if owner.lower() != username.strip().lower():
         raise RuntimeError("The training dataset must be owned by the authenticated Kaggle account.")
-    row = matches[0]
-    privacy = next((row[key] for key in ("isPrivate", "is_private", "private") if key in row), None)
-    if str(privacy).strip().lower() not in ("true", "1", "yes"):
-        raise RuntimeError("Kaggle did not confirm that the dataset is private; refusing to attach training data.")
+    info = metadata.get("info", metadata)
+    privacy = info.get("isPrivate") if isinstance(info, dict) else None
+    if privacy is not True and str(privacy).strip().lower() not in ("true", "1", "yes"):
+        raise RuntimeError("Kaggle metadata did not confirm that the dataset is private; refusing to attach training data.")
+
+
+def fetch_private_dataset_metadata(dataset_id: str, username: str, directory: Path) -> dict:
+    directory.mkdir(parents=True, exist_ok=True)
+    run(["kaggle", "datasets", "metadata", dataset_id, "--path", str(directory)])
+    metadata_path = directory / "dataset-metadata.json"
+    if not metadata_path.is_file():
+        raise RuntimeError(f"Kaggle did not produce dataset metadata for {dataset_id}.")
+    metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+    verify_private_dataset(metadata, username, dataset_id)
+    return metadata
 
 
 def private_dataset_refs(csv_text: str, username: str) -> list[str]:
+    # `datasets list --mine` only returns the authenticated user's datasets;
+    # privacy is verified separately through the dataset metadata endpoint.
     refs = []
     for row in csv.DictReader(csv_text.splitlines()):
         ref = next((row[key] for key in ("ref", "Ref", "datasetRef", "dataset_ref") if row.get(key)), "")
-        privacy = next((row[key] for key in ("isPrivate", "is_private", "private") if key in row), None)
         if (
             ref and "/" in ref
             and ref.split("/", 1)[0].strip().lower() == username.strip().lower()
-            and str(privacy).strip().lower() in ("true", "1", "yes")
         ):
             refs.append(ref.strip())
     return sorted(set(refs))
@@ -133,26 +136,43 @@ def launch() -> int:
         capture=True,
     )
     private_refs = private_dataset_refs(own_datasets.stdout, username)
-    if dataset_id:
-        dataset_id = validate_dataset_id(dataset_id)
-        verify_private_dataset(own_datasets.stdout, username, dataset_id)
-        listing = run(
-            ["kaggle", "datasets", "files", dataset_id, "--csv", "--page-size", "200"],
-            capture=True,
-        )
-    else:
-        matching = []
-        for candidate_ref in private_refs:
-            candidate_files = run(
-                ["kaggle", "datasets", "files", candidate_ref, "--csv", "--page-size", "200"],
+    with tempfile.TemporaryDirectory(prefix="dream-ai-dataset-check-") as check_temp:
+        check_root = Path(check_temp)
+        if dataset_id:
+            dataset_id = validate_dataset_id(dataset_id)
+            fetch_private_dataset_metadata(dataset_id, username, check_root / "metadata")
+            listing = run(
+                ["kaggle", "datasets", "files", dataset_id, "--csv", "--page-size", "200"],
                 capture=True,
             )
-            try:
-                candidate_missing = missing_required_files(candidate_files.stdout)
-            except ValueError:
-                continue
-            if not candidate_missing:
-                matching.append((candidate_ref, candidate_files))
+        else:
+            matching = []
+            for index, candidate_ref in enumerate(private_refs):
+                try:
+                    fetch_private_dataset_metadata(
+                        candidate_ref, username, check_root / f"metadata-{index}"
+                    )
+                except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError):
+                    continue
+                candidate_files = run(
+                    ["kaggle", "datasets", "files", candidate_ref, "--csv", "--page-size", "200"],
+                    capture=True,
+                )
+                try:
+                    candidate_missing = missing_required_files(candidate_files.stdout)
+                except ValueError:
+                    continue
+                if not candidate_missing:
+                    matching.append((candidate_ref, candidate_files))
+            if not matching:
+                print("WAITING_FOR_PRIVATE_REVIEWED_DATASET: no private dataset with all four required files was found.")
+                print("No training was started and no model files were changed.")
+                return 0
+            if len(matching) > 1:
+                choices = ", ".join(item[0] for item in matching)
+                raise RuntimeError("More than one matching private dataset exists; set DREAM_AI_KAGGLE_DATASET to select one: " + choices)
+            dataset_id, listing = matching[0]
+            print("AUTO_DISCOVERED_PRIVATE_DATASET:", dataset_id)
         if not matching:
             print("WAITING_FOR_PRIVATE_REVIEWED_DATASET: no private dataset with all four required files was found.")
             print("No training was started and no model files were changed.")
@@ -228,14 +248,17 @@ def main() -> int:
             "manifest.json,10\naudit-gate.json,10\n"
         )
         assert missing_required_files(sample) == []
-        private_listing = "ref,isPrivate\ntest-user/test-dataset,true\n"
-        verify_private_dataset(private_listing, "test-user", "test-user/test-dataset")
+        verify_private_dataset(
+            {"info": {"isPrivate": True}}, "test-user", "test-user/test-dataset"
+        )
         assert private_dataset_refs(
-            "ref,isPrivate\ntest-user/test-dataset,true\ntest-user/public-data,false\n",
+            "ref,title,size\ntest-user/test-dataset,Reviewed,10\ntest-user/public-data,Public,10\n",
             "test-user",
-        ) == ["test-user/test-dataset"]
+        ) == ["test-user/test-dataset", "test-user/public-data"]
         try:
-            verify_private_dataset("ref,isPrivate\ntest-user/test-dataset,false\n", "test-user", "test-user/test-dataset")
+            verify_private_dataset(
+                {"info": {"isPrivate": False}}, "test-user", "test-user/test-dataset"
+            )
         except RuntimeError:
             pass
         else:
