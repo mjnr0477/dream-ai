@@ -295,6 +295,34 @@ test("health endpoint refuses a different configured native model", async () => 
   }
 });
 
+
+test("live-score requests fail closed instead of falling back to stale model knowledge", async () => {
+  const before = modelRequests.length;
+  const response = await postChat({
+    messages: [{ role: "user", content: "What is the live score right now?" }]
+  });
+  assert.equal(response.status, 200);
+  const data = await response.json();
+  assert.equal(data.source, "live-data-unavailable");
+  assert.match(data.reply, /does not currently have a dedicated live-data feed/);
+  assert.match(data.reply, /Recent news headlines cannot confirm those live values/);
+  assert.equal(modelRequests.length, before);
+});
+
+test("weather and league-table requests do not get sent to recent-news synthesis", async () => {
+  const before = modelRequests.length;
+  for (const prompt of [
+    "What is the weather today?",
+    "Show me the current Premier League standings."
+  ]) {
+    const response = await postChat({ messages: [{ role: "user", content: prompt }] });
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.source, "live-data-unavailable");
+  }
+  assert.equal(modelRequests.length, before);
+});
+
 test("chat endpoint validates missing messages", async () => {
   const response = await postChat({});
   assert.equal(response.status, 400);
