@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { generateDreamReply, getDreamRuntimeStatus, isDreamEngineConfigured } from "./lib/dream-engine.js";
 import { parseCodeArtifactsIfPresent } from "./lib/code-artifacts.js";
 import { getDreamCapabilities } from "./lib/capabilities.js";
-import { runPublicResearch, runPublicKnowledgeSearch } from "./lib/dream-tools.js";
+import { runPublicResearch } from "./lib/dream-tools.js";
 import { shouldAutoResearch, buildResearchContext } from "./lib/auto-research.js";
 import { ClientConcurrencyLimiter } from "./lib/client-limiter.js";
 
@@ -295,7 +295,7 @@ async function handleChat(req, res) {
       try {
         // Current public-source connectors support stable reference knowledge,
         // not live scores, breaking news or other time-sensitive facts.
-        const research = await runPublicKnowledgeSearch(
+        const research = await runPublicResearch(
           latestQuestion.trim().replace(/\s+/g, " ").slice(0, 200)
         );
         const prepared = buildResearchContext(research);
