@@ -90,6 +90,47 @@ def previous_success(base_url: str, key: str, dataset_sha256: str) -> dict | Non
     return None
 
 
+def latest_candidate_parent(base_url: str, key: str) -> str:
+    """Return the most recent technically validated adapter candidate, if any."""
+    rows = fetch_all(
+        base_url,
+        key,
+        "dream_ai_model_versions",
+        {
+            "select": "model_name,artifact_uri,base_model,metrics,created_at",
+            "status": "eq.candidate",
+            "base_model": f"eq.{BASE_MODEL}",
+            "order": "created_at.desc",
+        },
+        page_size=1000,
+    )
+    expected_prefix = f"https://huggingface.co/msjnr0477/dream-ai-adapter/tree/main/candidates/"
+    for row in rows:
+        model_name = row.get("model_name")
+        artifact = row.get("artifact_uri")
+        metrics = row.get("metrics")
+        if isinstance(metrics, str):
+            try:
+                metrics = json.loads(metrics)
+            except json.JSONDecodeError:
+                continue
+        if not isinstance(model_name, str) or not re.fullmatch(r"[A-Za-z0-9._-]{1,128}", model_name):
+            continue
+        if artifact != expected_prefix + model_name:
+            continue
+        if not isinstance(metrics, dict) or metrics.get("audit_gate_passed") is not True:
+            continue
+        try:
+            baseline = float(metrics["baseline_validation_loss"])
+            candidate = float(metrics["candidate_validation_loss"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if not (baseline > 0 and candidate > 0 and candidate <= baseline * 1.02):
+            continue
+        return "candidates/" + model_name
+    return ""
+
+
 def eligible_rows(rows: list[dict]) -> tuple[list[dict], dict]:
     valid = []
     skipped = {
@@ -252,6 +293,12 @@ def prepare(base_url: str, key: str, output_dir: Path) -> dict:
         })
         return result
 
+    parent_adapter_path = latest_candidate_parent(base_url, key) if not prior else str(
+        (prior.get("parent_adapter_path") or "")
+    )
+    (output_dir / "parent_adapter_path.txt").write_text(
+        parent_adapter_path + "\\n", encoding="utf-8"
+    )
     result.update({
         "eligible": True,
         "status": "ready",
@@ -262,6 +309,7 @@ def prepare(base_url: str, key: str, output_dir: Path) -> dict:
         "audit_gate_passed": gate["passed"],
         "output_dir": str(output_dir),
         "resume_previous_budget_limited_run": bool(prior),
+        "parent_adapter_path": parent_adapter_path or "production-root",
     })
     return result
 
