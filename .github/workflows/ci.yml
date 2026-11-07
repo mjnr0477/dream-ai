@@ -67,6 +67,7 @@ jobs:
           data/sync_dream_ai_reviews_to_supabase.py
           scripts/prepare_dream_ai_autotraining.py
           scripts/manage_dream_ai_autotraining_run.py
+          scripts/review_dream_ai_pending.py
       - name: Compile multilingual corpus exporter
         run: python -m py_compile data/export_fineweb2_sample.py
       - name: Test opt-in learning export and SFT split gates
