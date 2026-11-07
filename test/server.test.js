@@ -484,7 +484,7 @@ test("capabilities endpoint reports only verified runtime and tool availability"
   assert.equal(response.status, 200);
   const data = await response.json();
   assert.equal(data.product, "DREAM AI");
-  assert.equal(data.contractVersion, 1);
+  assert.equal(data.contractVersion, 2);
   assert.equal(data.model.status, "ready");
   assert.equal(Object.hasOwn(data.model, "completedTrainingSteps"), false);
   assert.equal(Object.hasOwn(data.model, "checkpointSha256"), false);
