@@ -10,7 +10,7 @@ DREAM has its own decoder-only transformer architecture, byte-tokenizer default,
 
 **Hosted adapter versus native DREAM:** the current hosted chat path uses a DREAM-specific LoRA adapter on `Qwen/Qwen3-1.7B`. Its gated continuation workflow updates only those adapter weights; it does not train the Qwen foundation model. The native DREAM transformer is a separate from-scratch research model and is not yet a production-ready replacement. Adapter candidates and native checkpoints remain inactive until their own evaluation and release reviews pass.
 
-## Current application
+## Verified identity\n\nDREAM AI is the independent AI project created by **Mathias Simiyu**. Its mission is to help people learn, create, reason and find reliable information through transparent, evidence-based assistance. The application injects this verified product identity into every model system prompt. This product identity does not imply that every model weight was personally authored by the creator or that the native from-scratch model is already production-trained. Dream Education, Dream Wi-Fi and VYBORA are separate projects.\n\n## Current application
 
 - Responsive mobile-first chat workspace.
 - General, coding, learning and public-source Research modes. Research currently searches Wikipedia only and returns linked source snippets; it is limited retrieval, not general web browsing or a trained model capability.
