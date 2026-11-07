@@ -44,7 +44,7 @@ test("global public research discovers entities and recent headlines", async () 
   assert.equal(result.entities.length, 1);
   assert.equal(result.entities[0].entityId, "Q42");
   assert.equal(result.news.length, 1);
-  assert.equal(result.news[0].publishedAt, "2026-11-08T09:30:00.000Z");
+  assert.equal(result.news[0].seenAt, "2026-11-08T09:30:00.000Z");
   assert.equal(result.webResults.length, 0);
   assert.equal(result.providers.find(p => p.provider === "Brave Search").status, "not-configured");
   assert.equal(calls.length, 2);
@@ -143,7 +143,7 @@ test("research context includes source links from all public provider types", ()
         provider: "GDELT",
         title: "Recent headline",
         domain: "example.net",
-        publishedAt: "2026-11-08T09:30:00.000Z",
+        seenAt: "2026-11-08T09:30:00.000Z",
         url: "https://example.net/news"
       }],
       entities: [{
