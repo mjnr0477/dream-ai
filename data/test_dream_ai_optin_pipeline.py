@@ -2,6 +2,9 @@ import copy
 import unittest
 import hashlib
 import tempfile
+import json
+import subprocess
+import sys
 from pathlib import Path
 
 from dream_ai_optin_pipeline import export_optin_rows, prepare_sft_splits
@@ -149,6 +152,28 @@ class DreamAIOptinPipelineTests(unittest.TestCase):
                 hashlib.sha256(validation_path.read_bytes()).hexdigest(),
                 manifest["splits"]["validation"]["sha256"]
             )
+
+    def test_training_split_command_defaults_to_eight_source_groups(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            input_path = root / "approved.jsonl"
+            input_path.write_text(
+                "".join(json.dumps(approved_sft_record(i)) + "\n" for i in range(7)),
+                encoding="utf-8",
+            )
+            script = Path(__file__).with_name("prepare_dream_ai_sft_splits.py")
+            result = subprocess.run(
+                [
+                    sys.executable, str(script),
+                    "--input", str(input_path),
+                    "--output-dir", str(root / "prepared"),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("at least 8 independent source groups", result.stderr)
 
     def test_refuses_fewer_than_four_independent_source_groups(self):
         records = [approved_sft_record(i) for i in range(3)]

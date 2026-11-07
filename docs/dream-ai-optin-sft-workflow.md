@@ -56,7 +56,7 @@ python data/prepare_dream_ai_sft_splits.py \
   --output-dir data/dream-ai-optin-sft-prepared
 ```
 
-The splitter requires at least four independent session groups by default. It assigns entire session groups to either training or validation, deterministically, and writes:
+The adapter-training workflow's splitter requires at least eight independent session groups by default (use `--min-source-groups 8` explicitly to make the threshold clear). It assigns entire session groups to either training or validation, deterministically, and writes. The hosted-adapter notebook additionally requires at least 32 approved examples and at least four held-out validation examples; if the split is too small, add more independently reviewed sessions rather than lowering the gate:
 - `train.jsonl`
 - `validation.jsonl`
 - `manifest.json`
