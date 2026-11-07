@@ -9,11 +9,13 @@ In the `mjnr0477/dream-ai` repository, open **Settings → Secrets and variables
 - `KAGGLE_USERNAME`: your Kaggle username.
 - `KAGGLE_KEY`: your Kaggle API key. Generate it in Kaggle account settings and keep it private.
 
-Add this repository variable:
+You normally do **not** need to set a dataset variable. The launcher searches datasets owned by your authenticated Kaggle account, filters for private datasets, and selects the only one containing exactly one each of `train.jsonl`, `validation.jsonl`, `manifest.json` and `audit-gate.json`. It stops if none or more than one matching dataset exists.
 
-- `DREAM_AI_KAGGLE_DATASET`: the private Kaggle Dataset ID in `owner/dataset-slug` form.
+Only when more than one matching private dataset exists, add this optional repository variable:
 
-The dataset must contain exactly one each of `train.jsonl`, `validation.jsonl`, `manifest.json` and `audit-gate.json`. It must be private and must have passed DREAM's human review/audit pipeline. Do not upload raw conversations, account identifiers, passwords, API keys or unreviewed contributions.
+- `DREAM_AI_KAGGLE_DATASET`: the exact private Kaggle Dataset ID in `owner/dataset-slug` form.
+
+The dataset must have passed DREAM's human review/audit pipeline. Do not upload raw conversations, account identifiers, passwords, API keys or unreviewed contributions.
 
 ## One-time Kaggle setup
 
@@ -23,7 +25,7 @@ After adding the secret, run the workflow once from **GitHub → Actions → DRE
 
 ## What it does and does not do
 
-- Missing credentials or dataset configuration: exits safely without starting training.
+- Missing Kaggle credentials or no eligible private dataset: exits safely without starting training.
 - Missing or duplicate required dataset files: blocks the run.
 - Existing Kaggle run still active: skips launching a second one.
 - Successful notebook run: stores a new candidate under `candidates/` and training progress separately in the private Hugging Face repository.
