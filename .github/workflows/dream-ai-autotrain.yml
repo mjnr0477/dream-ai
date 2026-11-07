@@ -173,9 +173,9 @@ jobs:
               "code_file": "dream_ai_auto_train.ipynb",
               "language": "python",
               "kernel_type": "notebook",
-              "is_private": True,
-              "enable_gpu": True,
-              "enable_internet": True,
+              "is_private": "true",
+              "enable_gpu": "true",
+              "enable_internet": "true",
               "machine_shape": "NvidiaTeslaT4",
               "dataset_sources": [f"{username}/dream-ai-auto-training-input"],
               "competition_sources": [],
@@ -203,7 +203,7 @@ jobs:
         run: |
           KERNEL_REF="$KAGGLE_USERNAME/dream-ai-auto-train"
           COMPLETED=0
-          for attempt in $(seq 1 100); do
+          for attempt in $(seq 1 130); do
             STATUS="$(kaggle kernels status "$KERNEL_REF" 2>&1 || true)"
             LOWER="$(printf '%s' "$STATUS" | tr '[:upper:]' '[:lower:]')"
             echo "Kaggle status check $attempt: $STATUS"
