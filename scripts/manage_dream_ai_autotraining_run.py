@@ -61,6 +61,7 @@ def start(summary_path: Path) -> str:
         "validation_records": summary["validation_records"],
         "independent_source_groups": summary["independent_source_groups"],
         "audit_gate_passed": True,
+        "parent_adapter_path": summary.get("parent_adapter_path", "production-root"),
         "status": "submitted_to_kaggle",
     }
     rows = api(
