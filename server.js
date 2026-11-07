@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { generateDreamReply, getDreamRuntimeStatus, isDreamEngineConfigured } from "./lib/dream-engine.js";
 import { parseCodeArtifactsIfPresent } from "./lib/code-artifacts.js";
 import { getDreamCapabilities } from "./lib/capabilities.js";
-import { runPublicResearch, runPublicKnowledgeSearch } from "./lib/dream-tools.js";
+import { runPublicResearch } from "./lib/dream-tools.js";
 import { shouldAutoResearch, buildResearchContext } from "./lib/auto-research.js";
 import { ClientConcurrencyLimiter } from "./lib/client-limiter.js";
 
@@ -293,8 +293,8 @@ async function handleChat(req, res) {
     const latestQuestion = messages.at(-1).content;
     if (isDreamEngineConfigured(process.env) && shouldAutoResearch(latestQuestion, mode)) {
       try {
-        // Current public-source connectors support stable reference knowledge,
-        // not live scores, breaking news or other time-sensitive facts.
+        // Research current public sources as well as stable reference material.
+        // The evidence builder labels provider/date limits and never implies full web coverage.
         const research = await runPublicKnowledgeSearch(
           latestQuestion.trim().replace(/\s+/g, " ").slice(0, 200)
         );
@@ -303,7 +303,8 @@ async function handleChat(req, res) {
           researchContext = prepared.context;
           automaticResearch = {
             sourceCount: prepared.sources.length,
-            sources: prepared.sources
+            sources: prepared.sources,
+            providers: research.providerAvailability || {}
           };
         }
       } catch (error) {
