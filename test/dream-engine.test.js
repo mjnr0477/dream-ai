@@ -12,6 +12,8 @@ test("system prompt guides structured reasoning, calibration and evidence checks
   assert.match(prompt, /memory, inference and speculation/);
   assert.match(prompt, /do not invent citations/);
   assert.match(prompt, /For latest, today, live, or otherwise time-sensitive facts/);
+  assert.match(prompt, /use a supplied recent-news evidence bundle when present/);
+  assert.match(prompt, /Do not give a generic training-cutoff disclaimer when usable dated sources are provided/);
   assert.match(prompt, /do not guess/);
   assert.match(prompt, /do not expose private internal chain-of-thought/);
   assert.match(prompt, /Respond in the same language as the user’s latest message/);
