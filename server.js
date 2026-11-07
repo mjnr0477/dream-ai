@@ -6,8 +6,8 @@ import { fileURLToPath } from "node:url";
 import { generateDreamReply, getDreamRuntimeStatus, isDreamEngineConfigured } from "./lib/dream-engine.js";
 import { parseCodeArtifactsIfPresent } from "./lib/code-artifacts.js";
 import { getDreamCapabilities } from "./lib/capabilities.js";
-import { runPublicResearch } from "./lib/dream-tools.js";
-import { shouldAutoResearch, buildResearchContext } from "./lib/auto-research.js";
+import { runPublicLiveNewsSearch, runPublicResearch } from "./lib/dream-tools.js";
+import { shouldAutoResearch, buildResearchContext, isTimeSensitiveResearchIntent, buildLiveNewsContext } from "./lib/auto-research.js";
 import { ClientConcurrencyLimiter } from "./lib/client-limiter.js";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
@@ -291,23 +291,28 @@ async function handleChat(req, res) {
     let researchContext = "";
     let automaticResearch = null;
     const latestQuestion = messages.at(-1).content;
-    if (isDreamEngineConfigured(process.env) && shouldAutoResearch(latestQuestion, mode)) {
+    const needsRecentNews = isTimeSensitiveResearchIntent(latestQuestion, mode);
+    const needsReferenceResearch = shouldAutoResearch(latestQuestion, mode);
+    if (isDreamEngineConfigured(process.env) && (needsRecentNews || needsReferenceResearch)) {
       try {
-        // Current public-source connectors support stable reference knowledge,
-        // not live scores, breaking news or other time-sensitive facts.
-        const research = await runPublicResearch(
-          latestQuestion.trim().replace(/\s+/g, " ").slice(0, 200)
-        );
-        const prepared = buildResearchContext(research);
+        const query = latestQuestion.trim().replace(/\s+/g, " ").slice(0, 200);
+        const research = needsRecentNews
+          ? await runPublicLiveNewsSearch(query)
+          : await runPublicResearch(query);
+        const prepared = needsRecentNews
+          ? buildLiveNewsContext(research)
+          : buildResearchContext(research);
         if (prepared.context && prepared.sources.length) {
           researchContext = prepared.context;
           automaticResearch = {
             sourceCount: prepared.sources.length,
-            sources: prepared.sources
+            sources: prepared.sources,
+            kind: needsRecentNews ? "recent-news" : "reference-and-scholarly"
           };
         }
       } catch (error) {
         // Research is optional: normal chat remains available on provider failure.
+        // The DREAM prompt explicitly forbids guessing when current evidence is absent.
         console.info("DREAM automatic research unavailable:", error.message);
       }
     }
