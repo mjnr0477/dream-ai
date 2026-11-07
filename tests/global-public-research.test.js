@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { searchGlobalPublicSources } from "../lib/research-global.js";
 import { shouldAutoResearch, buildResearchContext } from "../lib/auto-research.js";
 import { getDreamCapabilities } from "../lib/capabilities.js";
+import { createDreamToolRegistry, runPublicResearch } from "../lib/dream-tools.js";
 
 function response(payload) {
   return { ok: true, json: async () => payload };
@@ -167,4 +168,69 @@ test("capabilities disclose general web-index availability truthfully", () => {
   const webWithKey = withKey.tools.find(tool => tool.id === "web_research");
   assert.equal(webWithKey.status, "available");
   assert.equal(withKey.application.researchScope, "multi-provider-public-source-discovery-with-web-index");
+});
+
+test("research orchestration combines encyclopedia, global and scholarly providers", async () => {
+  const fetchImpl = async url => {
+    const parsed = new URL(url);
+    if (parsed.hostname === "en.wikipedia.org") {
+      if (parsed.searchParams.get("list") === "search") {
+        return response({ query: { search: [{
+          pageid: 42,
+          title: "Douglas Adams",
+          snippet: "Writer and humorist"
+        }] } });
+      }
+      return response({ query: { pages: {
+        "42": {
+          pageid: 42,
+          extract: "Douglas Adams was an English writer and humorist.",
+          touched: "2026-10-01T10:00:00Z",
+          fullurl: "https://en.wikipedia.org/wiki/Douglas_Adams"
+        }
+      } } });
+    }
+    if (parsed.hostname === "www.wikidata.org") {
+      return response({ search: [{
+        id: "Q42",
+        label: "Douglas Adams",
+        description: "English writer and humorist"
+      }] });
+    }
+    if (parsed.hostname === "api.gdeltproject.org") {
+      return response({ articles: [{
+        title: "Recent report",
+        url: "https://news.example.com/report",
+        seendate: "20261108T080000Z"
+      }] });
+    }
+    if (parsed.hostname === "api.crossref.org") {
+      return response({ message: { items: [{
+        DOI: "10.1234/dream-test",
+        title: ["A bibliographic test paper"],
+        author: [{ given: "Ada", family: "Lovelace" }],
+        published: { "date-parts": [[2026, 1, 2]] }
+      }] } });
+    }
+    if (parsed.hostname === "api.openalex.org") {
+      return response({ results: [{
+        id: "https://openalex.org/W123",
+        doi: "https://doi.org/10.1234/dream-test",
+        title: "A bibliographic test paper",
+        publication_date: "2026-01-02",
+        authorships: [],
+        primary_location: { landing_page_url: "https://doi.org/10.1234/dream-test" }
+      }] });
+    }
+    return { ok: false, status: 503, json: async () => ({}) };
+  };
+  const registry = createDreamToolRegistry({ fetchImpl, env: {}, audit: () => {} });
+  const result = await runPublicResearch("Douglas Adams", registry);
+  assert.equal(result.results.length, 1);
+  assert.equal(result.globalResearch.entities[0].entityId, "Q42");
+  assert.equal(result.globalResearch.news[0].provider, "GDELT");
+  assert.equal(result.scholarlyResearch.results.length, 1);
+  assert.equal(result.providerAvailability.encyclopedia, "available");
+  assert.equal(result.providerAvailability.globalPublicSources, "available");
+  assert.equal(result.providerAvailability.scholarly, "available");
 });
