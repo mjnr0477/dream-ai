@@ -206,11 +206,11 @@ jobs:
             STATUS="$(kaggle kernels status "$KERNEL_REF" 2>&1 || true)"
             LOWER="$(printf '%s' "$STATUS" | tr '[:upper:]' '[:lower:]')"
             echo "Kaggle status check $attempt: $STATUS"
-            if printf '%s' "$LOWER" | grep -Eq 'complete|succeeded|success'; then
+            if printf '%s' "$LOWER" | grep -Eqi '(^|[^a-z])(complete|succeeded|success)([^a-z]|$)'; then
               COMPLETED=1
               break
             fi
-            if printf '%s' "$LOWER" | grep -Eq 'error|failed|failure|cancelled|canceled'; then
+            if printf '%s' "$LOWER" | grep -Eqi '(^|[^a-z])(error|failed|failure|cancelled|canceled)([^a-z]|$)'; then
               exit 1
             fi
             sleep 60
