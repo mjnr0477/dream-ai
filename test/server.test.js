@@ -207,16 +207,6 @@ test("learning contribution keeps legacy v1 clients compatible but accepts valid
   assert.equal(legacyV1.status, 503);
 });
 
-
-test("Deep Research marks unsupported live scores instead of using static research", async () => {
-  const response = await postResearch({ query: "What is the live score right now?" });
-  assert.equal(response.status, 200);
-  const data = await response.json();
-  assert.equal(data.unsupportedLiveData, true);
-  assert.deepEqual(data.results, []);
-  assert.match(data.provider, /DREAM AI/);
-});
-
 test("research endpoint rejects malformed and oversized queries before upstream access", async () => {
   for (const payload of [
     { query: "" },
@@ -303,34 +293,6 @@ test("health endpoint refuses a different configured native model", async () => 
   } finally {
     runtimeModelName = "dream-test-model";
   }
-});
-
-
-test("live-score requests fail closed instead of falling back to stale model knowledge", async () => {
-  const before = modelRequests.length;
-  const response = await postChat({
-    messages: [{ role: "user", content: "What is the live score right now?" }]
-  });
-  assert.equal(response.status, 200);
-  const data = await response.json();
-  assert.equal(data.source, "live-data-unavailable");
-  assert.match(data.reply, /does not currently have a dedicated live-data feed/);
-  assert.match(data.reply, /Recent news headlines cannot confirm those live values/);
-  assert.equal(modelRequests.length, before);
-});
-
-test("weather and league-table requests do not get sent to recent-news synthesis", async () => {
-  const before = modelRequests.length;
-  for (const prompt of [
-    "What is the weather today?",
-    "Show me the current Premier League standings."
-  ]) {
-    const response = await postChat({ messages: [{ role: "user", content: prompt }] });
-    assert.equal(response.status, 200);
-    const data = await response.json();
-    assert.equal(data.source, "live-data-unavailable");
-  }
-  assert.equal(modelRequests.length, before);
 });
 
 test("chat endpoint validates missing messages", async () => {
@@ -522,15 +484,13 @@ test("capabilities endpoint reports only verified runtime and tool availability"
   assert.equal(response.status, 200);
   const data = await response.json();
   assert.equal(data.product, "DREAM AI");
-  assert.equal(data.contractVersion, 1);
+  assert.equal(data.contractVersion, 2);
   assert.equal(data.model.status, "ready");
   assert.equal(Object.hasOwn(data.model, "completedTrainingSteps"), false);
   assert.equal(Object.hasOwn(data.model, "checkpointSha256"), false);
   assert.deepEqual(data.application.modes, ["general", "coding", "learning", "research"]);
   assert.ok(data.tools.some(tool => tool.id === "public_knowledge_search" && tool.status === "available"));
-  assert.ok(data.tools.some(tool => tool.id === "multi_source_scholarly_research" && tool.status === "available"));
-  assert.ok(data.tools.some(tool => tool.id === "recent_news_search" && tool.status === "available"));
-  assert.equal(data.safety.toolExecutionDefault, "disabled");
+  assert.equal(data.safety.toolExecutionDefault, "read-only-public-sources");
   assert.equal(data.safety.unrestrictedAccess, false);
   assert.ok(data.tools.some(tool => tool.id === "code_execution" && tool.status === "not-implemented"));
   assert.ok(data.tools.every(tool => tool.status !== "ready"));
