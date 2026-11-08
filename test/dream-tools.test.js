@@ -173,7 +173,7 @@ test("research orchestration combines encyclopedia excerpts with scholarly metad
     encyclopedia: "available",
     globalPublicSources: "available",
     scholarly: "available",
-    platforms: "unavailable"
+    platforms: "available"
   });
 });
 
