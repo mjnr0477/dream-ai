@@ -36,15 +36,30 @@ The report includes deterministic exact-match results by category and language, 
 
 ## Public research providers
 
-The current no-key research path uses public APIs:
-- Wikipedia MediaWiki search and short article introductions for encyclopedia context.
-- Wikidata entity search for public structured entity records.
-- GDELT DOC 2.0 Article List for recent news headlines within a rolling seven-day window.
-- Crossref and OpenAlex for scholarly publication metadata.
+DREAM's research layer fans a query out to independent providers in parallel. Each provider reports whether it returned results, returned none, is unavailable, or has not been configured.
 
-For broad general web-index search, configure `DREAM_BRAVE_SEARCH_API_KEY` as a private server-side environment variable on the deployment. Never put the key in frontend code, a committed `.env` file, notebook output or chat message. If the key is absent, DREAM reports general web-index search as not configured while the no-key providers remain available. Brave's [LLM Context API](https://api-dashboard.search.brave.com/documentation/services/llm-context) returns extracted page passages and source metadata for RAG/AI grounding, authenticated with the `X-Subscription-Token` header.
+**Available without private API keys**
+- Wikipedia MediaWiki search and short article introductions.
+- Wikidata public structured entity records.
+- GDELT recent news headlines.
+- Crossref and OpenAlex scholarly publication metadata.
+- Google News RSS headlines and publisher links (headline discovery, not full article text).
+- Bluesky public-post search through its public AppView API.
 
-Public individual research is limited to source-supported public-interest and professional information. It does not create private dossiers or expose sensitive personal data. The application must distinguish verified facts from search snippets and must disclose when live evidence is unavailable.
+**Optional server-side integrations**
+- Google Search grounding through the Gemini API: set `DREAM_GOOGLE_GEMINI_API_KEY`. Google performs the web search and returns a grounded answer with source citations. This is a retrieval service; it does not train or replace DREAM. See [Google Search grounding](https://ai.google.dev/gemini-api/docs/generate-content/google-search).
+- YouTube Data API v3 public video search: set `DREAM_YOUTUBE_API_KEY`. This returns video/channel metadata and descriptions, not guaranteed transcripts or private account data. See [YouTube Data API](https://developers.google.com/youtube/data/reference/rest).
+- X recent public-post search: set `DREAM_X_BEARER_TOKEN`. An eligible X developer plan, quotas and applicable fees may be required.
+- Brave LLM Context: set `DREAM_BRAVE_SEARCH_API_KEY` for extracted web-page passages and source metadata. See [Brave LLM Context](https://api-dashboard.search.brave.com/documentation/services/llm-context).
+
+Store every credential only as a private server-side environment variable on the deployment. Never put credentials in frontend code, a committed `.env` file, notebook output or chat messages.
+
+**Platforms that need separate approval or a different product integration**
+- Amazon Creators API is an affiliate product-catalogue service, not a general web search engine. Current access requires Amazon Associates enrolment, API approval and at least 10 qualifying sales in the previous 30 days. It belongs in a separate shopping-research feature, not the general knowledge pipeline.
+- Reddit's Data API has separate commercial-use terms and prohibits using its content to train AI models without rightsholder permission. Do not ingest Reddit content into DREAM training without an explicit agreement.
+- Meta (Facebook, Instagram and Threads), TikTok and LinkedIn have product-specific scopes, account eligibility and application reviews. DREAM will use approved public or user-authorized access only; it will not scrape private feeds or bypass restrictions.
+
+Public individual research is limited to source-supported public-interest and professional information. It does not create private dossiers or expose sensitive personal data. Search results are leads, not proof; distinguish publication, event and retrieval dates and corroborate important claims with primary sources. Retrieval does not automatically grant permission to retain or use platform content for model training.
 
 ## Native DREAM model
 
