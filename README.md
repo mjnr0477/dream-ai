@@ -42,8 +42,9 @@ DREAM's research layer fans a query out to independent providers in parallel. Ea
 - Wikipedia MediaWiki search and short article introductions.
 - Wikidata public structured entity records.
 - GDELT recent news headlines.
-- Crossref and OpenAlex scholarly publication metadata.
+- Crossref and OpenAlex scholarly publication metadata, plus Europe PMC biomedical abstracts and publication records where supplied.
 - Google News RSS headlines and publisher links (headline discovery, not full article text).
+- Europe PMC's public biomedical literature API (abstracts and publication metadata where available).
 - Bluesky public-post search through its public AppView API.
 
 **Optional server-side integrations**
