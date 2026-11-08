@@ -563,11 +563,14 @@ async function sendResearch(text, isRetry = false) {
     if (!response.ok) throw new Error(data.error || "Research search failed.");
     const results = Array.isArray(data.results) ? data.results : [];
     const scholarlyResults = Array.isArray(data.scholarlyResearch?.results) ? data.scholarlyResearch.results : [];
+    const platformResearch = data.platformResearch || {};
+    const platformResults = Array.isArray(platformResearch.results) ? platformResearch.results : [];
     const globalResearch = data.globalResearch || {};
     const globalResults = [
       ...(Array.isArray(globalResearch.webResults) ? globalResearch.webResults : []),
       ...(Array.isArray(globalResearch.news) ? globalResearch.news : []),
-      ...(Array.isArray(globalResearch.entities) ? globalResearch.entities : [])
+      ...(Array.isArray(globalResearch.entities) ? globalResearch.entities : []),
+      ...platformResults
     ];
     const totalResults = results.length + scholarlyResults.length + globalResults.length;
     replyNode.replaceChildren();
@@ -578,7 +581,7 @@ async function sendResearch(text, isRetry = false) {
     replyNode.append(heading);
     const note = document.createElement("p");
     note.className = "research-note";
-    note.textContent = "Results may include Wikipedia excerpts, Wikidata public entity records, GDELT headlines from the last seven days, optional Brave LLM Context web passages, and Crossref and OpenAlex scholarly metadata. Search results are leads, not proof. Check primary sources and publication full texts before treating important claims as established.";
+    note.textContent = "Results may include Google Search grounding, Google News RSS headlines, YouTube public video metadata, Bluesky and optional X public posts, Wikipedia, Wikidata, GDELT, Brave web passages, and Crossref/OpenAlex scholarly metadata. Social and video results are public metadata, not private account access or complete transcripts. Search results are leads, not proof. Check primary sources before treating important claims as established.";
     replyNode.append(note);
     const transcript = [];
     for (const result of results) {
