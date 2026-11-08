@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { searchPlatformSources } from "../lib/research-platforms.js";
+import { getDreamCapabilities } from "../lib/capabilities.js";
 
 function jsonResponse(payload) {
   return { ok: true, json: async () => payload };
@@ -121,4 +122,20 @@ test("unconfigured providers are reported honestly and invalid queries are rejec
   assert.equal(result.providers.find(p => p.provider === "YouTube Data API").status, "not-configured");
   assert.equal(result.providers.find(p => p.provider === "X API").status, "not-configured");
   await assert.rejects(() => searchPlatformSources(""), /1 to 200/);
+});
+
+test("capabilities expose Google, YouTube and X integrations only when credentials exist", () => {
+  const withoutKeys = getDreamCapabilities({}, {});
+  assert.equal(withoutKeys.tools.find(item => item.id === "google_search_grounding").status, "not-configured");
+  assert.equal(withoutKeys.tools.find(item => item.id === "youtube_public_search").status, "not-configured");
+  assert.equal(withoutKeys.tools.find(item => item.id === "x_public_search").status, "not-configured");
+  const configured = getDreamCapabilities({}, {
+    DREAM_GOOGLE_GEMINI_API_KEY: "google",
+    DREAM_YOUTUBE_API_KEY: "youtube",
+    DREAM_X_BEARER_TOKEN: "x"
+  });
+  assert.equal(configured.tools.find(item => item.id === "google_search_grounding").status, "available");
+  assert.equal(configured.tools.find(item => item.id === "youtube_public_search").status, "available");
+  assert.equal(configured.tools.find(item => item.id === "x_public_search").status, "available");
+  assert.ok(configured.application.researchScope.includes("google-search-grounding"));
 });
