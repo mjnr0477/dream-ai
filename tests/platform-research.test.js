@@ -29,7 +29,8 @@ test("Google Search grounding returns cited public web sources without replacing
     DREAM_GOOGLE_GEMINI_API_KEY: "server-only-test-key"
   });
   assert.equal(request.url.hostname, "generativelanguage.googleapis.com");
-  assert.equal(request.url.searchParams.get("key"), "server-only-test-key");
+  assert.equal(request.url.searchParams.has("key"), false);
+  assert.equal(request.options.headers["x-goog-api-key"], "server-only-test-key");
   assert.equal(request.options.method, "POST");
   assert.deepEqual(JSON.parse(request.options.body).tools, [{ google_search: {} }]);
   assert.equal(result.googleGroundedAnswer, "A current public fact with citations.");
