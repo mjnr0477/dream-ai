@@ -228,10 +228,9 @@ def launch() -> int:
                 print("No training was started and no model files were changed.")
                 return 0
             if len(matching) > 1:
-                choices = ", ".join(item[0] for item in matching)
-                raise RuntimeError("More than one matching private dataset exists; set DREAM_AI_KAGGLE_DATASET to select one: " + choices)
+                raise RuntimeError("More than one eligible private dataset exists; set DREAM_AI_KAGGLE_DATASET to select one. Dataset identifiers are omitted from logs.")
             dataset_id, listing = matching[0]
-            print("AUTO_DISCOVERED_PRIVATE_DATASET:", dataset_id)
+            print("AUTO_DISCOVERED_PRIVATE_DATASET: one eligible dataset found; identifier omitted from public logs.")
 
     missing = missing_required_files(listing.stdout)
     if missing:
@@ -274,8 +273,8 @@ def launch() -> int:
             return 0
 
         print("DATASET_PREFLIGHT: PASSED")
-        print("KERNEL:", kernel_id)
-        print("DATASET:", dataset_id)
+        print("KAGGLE_KERNEL: private training notebook selected; identifier omitted from public logs.")
+        print("PRIVATE_DATASET: one eligible dataset selected; identifier omitted from public logs.")
         print("PRODUCTION_ADAPTER: protected; notebook uploads candidates only")
         run([
             "kaggle", "kernels", "push", "--path", str(workdir),
