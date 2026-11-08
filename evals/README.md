@@ -19,6 +19,20 @@ The runner records a UUID, UTC start time, evaluation set, model name, checkpoin
 
 For reproducibility, compare runs only when the evaluation-set revision, checkpoint hash, runtime identity, generation settings and scoring rubric are known. Report per-language results and sample counts; do not hide weak or missing language coverage inside one aggregate score.
 
+## Benchmark contamination preflight
+
+Before using a benchmark to compare a checkpoint, scan every available pretraining and SFT train, validation and test split:
+
+```sh
+python model/audit_benchmark_contamination.py \
+  --benchmark evals/core-v1.jsonl \
+  --corpus data/prepared/train.txt data/prepared/validation.txt data/prepared/test.txt \
+          data/sft-train.jsonl data/sft-validation.jsonl \
+  --out eval-results/core-v1-contamination.json
+```
+
+Repeat with `evals/african-languages-v1.jsonl`. Replace the example corpus paths with the exact files used for the checkpoint. The command checks NFKC-normalized, case-folded, whitespace-normalized prompt, rubric and long reference substrings (minimum 40 characters). It exits non-zero when it finds an overlap and writes only task IDs and SHA-256 fingerprints, not matched training text or raw record IDs. A no-match result is only an exact/normalized overlap screen: it cannot detect paraphrases, shared source material, semantic overlap or memorization. Human source review remains mandatory. This audit does not approve data, change review flags or train a model.
+
 ## Translation and comprehension protocol
 
 The existing built-in cases test multilingual response generation and a small number of translation/explanation tasks, but they do not yet constitute a professionally validated translation benchmark. A reliable translation benchmark must use source/target-aligned segments, preserve named entities and numbers, identify direction and locale/script, and be independently translated and adjudicated by qualified bilingual reviewers. Score adequacy, meaning preservation, terminology, fluency and harmful omissions separately. Comprehension cases should test factual extraction, inference and instruction following separately from translation quality.
