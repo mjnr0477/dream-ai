@@ -40,6 +40,7 @@ class BenchmarkContaminationAuditTests(unittest.TestCase):
         self.assertEqual(overlap["task_id"], "task-1")
         self.assertEqual(overlap["benchmark_field"], "prompt")
         self.assertEqual(len(overlap["corpus_record_sha256"]), 64)
+        self.assertEqual(report["task_field_comparisons"], 2)
         rendered = json.dumps(report)
         self.assertNotIn("private-record-123", rendered)
         self.assertNotIn(secret_record["text"], rendered)
@@ -78,6 +79,17 @@ class BenchmarkContaminationAuditTests(unittest.TestCase):
         corpus.write_text(json.dumps({"id": "row-1", "source": "catalogue"}) + "\n", encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "no recognized text fields"):
             audit(self.benchmark, [corpus])
+
+    def test_counts_metadata_only_rows_as_skipped(self):
+        corpus = self.root / "mixed.jsonl"
+        corpus.write_text(
+            json.dumps({"id": "metadata-only", "source": "catalogue"}) + "\\n"
+            + json.dumps({"id": "text-row", "text": "A separate short text about plants."}) + "\\n",
+            encoding="utf-8",
+        )
+        report = audit(self.benchmark, [corpus])
+        self.assertEqual(report["corpus_records_scanned"], 1)
+        self.assertEqual(report["corpus_files"][0]["records_without_text_skipped"], 1)
 
     def test_writes_report_atomically(self):
         corpus = self.root / "corpus.txt"
