@@ -94,6 +94,31 @@ test("X public search activates only with a server-side bearer token", async () 
   assert.equal(result.results.find(item => item.provider === "X API").url, "https://x.com/publicuser/status/12345");
 });
 
+test("Europe PMC returns biomedical abstracts with publication provenance", async () => {
+  const { fetchImpl, requests } = captureFetch(() => jsonResponse({
+    resultList: {
+      result: [{
+        id: "123456",
+        pmid: "123456",
+        pmcid: "PMC12345",
+        title: "A biomedical research paper",
+        authorString: "A. Researcher",
+        abstractText: "A structured abstract for public research discovery.",
+        firstPublicationDate: "2026-05-01",
+        journalInfo: { journal: { title: "Open Research Journal" } },
+        isOpenAccess: "Y"
+      }]
+    }
+  }));
+  const result = await searchPlatformSources("biomedical research", fetchImpl, {});
+  assert.ok(requests.some(item => item.url.hostname === "www.ebi.ac.uk"));
+  const paper = result.results.find(item => item.provider === "Europe PMC");
+  assert.equal(paper.title, "A biomedical research paper");
+  assert.equal(paper.snippet, "A structured abstract for public research discovery.");
+  assert.equal(paper.url, "https://europepmc.org/articles/PMC12345");
+  assert.equal(paper.openAccess, true);
+});
+
 test("Google News RSS returns headline metadata with publisher links", async () => {
   const xml = '<rss><channel><item><title>Kenya technology update</title><link>https://publisher.example/news/1</link><pubDate>Sun, 08 Nov 2026 10:00:00 GMT</pubDate></item></channel></rss>';
   const { fetchImpl, requests } = captureFetch(() => textResponse(xml));
