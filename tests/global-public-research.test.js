@@ -177,7 +177,10 @@ test("capabilities disclose general web-index availability truthfully", () => {
   const withKey = getDreamCapabilities({}, { DREAM_BRAVE_SEARCH_API_KEY: "configured" });
   const webWithKey = withKey.tools.find(tool => tool.id === "web_research");
   assert.equal(webWithKey.status, "available");
-  assert.equal(withKey.application.researchScope, "multi-provider-public-source-discovery-with-web-index");
+  assert.deepEqual(withKey.application.researchScope, [
+    "multi-provider-public-source-discovery",
+    "brave-web-context"
+  ]);
 });
 
 test("research orchestration combines encyclopedia, global and scholarly providers", async () => {
