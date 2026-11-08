@@ -91,9 +91,11 @@ def format_readiness_summary(dataset_reports: list[dict]) -> str:
     ]
     if dataset_reports:
         for report in dataset_reports:
-            dataset_id = validate_dataset_id(report["dataset_id"])
+            label = report.get("label", "Private dataset")
+            if not re.fullmatch(r"Private dataset [0-9]+", label):
+                label = "Private dataset"
             missing = report.get("missing", list(REQUIRED_FILES))
-            lines.append(f"- `{dataset_id}`: missing " + (", ".join(f"`{name}`" for name in missing) if missing else "no missing files"))
+            lines.append(f"- **{label}**: missing " + (", ".join(f"`{name}`" for name in missing) if missing else "no missing files"))
     else:
         lines.append("- No verifiable private datasets were found in the account inventory.")
     lines.extend([
@@ -210,7 +212,7 @@ def launch() -> int:
                 except ValueError:
                     candidate_missing = list(REQUIRED_FILES)
                 dataset_reports.append({
-                    "dataset_id": candidate_ref,
+                    "label": f"Private dataset {index + 1}",
                     "missing": candidate_missing,
                 })
                 if not candidate_missing:
@@ -219,7 +221,7 @@ def launch() -> int:
                 print("WAITING_FOR_PRIVATE_REVIEWED_DATASET: no private dataset with all four required files was found.")
                 for report in dataset_reports:
                     missing_text = ", ".join(report["missing"]) if report["missing"] else "none"
-                    print(f"DATASET_FILE_CHECK: {report['dataset_id']} | missing: {missing_text}")
+                    print(f"DATASET_FILE_CHECK: Private dataset {dataset_reports.index(report) + 1} | missing: {missing_text}")
                 summary = format_readiness_summary(dataset_reports)
                 print(summary)
                 write_step_summary(summary)
@@ -304,9 +306,10 @@ def main() -> int:
             "test-user",
         ) == ["test-user/public-data", "test-user/test-dataset"]
         readiness = format_readiness_summary([{
-            "dataset_id": "test-user/incomplete-data",
+            "label": "Private dataset 1",
             "missing": ["train.jsonl", "audit-gate.json"],
         }])
+        assert "test-user/incomplete-data" not in readiness
         assert "Status: NOT STARTED" in readiness
         assert "train.jsonl" in readiness and "audit-gate.json" in readiness
         assert "No model or production adapter files were changed." in readiness
