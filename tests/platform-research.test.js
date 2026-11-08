@@ -60,7 +60,8 @@ test("YouTube search returns public video metadata and uses the server API key",
   const call = requests.find(item => item.url.hostname === "www.googleapis.com");
   assert.ok(call);
   assert.equal(call.url.pathname, "/youtube/v3/search");
-  assert.equal(call.url.searchParams.get("key"), "youtube-test-key");
+  assert.equal(call.url.searchParams.has("key"), false);
+  assert.equal(call.options.headers["x-goog-api-key"], "youtube-test-key");
   assert.equal(result.results.find(item => item.provider === "YouTube Data API").url, "https://www.youtube.com/watch?v=abc123");
   assert.equal(result.results.find(item => item.provider === "YouTube Data API").channel, "Official channel");
 });
