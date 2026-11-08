@@ -170,6 +170,32 @@ test("research context includes source links from all public provider types", ()
   assert.ok(prepared.sources.every(source => source.url.startsWith("https://")));
 });
 
+test("research context includes public video and social-platform sources", () => {
+  const prepared = buildResearchContext({
+    platformResearch: {
+      results: [
+        {
+          provider: "YouTube Data API",
+          title: "Public video",
+          snippet: "Public video description",
+          url: "https://www.youtube.com/watch?v=abc123",
+          publishedAt: "2026-11-08T10:00:00Z"
+        },
+        {
+          provider: "Bluesky",
+          title: "Public author · public post",
+          snippet: "Public post text",
+          url: "https://bsky.app/profile/public.example/post/post123"
+        }
+      ]
+    }
+  });
+  assert.equal(prepared.sources.length, 2);
+  assert.ok(prepared.context.includes("Public video description"));
+  assert.ok(prepared.context.includes("Public post text"));
+  assert.ok(prepared.sources.every(source => source.url.startsWith("https://")));
+});
+
 test("capabilities disclose general web-index availability truthfully", () => {
   const withoutKey = getDreamCapabilities({}, {});
   const webWithoutKey = withoutKey.tools.find(tool => tool.id === "web_research");
