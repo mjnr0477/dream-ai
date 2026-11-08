@@ -75,6 +75,45 @@ def private_dataset_refs(csv_text: str, username: str) -> list[str]:
             refs.append(ref.strip())
     return sorted(set(refs))
 
+
+def format_readiness_summary(dataset_reports: list[dict]) -> str:
+    """Explain why adapter training is waiting without exposing private dataset contents."""
+    lines = [
+        "## DREAM AI adapter-training readiness",
+        "",
+        "**Status: NOT STARTED**",
+        "",
+        "The launcher checked private datasets owned by the configured Kaggle account, but none contained exactly one copy of every required file:",
+        "",
+        *[f"- `{name}`" for name in REQUIRED_FILES],
+        "",
+        "### Dataset file checks",
+    ]
+    if dataset_reports:
+        for report in dataset_reports:
+            dataset_id = validate_dataset_id(report["dataset_id"])
+            missing = report.get("missing", list(REQUIRED_FILES))
+            lines.append(f"- `{dataset_id}`: missing " + (", ".join(f"`{name}`" for name in missing) if missing else "no missing files"))
+    else:
+        lines.append("- No verifiable private datasets were found in the account inventory.")
+    lines.extend([
+        "",
+        "Training was not launched. No model or production adapter files were changed.",
+        "",
+        "The required files must come from DREAM's reviewed opt-in export, human review, source-group-isolated split preparation, and matching privacy/provenance audit. Do not bypass those gates or mark review flags automatically.",
+    ])
+    return "\n".join(lines) + "\n"
+
+
+def write_step_summary(summary: str, env=os.environ) -> None:
+    """Append a readiness report to GitHub Actions when running inside a workflow."""
+    summary_path = env.get("GITHUB_STEP_SUMMARY", "").strip()
+    if summary_path:
+        with Path(summary_path).open("a", encoding="utf-8") as handle:
+            handle.write(summary)
+
+
+
 def build_kernel_metadata(username: str, dataset_id: str) -> dict:
     if not re.fullmatch(r"[A-Za-z0-9_-]+", username.strip()):
         raise ValueError("KAGGLE_USERNAME is missing or invalid.")
@@ -154,6 +193,7 @@ def launch() -> int:
             )
         else:
             matching = []
+            dataset_reports = []
             for index, candidate_ref in enumerate(private_refs):
                 try:
                     fetch_private_dataset_metadata(
@@ -168,11 +208,21 @@ def launch() -> int:
                 try:
                     candidate_missing = missing_required_files(candidate_files.stdout)
                 except ValueError:
-                    continue
+                    candidate_missing = list(REQUIRED_FILES)
+                dataset_reports.append({
+                    "dataset_id": candidate_ref,
+                    "missing": candidate_missing,
+                })
                 if not candidate_missing:
                     matching.append((candidate_ref, candidate_files))
             if not matching:
                 print("WAITING_FOR_PRIVATE_REVIEWED_DATASET: no private dataset with all four required files was found.")
+                for report in dataset_reports:
+                    missing_text = ", ".join(report["missing"]) if report["missing"] else "none"
+                    print(f"DATASET_FILE_CHECK: {report['dataset_id']} | missing: {missing_text}")
+                summary = format_readiness_summary(dataset_reports)
+                print(summary)
+                write_step_summary(summary)
                 print("No training was started and no model files were changed.")
                 return 0
             if len(matching) > 1:
@@ -253,6 +303,13 @@ def main() -> int:
             "ref,title,size\ntest-user/test-dataset,Reviewed,10\ntest-user/public-data,Public,10\n",
             "test-user",
         ) == ["test-user/public-data", "test-user/test-dataset"]
+        readiness = format_readiness_summary([{
+            "dataset_id": "test-user/incomplete-data",
+            "missing": ["train.jsonl", "audit-gate.json"],
+        }])
+        assert "Status: NOT STARTED" in readiness
+        assert "train.jsonl" in readiness and "audit-gate.json" in readiness
+        assert "No model or production adapter files were changed." in readiness
         try:
             verify_private_dataset(
                 {"info": {"isPrivate": False}}, "test-user", "test-user/test-dataset"
