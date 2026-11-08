@@ -11,9 +11,10 @@ function textResponse(value) {
 }
 
 test("Google Search grounding returns cited public web sources without replacing DREAM", async () => {
-  let request;
+  const requests = [];
   const fetchImpl = async (url, options) => {
-    request = { url: new URL(url), options };
+    const request = { url: new URL(url), options };
+    requests.push(request);
     return jsonResponse({
       candidates: [{
         content: { parts: [{ text: "A current public fact with citations." }] },
@@ -29,11 +30,11 @@ test("Google Search grounding returns cited public web sources without replacing
   const result = await searchPlatformSources("current public fact", fetchImpl, {
     DREAM_GOOGLE_GEMINI_API_KEY: "server-only-test-key"
   });
-  assert.equal(request.url.hostname, "generativelanguage.googleapis.com");
-  assert.equal(request.url.searchParams.has("key"), false);
-  assert.equal(request.options.headers["x-goog-api-key"], "server-only-test-key");
-  assert.equal(request.options.method, "POST");
-  assert.deepEqual(JSON.parse(request.options.body).tools, [{ google_search: {} }]);
+  assert.equal(requests.find(item => item.url.hostname === "generativelanguage.googleapis.com")?.url.hostname, "generativelanguage.googleapis.com");
+  assert.equal(requests.find(item => item.url.hostname === "generativelanguage.googleapis.com")?.url.searchParams.has("key"), false);
+  assert.equal(requests.find(item => item.url.hostname === "generativelanguage.googleapis.com")?.options.headers["x-goog-api-key"], "server-only-test-key");
+  assert.equal(requests.find(item => item.url.hostname === "generativelanguage.googleapis.com")?.options.method, "POST");
+  assert.deepEqual(JSON.parse(requests.find(item => item.url.hostname === "generativelanguage.googleapis.com")?.options.body).tools, [{ google_search: {} }]);
   assert.equal(result.googleGroundedAnswer, "A current public fact with citations.");
   assert.equal(result.results[0].provider, "Google Search");
 });
@@ -55,9 +56,9 @@ test("YouTube search returns public video metadata and uses the server API key",
   const result = await searchPlatformSources("public video", fetchImpl, {
     DREAM_YOUTUBE_API_KEY: "youtube-test-key"
   });
-  assert.equal(request.url.hostname, "www.googleapis.com");
-  assert.equal(request.url.pathname, "/youtube/v3/search");
-  assert.equal(request.url.searchParams.get("key"), "youtube-test-key");
+  assert.equal(requests.find(item => item.url.hostname === "generativelanguage.googleapis.com")?.url.hostname, "www.googleapis.com");
+  assert.equal(requests.find(item => item.url.hostname === "www.googleapis.com")?.url.pathname, "/youtube/v3/search");
+  assert.equal(requests.find(item => item.url.hostname === "generativelanguage.googleapis.com")?.url.searchParams.get("key"), "youtube-test-key");
   assert.equal(result.results[0].url, "https://www.youtube.com/watch?v=abc123");
   assert.equal(result.results[0].channel, "Official channel");
 });
@@ -74,7 +75,7 @@ test("Bluesky public search works without credentials and never exposes private 
     }] });
   };
   const result = await searchPlatformSources("topic", fetchImpl, {});
-  assert.equal(request.url.hostname, "public.api.bsky.app");
+  assert.equal(requests.find(item => item.url.hostname === "generativelanguage.googleapis.com")?.url.hostname, "public.api.bsky.app");
   assert.equal(result.results[0].provider, "Bluesky");
   assert.equal(result.results[0].url, "https://bsky.app/profile/public.example/post/post123");
   assert.equal(result.providers.find(p => p.provider === "Bluesky").status, "ok");
@@ -92,8 +93,8 @@ test("X public search activates only with a server-side bearer token", async () 
   const result = await searchPlatformSources("public post", fetchImpl, {
     DREAM_X_BEARER_TOKEN: "x-test-token"
   });
-  assert.equal(request.url.hostname, "api.x.com");
-  assert.equal(request.options.headers.authorization, "Bearer x-test-token");
+  assert.equal(requests.find(item => item.url.hostname === "generativelanguage.googleapis.com")?.url.hostname, "api.x.com");
+  assert.equal(requests.find(item => item.url.hostname === "generativelanguage.googleapis.com")?.options.headers.authorization, "Bearer x-test-token");
   assert.equal(result.results[0].url, "https://x.com/publicuser/status/12345");
 });
 
@@ -105,7 +106,7 @@ test("Google News RSS returns headline metadata with publisher links", async () 
     return textResponse(xml);
   };
   const result = await searchPlatformSources("Kenya technology", fetchImpl, {});
-  assert.equal(request.url.hostname, "news.google.com");
+  assert.equal(requests.find(item => item.url.hostname === "generativelanguage.googleapis.com")?.url.hostname, "news.google.com");
   assert.equal(result.results[0].provider, "Google News RSS");
   assert.equal(result.results[0].title, "Kenya technology update");
   assert.equal(result.results[0].url, "https://publisher.example/news/1");
