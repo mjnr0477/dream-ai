@@ -52,6 +52,7 @@ DREAM's research layer fans a query out to independent providers in parallel. Ea
 - Google News RSS headlines and publisher links (headline discovery, not full article text).
 - Europe PMC's public biomedical literature API (abstracts and publication metadata where available).
 - Bluesky public-post search through its public AppView API.
+- Stack Exchange public Q&A search through the anonymous Stack Exchange API; it uses a shared IP quota and remains a retrieval-only source unless item-level training rights are established.
 
 **Optional server-side integrations**
 - Google Search grounding through the Gemini API: set `DREAM_GOOGLE_GEMINI_API_KEY`. Google performs the web search and returns a grounded answer with source citations. This is a retrieval service; it does not train or replace DREAM. See [Google Search grounding](https://ai.google.dev/gemini-api/docs/generate-content/google-search).
