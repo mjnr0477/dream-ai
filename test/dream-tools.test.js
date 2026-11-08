@@ -172,7 +172,8 @@ test("research orchestration combines encyclopedia excerpts with scholarly metad
   assert.deepEqual(result.providerAvailability, {
     encyclopedia: "available",
     globalPublicSources: "available",
-    scholarly: "available"
+    scholarly: "available",
+    platforms: "unavailable"
   });
 });
 
