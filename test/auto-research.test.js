@@ -35,6 +35,60 @@ test("research context accepts only bounded encyclopedia source URLs and text", 
   assert.doesNotMatch(prepared.context, /attacker|javascript:/);
 });
 
+test("Google grounding retains secure publisher URLs returned by Google Search", () => {
+  const prepared = buildResearchContext({
+    query: "latest technology news",
+    platformResearch: { results: [
+      { provider: "Google Search", title: "Publisher report", url: "https://www.bbc.com/news/technology-123", snippet: "A sourced current report." },
+      { provider: "Google Search", title: "Insecure link", url: "http://www.example.com/report", snippet: "Must be excluded." },
+      { provider: "Google Search", title: "Credential link", url: "https://user:pass@example.com/report", snippet: "Must be excluded." }
+    ] }
+  });
+  assert.equal(prepared.sources.length, 1);
+  assert.equal(prepared.sources[0].provider, "Google Search");
+  assert.equal(prepared.sources[0].url, "https://www.bbc.com/news/technology-123");
+  assert.match(prepared.context, /A sourced current report/);
+  assert.doesNotMatch(prepared.context, /Must be excluded/);
+});
+
+test("time-sensitive research context balances providers instead of letting Wikipedia crowd out current sources", () => {
+  const prepared = buildResearchContext({
+    query: "What are the latest developments today?",
+    results: Array.from({ length: 5 }, (_, index) => ({
+      title: "Encyclopedia source " + index,
+      url: "https://en.wikipedia.org/wiki/Encyclopedia_" + index,
+      extract: "A".repeat(500)
+    })),
+    globalResearch: {
+      webResults: [{
+        provider: "Brave Search LLM Context",
+        title: "Independent web source",
+        url: "https://www.example.org/current-report",
+        snippet: "A relevant source from the web index."
+      }],
+      news: [{
+        provider: "GDELT",
+        title: "Recent publisher report",
+        url: "https://www.bbc.com/news/current-report",
+        domain: "bbc.com",
+        seenAt: "2026-11-08T10:00:00Z"
+      }]
+    },
+    platformResearch: { results: [{
+      provider: "Google Search",
+      title: "Google-grounded publisher",
+      url: "https://www.reuters.com/world/current-report",
+      snippet: "Google-grounded current reporting."
+    }] }
+  });
+  const providers = new Set(prepared.sources.map(source => source.provider));
+  assert.ok(providers.has("Google Search"));
+  assert.ok(providers.has("Brave Search LLM Context"));
+  assert.ok(providers.has("GDELT"));
+  assert.ok(providers.has("Wikipedia"));
+  assert.ok(prepared.sources.length <= 14);
+});
+
 test("research context enforces a strict evidence size limit", () => {
   const prepared = buildResearchContext({ results: Array.from({ length: 5 }, (_, index) => ({
     title: "Source " + index,
