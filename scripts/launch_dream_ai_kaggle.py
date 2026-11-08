@@ -106,6 +106,7 @@ def format_readiness_summary(dataset_reports: list[dict]) -> str:
         "Training was not launched. No model or production adapter files were changed.",
         "",
         "The required files must come from DREAM's reviewed opt-in export, human review, source-group-isolated split preparation, and matching privacy/provenance audit. Do not bypass those gates or mark review flags automatically.",
+        "The notebook separately requires at least 32 human-approved examples from at least 8 independent session groups, completed rights/privacy/quality approval, a Kaggle GPU, and the HF_TOKEN Kaggle Secret. A passing run uploads a candidate only; it does not replace the production adapter.",
     ])
     return "\n".join(lines) + "\n"
 
@@ -226,7 +227,7 @@ def launch() -> int:
                     matching.append((candidate_ref, candidate_files))
             if not matching:
                 print("WAITING_FOR_PRIVATE_REVIEWED_DATASET: no private dataset with all four required files was found.")
-                for report in dataset_reports:
+                for report_index, report in enumerate(dataset_reports, 1):
                     label = report["label"]
                     if report.get("inventory_error") is True:
                         print(f"DATASET_FILE_CHECK: {label} | inventory could not be verified")
