@@ -26,7 +26,8 @@ test("Google Search grounding returns cited public web sources without replacing
       groundingMetadata: {
         webSearchQueries: ["current public fact"],
         groundingChunks: [
-          { web: { title: "Official source", uri: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/example" } }
+          { web: { title: "Official source", uri: "https://vertexaisearch.cloud.google.com/grounding-api-redirect/example" } },
+          { web: { title: "Independent publisher", uri: "https://www.bbc.com/news/example" } }
         ]
       }
     }]
@@ -41,7 +42,12 @@ test("Google Search grounding returns cited public web sources without replacing
   assert.equal(call.options.method, "POST");
   assert.deepEqual(JSON.parse(call.options.body).tools, [{ google_search: {} }]);
   assert.equal(result.googleGroundedAnswer, "A current public fact with citations.");
-  assert.equal(result.results.find(item => item.provider === "Google Search").title, "Official source");
+  const googleSources = result.results.filter(item => item.provider === "Google Search");
+  assert.equal(googleSources.length, 2);
+  assert.equal(googleSources[0].title, "Official source");
+  assert.equal(googleSources[0].snippet, "A current public fact with citations.");
+  assert.equal(googleSources[1].url, "https://www.bbc.com/news/example");
+  assert.equal(googleSources[1].snippet, "");
 });
 
 test("YouTube search returns public video metadata and uses the server API key", async () => {
