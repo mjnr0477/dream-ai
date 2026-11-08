@@ -83,8 +83,8 @@ class BenchmarkContaminationAuditTests(unittest.TestCase):
     def test_counts_metadata_only_rows_as_skipped(self):
         corpus = self.root / "mixed.jsonl"
         corpus.write_text(
-            json.dumps({"id": "metadata-only", "source": "catalogue"}) + "\\n"
-            + json.dumps({"id": "text-row", "text": "A separate short text about plants."}) + "\\n",
+            json.dumps({"id": "metadata-only", "source": "catalogue"}) + chr(10)
+            + json.dumps({"id": "text-row", "text": "A separate short text about plants."}) + chr(10),
             encoding="utf-8",
         )
         report = audit(self.benchmark, [corpus])
