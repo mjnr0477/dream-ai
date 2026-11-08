@@ -1,0 +1,270 @@
+{
+  "schema": "dream-keyless-source-catalog-v1",
+  "catalog_updated": "2026-11-08",
+  "policy": {
+    "user_supplied_source_api_keys_required": false,
+    "anonymous_public_read_only_by_default": true,
+    "retrieval_does_not_grant_training_rights": true,
+    "unknown_or_mixed_licenses": "candidate_only_or_retrieval_only",
+    "no_private_data_or_access_control_bypass": true,
+    "no_automatic_human_review_attestation": true
+  },
+  "sources": [
+    {
+      "id": "wikipedia",
+      "name": "Wikipedia MediaWiki API",
+      "endpoint": "https://en.wikipedia.org/w/api.php",
+      "category": "encyclopedia",
+      "access": "anonymous_read",
+      "integration_status": "already_connected",
+      "returns": [
+        "search snippets",
+        "article introductions",
+        "page metadata"
+      ],
+      "training_status": "review_required",
+      "license_note": "Wikipedia text is generally CC BY-SA; DREAM's current commercial-training gate holds ShareAlike material for review.",
+      "terms_url": "https://foundation.wikimedia.org/wiki/Policy:Terms_of_Use"
+    },
+    {
+      "id": "wikidata",
+      "name": "Wikidata",
+      "endpoint": "https://www.wikidata.org/w/api.php",
+      "category": "structured_knowledge",
+      "access": "anonymous_read",
+      "integration_status": "already_connected",
+      "returns": [
+        "public entity records",
+        "labels",
+        "descriptions",
+        "structured statements"
+      ],
+      "training_status": "candidate_after_privacy_quality_and_provenance_checks",
+      "license_note": "Wikidata structured data is released under CC0; keep attribution/provenance metadata and screen for personal or sensitive data.",
+      "terms_url": "https://www.wikidata.org/wiki/Wikidata:Licensing"
+    },
+    {
+      "id": "gdelt",
+      "name": "GDELT DOC 2.0",
+      "endpoint": "https://api.gdeltproject.org/api/v2/doc/doc",
+      "category": "global_news_discovery",
+      "access": "anonymous_read",
+      "integration_status": "already_connected",
+      "returns": [
+        "news headlines",
+        "publisher URLs",
+        "language",
+        "source country",
+        "seen dates"
+      ],
+      "training_status": "retrieval_only_unless_item_rights_are_verified",
+      "license_note": "GDELT is open data, but linked publisher article text is not automatically licensed for model training.",
+      "terms_url": "https://www.gdeltproject.org/"
+    },
+    {
+      "id": "crossref",
+      "name": "Crossref REST API",
+      "endpoint": "https://api.crossref.org/works",
+      "category": "scholarly_metadata",
+      "access": "anonymous_read",
+      "integration_status": "already_connected",
+      "returns": [
+        "DOIs",
+        "titles",
+        "authors",
+        "publication metadata",
+        "references",
+        "some license metadata"
+      ],
+      "training_status": "metadata_candidate_after_provenance_checks",
+      "license_note": "Crossref says almost all deposited metadata is not subject to copyright; abstracts and linked publication full text must be assessed separately.",
+      "terms_url": "https://www.crossref.org/documentation/retrieve-metadata/rest-api/access-and-authentication/"
+    },
+    {
+      "id": "openalex",
+      "name": "OpenAlex",
+      "endpoint": "https://api.openalex.org/works",
+      "category": "scholarly_metadata",
+      "access": "anonymous_read_limited",
+      "integration_status": "already_connected",
+      "returns": [
+        "works",
+        "authors",
+        "institutions",
+        "topics",
+        "citations",
+        "metadata"
+      ],
+      "training_status": "metadata_candidate_after_provenance_checks",
+      "license_note": "Basic queries work without a key; anonymous use has lower quotas and cannot use cursor paging beyond the first page.",
+      "terms_url": "https://help.openalex.org/api/authentication/"
+    },
+    {
+      "id": "europe_pmc",
+      "name": "Europe PMC REST API",
+      "endpoint": "https://www.ebi.ac.uk/europepmc/webservices/rest/search",
+      "category": "biomedical_research",
+      "access": "anonymous_read",
+      "integration_status": "already_connected",
+      "returns": [
+        "publication metadata",
+        "abstracts",
+        "open-access full-text links"
+      ],
+      "training_status": "per_article_license_check_required",
+      "license_note": "Open-access subset articles retain copyright and have differing item-level licenses; only matching permitted licenses may be considered.",
+      "terms_url": "https://dev.europepmc.org/downloads/openaccess"
+    },
+    {
+      "id": "google_news_rss",
+      "name": "Google News RSS",
+      "endpoint": "https://news.google.com/rss/search",
+      "category": "news_discovery",
+      "access": "anonymous_read",
+      "integration_status": "already_connected",
+      "returns": [
+        "headlines",
+        "publisher links",
+        "publication dates"
+      ],
+      "training_status": "retrieval_only_unless_publisher_rights_are_verified",
+      "license_note": "RSS headline discovery is not a license to train on publisher articles.",
+      "terms_url": "https://news.google.com/"
+    },
+    {
+      "id": "bluesky",
+      "name": "Bluesky public AppView",
+      "endpoint": "https://public.api.bsky.app/xrpc/app.bsky.feed.searchPosts",
+      "category": "public_social_posts",
+      "access": "anonymous_read",
+      "integration_status": "already_connected",
+      "returns": [
+        "public posts",
+        "public author handles",
+        "index timestamps"
+      ],
+      "training_status": "retrieval_only_without_explicit_rightsholder_permission",
+      "license_note": "Public visibility does not transfer authors' copyright or imply model-training consent.",
+      "terms_url": "https://docs.bsky.app/"
+    },
+    {
+      "id": "world_bank",
+      "name": "World Bank Indicators API",
+      "endpoint": "https://api.worldbank.org/v2/",
+      "category": "global_statistics_and_development",
+      "access": "anonymous_read",
+      "integration_status": "catalogued_not_yet_connected",
+      "returns": [
+        "country indicators",
+        "education",
+        "health",
+        "population",
+        "economics",
+        "development statistics"
+      ],
+      "training_status": "candidate_when_dataset_license_is_cc_by_4_or_otherwise_verified",
+      "license_note": "CC BY 4.0 is the default for World Bank-produced open datasets, but exceptions and third-party datasets carry their own terms.",
+      "terms_url": "https://datacatalog.worldbank.org/public-licenses"
+    },
+    {
+      "id": "ckan_open_data",
+      "name": "Public CKAN open-data portals",
+      "endpoint": "https://docs.ckan.org/en/latest/api/",
+      "category": "government_and_civic_open_data",
+      "access": "anonymous_read_where_portal_allows",
+      "integration_status": "catalogued_not_yet_connected",
+      "returns": [
+        "dataset catalogues",
+        "dataset metadata",
+        "resource download links"
+      ],
+      "training_status": "per_dataset_and_per_resource_license_check_required",
+      "license_note": "CKAN is software, not a blanket data license; every portal dataset and resource must be checked individually.",
+      "terms_url": "https://docs.ckan.org/en/latest/api/"
+    },
+    {
+      "id": "huggingface_dataset_viewer",
+      "name": "Hugging Face public dataset metadata and viewer",
+      "endpoint": "https://datasets-server.huggingface.co/",
+      "category": "public_dataset_discovery",
+      "access": "anonymous_read_for_non_gated_public_datasets",
+      "integration_status": "catalogued_not_yet_connected",
+      "returns": [
+        "dataset metadata",
+        "license field",
+        "features",
+        "splits",
+        "public row previews"
+      ],
+      "training_status": "candidate_only_after_dataset_card_and_underlying_data_rights_review",
+      "license_note": "Public dataset discovery does not make every dataset permissively licensed; gated/private datasets are excluded.",
+      "terms_url": "https://huggingface.co/docs/dataset-viewer/quick_start"
+    },
+    {
+      "id": "common_crawl",
+      "name": "Common Crawl index and public web archives",
+      "endpoint": "https://index.commoncrawl.org/collinfo.json",
+      "category": "web_archive_discovery",
+      "access": "public_download_no_user_key",
+      "integration_status": "catalogued_not_yet_connected",
+      "returns": [
+        "crawl indexes",
+        "WARC/WAT/WET archive locations",
+        "web page snapshots"
+      ],
+      "training_status": "discovery_only_until_each_source_page_rights_and_opt_out_status_are_checked",
+      "license_note": "Free archive access is not a blanket license for the underlying pages; honor robots/opt-out signals and item-level rights.",
+      "terms_url": "https://www.commoncrawl.org/terms-of-use"
+    },
+    {
+      "id": "ncbi_pubmed",
+      "name": "NCBI PubMed E-utilities",
+      "endpoint": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/",
+      "category": "biomedical_literature",
+      "access": "anonymous_read_rate_limited",
+      "integration_status": "catalogued_not_yet_connected",
+      "returns": [
+        "PubMed search results",
+        "citations",
+        "abstract metadata"
+      ],
+      "training_status": "metadata_or_per_article_license_review",
+      "license_note": "An API key is only needed for higher request rates; abstracts and linked article text remain subject to their own rights.",
+      "terms_url": "https://eutilities.github.io/site/API_Key/usageandkey/"
+    },
+    {
+      "id": "github_public",
+      "name": "GitHub public repository API",
+      "endpoint": "https://api.github.com/",
+      "category": "open_source_software_and_documentation",
+      "access": "anonymous_read_rate_limited",
+      "integration_status": "catalogued_not_yet_connected",
+      "returns": [
+        "public repository metadata",
+        "issues",
+        "releases",
+        "source files"
+      ],
+      "training_status": "only_repositories_with_verified_compatible_file_licenses_and_provenance",
+      "license_note": "Unauthenticated requests are limited to 60 per hour; public visibility is not a license, so inspect repository and file licenses.",
+      "terms_url": "https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api"
+    },
+    {
+      "id": "open_library",
+      "name": "Open Library APIs",
+      "endpoint": "https://openlibrary.org/developers/api",
+      "category": "book_catalogue_discovery",
+      "access": "public_read_subject_to_usage_guidelines",
+      "integration_status": "catalogued_not_yet_connected",
+      "returns": [
+        "book records",
+        "authors",
+        "editions",
+        "catalogue metadata"
+      ],
+      "training_status": "metadata_only_unless_text_rights_are_separately_verified",
+      "license_note": "Open Library asks applications to register use cases and says its APIs are not intended as a data backend for third-party services.",
+      "terms_url": "https://openlibrary.org/developers/api"
+    }
+  ]
+}
