@@ -94,7 +94,10 @@ def format_readiness_summary(dataset_reports: list[dict]) -> str:
             label = report.get("label", "Private dataset")
             if not re.fullmatch(r"Private dataset [0-9]+", label):
                 label = "Private dataset"
-            missing = report.get("missing", list(REQUIRED_FILES))
+            if report.get("inventory_error") is True:
+                lines.append(f"- **{label}**: file inventory could not be verified")
+                continue
+            missing = [name for name in REQUIRED_FILES if name in report.get("missing", list(REQUIRED_FILES))]
             lines.append(f"- **{label}**: missing " + (", ".join(f"`{name}`" for name in missing) if missing else "no missing files"))
     else:
         lines.append("- No verifiable private datasets were found in the account inventory.")
@@ -210,7 +213,11 @@ def launch() -> int:
                 try:
                     candidate_missing = missing_required_files(candidate_files.stdout)
                 except ValueError:
-                    candidate_missing = list(REQUIRED_FILES)
+                    dataset_reports.append({
+                        "label": f"Private dataset {index + 1}",
+                        "inventory_error": True,
+                    })
+                    continue
                 dataset_reports.append({
                     "label": f"Private dataset {index + 1}",
                     "missing": candidate_missing,
@@ -220,8 +227,12 @@ def launch() -> int:
             if not matching:
                 print("WAITING_FOR_PRIVATE_REVIEWED_DATASET: no private dataset with all four required files was found.")
                 for report in dataset_reports:
-                    missing_text = ", ".join(report["missing"]) if report["missing"] else "none"
-                    print(f"DATASET_FILE_CHECK: Private dataset {dataset_reports.index(report) + 1} | missing: {missing_text}")
+                    label = report["label"]
+                    if report.get("inventory_error") is True:
+                        print(f"DATASET_FILE_CHECK: {label} | inventory could not be verified")
+                    else:
+                        missing_text = ", ".join(report["missing"]) if report["missing"] else "none"
+                        print(f"DATASET_FILE_CHECK: {label} | missing: {missing_text}")
                 summary = format_readiness_summary(dataset_reports)
                 print(summary)
                 write_step_summary(summary)
@@ -312,6 +323,12 @@ def main() -> int:
         assert "Status: NOT STARTED" in readiness
         assert "train.jsonl" in readiness and "audit-gate.json" in readiness
         assert "No model or production adapter files were changed." in readiness
+        unreadable = format_readiness_summary([{
+            "label": "Private dataset 2",
+            "inventory_error": True,
+        }])
+        assert "file inventory could not be verified" in unreadable
+        assert "Private dataset 2" in unreadable
         try:
             verify_private_dataset(
                 {"info": {"isPrivate": False}}, "test-user", "test-user/test-dataset"
