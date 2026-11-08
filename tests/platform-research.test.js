@@ -157,3 +157,41 @@ test("capabilities expose Google, YouTube and X integrations only when credentia
   assert.equal(configured.tools.find(item => item.id === "x_public_search").status, "available");
   assert.ok(configured.application.researchScope.includes("google-search-grounding"));
 });
+
+
+test("Stack Exchange public search works without credentials", async () => {
+  const { fetchImpl, requests } = captureFetch(request => {
+    if (request.url.hostname === "api.stackexchange.com") {
+      return jsonResponse({
+        quota_remaining: 9975,
+        items: [{
+          title: "How do I safely parse JSON in JavaScript?",
+          link: "https://stackoverflow.com/questions/123456/safe-json-parse",
+          body: "<p>Use JSON.parse inside a try/catch and validate the resulting shape.</p>",
+          tags: ["javascript", "json"],
+          score: 42,
+          answer_count: 3,
+          is_answered: true,
+          creation_date: 1794144000
+        }]
+      });
+    }
+    if (request.url.hostname === "public.api.bsky.app") return jsonResponse({ posts: [] });
+    if (request.url.hostname === "news.google.com") return textResponse("<rss></rss>");
+    throw new Error("unexpected provider call");
+  });
+  const result = await searchPlatformSources("parse JSON safely", fetchImpl, {});
+  const call = requests.find(item => item.url.hostname === "api.stackexchange.com");
+  assert.ok(call);
+  assert.equal(call.url.pathname, "/2.3/search/advanced");
+  assert.equal(call.url.searchParams.get("site"), "stackoverflow");
+  assert.equal(call.url.searchParams.get("q"), "parse JSON safely");
+  assert.equal(call.options.headers.authorization, undefined);
+  const question = result.results.find(item => item.provider === "Stack Exchange");
+  assert.equal(question.title, "How do I safely parse JSON in JavaScript?");
+  assert.equal(question.url, "https://stackoverflow.com/questions/123456/safe-json-parse");
+  assert.match(question.snippet, /JSON.parse/);
+  assert.equal(question.score, 42);
+  assert.deepEqual(question.tags, ["javascript", "json"]);
+  assert.equal(result.providers.find(item => item.provider === "Stack Exchange").status, "ok");
+});
