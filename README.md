@@ -10,10 +10,10 @@ DREAM has its own decoder-only transformer architecture, byte-tokenizer default,
 
 **Hosted adapter versus native DREAM:** the current hosted chat path uses a DREAM-specific LoRA adapter on `Qwen/Qwen3-1.7B`. Its gated continuation workflow updates only those adapter weights; it does not train the Qwen foundation model. The native DREAM transformer is a separate from-scratch research model and is not yet a production-ready replacement. Adapter candidates and native checkpoints remain inactive until their own evaluation and release reviews pass.
 
-## Current application
+## Verified identity\n\nDREAM AI is the independent AI project created by **Mathias Simiyu**. Its mission is to help people learn, create, reason and find reliable information through transparent, evidence-based assistance. The application injects this verified product identity into every model system prompt. This product identity does not imply that every model weight was personally authored by the creator or that the native from-scratch model is already production-trained. Dream Education, Dream Wi-Fi and VYBORA are separate projects.\n\n## Current application
 
 - Responsive mobile-first chat workspace.
-- General, coding, learning and public-source Research modes. Stable factual chat can use limited English Wikipedia excerpts plus Crossref/OpenAlex publication metadata. Time-sensitive general-chat questions are routed to a best-effort Google News RSS search that supplies recent headlines, publishers and publication timestamps. This is not general web browsing, full-text paper access, a guaranteed breaking-news service or a live sports scoreboard.
+- General, coding, learning and public-source Research modes. Public research combines Wikipedia excerpts, Wikidata public entity records, GDELT news headlines from the last seven days, and Crossref/OpenAlex scholarly metadata. Optional Brave Search integration adds general web-index results when `DREAM_BRAVE_SEARCH_API_KEY` is configured server-side. Retrieved records are cited as evidence leads; they are not proof, full-page extraction or unrestricted web access.
 - Browser-local conversation history, export and copy.
 - Node API with bounded request validation, two-request model concurrency protection with retry guidance, and health status.
 - Provider-independent DREAM engine adapter.
@@ -33,6 +33,18 @@ python model/evaluate_tasks.py \
 ```
 
 The report includes deterministic exact-match results by category and language, model/checkpoint hashes and every generated answer. This 15-task starter set is a debugging aid, not a comprehensive reasoning, factuality, safety or multilingual benchmark; its score cannot establish production readiness or superiority over other models. Expand it with independently authored and reviewed tests before making capability claims.
+
+## Public research providers
+
+The current no-key research path uses public APIs:
+- Wikipedia MediaWiki search and short article introductions for encyclopedia context.
+- Wikidata entity search for public structured entity records.
+- GDELT DOC 2.0 Article List for recent news headlines within a rolling seven-day window.
+- Crossref and OpenAlex for scholarly publication metadata.
+
+For broad general web-index search, configure `DREAM_BRAVE_SEARCH_API_KEY` as a private server-side environment variable on the deployment. Never put the key in frontend code, a committed `.env` file, notebook output or chat message. If the key is absent, DREAM reports general web-index search as not configured while the no-key providers remain available. Brave's [LLM Context API](https://api-dashboard.search.brave.com/documentation/services/llm-context) returns extracted page passages and source metadata for RAG/AI grounding, authenticated with the `X-Subscription-Token` header.
+
+Public individual research is limited to source-supported public-interest and professional information. It does not create private dossiers or expose sensitive personal data. The application must distinguish verified facts from search snippets and must disclose when live evidence is unavailable.
 
 ## Native DREAM model
 
@@ -136,8 +148,8 @@ Kaggle documents free P100 notebook accelerators, but GPU access can be limited 
 - `GET /api/health/live` is a fast process-only liveness probe and does not depend on model availability. It is suitable for the hosting platform health check.
 - `GET /api/health` reports application availability separately from model configuration and live native-checkpoint readiness. A ready runtime must identify as the native DREAM transformer and report positive completed training steps plus a 64-character checkpoint SHA-256. This is a runtime/provenance check, not a quality certification.
 - `GET /api/capabilities` returns a versioned, server-owned capability contract. It distinguishes implemented application features from tools that are not configured or not implemented; it never advertises disabled tools as ready. Tool execution is disabled by default and external actions require approval.
-- `POST /api/chat` — supported chat modes: `general`, `coding`, `learning`. General-mode stable factual queries can consult Wikipedia plus Crossref/OpenAlex metadata. General-mode time-sensitive news and sports questions use the recent-news search route; the result is capped at five dated headlines, carries exact Google News links, and is not a live match clock or official score feed. Weather, traffic, stock-price, exchange-rate and open-now queries are not served by this news feed and must not be guessed.
-- `POST /api/research` — stable reference queries return up to five linked English Wikipedia results plus Crossref/OpenAlex bibliographic records; time-sensitive news/sports queries return up to five dated Google News RSS headlines and source links. Live-score, fixture, lineup, standings, weather, exchange-rate, market-price, traffic and open-now queries are explicitly marked unsupported until a dedicated data feed is connected. News RSS is best-effort, not a guaranteed live-news API or official scoreboard. Scholarly records contain metadata only, not abstracts or full text, and do not verify study findings. Queries are limited to 200 characters; upstream requests are time-bounded, concurrency is capped, and no user-supplied URL is fetched. DREAM synthesis is instructed to cite only supplied URLs, distinguish uncertainty and treat retrieved text as untrusted data.
+- `POST /api/chat` — supported chat modes: `general`, `coding`, `learning`.
+- `POST /api/research` — searches Wikipedia, Wikidata, GDELT recent news (seven-day window), Crossref and OpenAlex in parallel. If `DREAM_BRAVE_SEARCH_API_KEY` is set on the server, it also searches the Brave web index. Queries are limited to 200 characters, upstream requests are time-bounded, concurrency is capped and no user-supplied URL is fetched. Results include provider provenance and HTTPS source links. Headlines, snippets, entity descriptions and scholarly metadata are evidence leads, not verified truth or full-page content.
 
 ## User-controlled memory
 
