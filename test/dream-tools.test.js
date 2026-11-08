@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createDreamToolRegistry, runPublicKnowledgeSearch, runPublicLiveNewsSearch, runPublicResearch } from "../lib/dream-tools.js";
+import { createDreamToolRegistry, runPublicKnowledgeSearch, runPublicResearch } from "../lib/dream-tools.js";
 
 const principal = {
   id: "test-public-research",
@@ -29,63 +29,6 @@ test("public knowledge search is registered as a bounded read-only tool", () => 
   assert.equal(tool.permission, "research:public");
   assert.equal(tool.timeoutMs, 8000);
   assert.match(tool.description, /Wikipedia/);
-});
-
-
-test("recent news search is registered as a bounded read-only tool", async () => {
-  const seen = [];
-  const publishedAt = new Date(Date.now() - 60_000).toUTCString();
-  const registry = createDreamToolRegistry({
-    audit: () => {},
-    fetchImpl: async (url, options) => {
-      seen.push({ url: new URL(url), options });
-      return new Response(`<rss><channel><item>
-        <title><![CDATA[Manchester City latest report]]></title>
-        <link>https://news.google.com/rss/articles/CBMiExample</link>
-        <pubDate>${publishedAt}</pubDate>
-        <source url="https://example.com">Example Sport</source>
-      </item></channel></rss>`, { status: 200 });
-    }
-  });
-
-  const tool = registry.list().find(item => item.id === "recent_news_search");
-  assert.ok(tool);
-  assert.equal(tool.risk, "read");
-  assert.equal(tool.permission, "research:public");
-  assert.equal(tool.timeoutMs, 9000);
-
-  const result = await runPublicLiveNewsSearch(
-    "latest Manchester City performance",
-    registry
-  );
-  assert.equal(seen.length, 1);
-  assert.equal(seen[0].url.hostname, "news.google.com");
-  assert.equal(seen[0].url.searchParams.get("q"), "latest Manchester City performance when:7d");
-  assert.equal(seen[0].options.redirect, "error");
-  assert.equal(result.provider, "Google News RSS");
-  assert.equal(result.results.length, 1);
-  assert.equal(result.results[0].publisher, "Example Sport");
-  assert.equal(result.results[0].title, "Manchester City latest report");
-});
-
-test("recent news search enforces the registry permission before network access", async () => {
-  let called = false;
-  const registry = createDreamToolRegistry({
-    audit: () => {},
-    fetchImpl: async () => {
-      called = true;
-      return new Response("<rss/>", { status: 200 });
-    }
-  });
-  await assert.rejects(
-    registry.execute({
-      toolId: "recent_news_search",
-      input: { query: "latest Manchester City news" },
-      principal: { id: "untrusted", permissions: [] }
-    }),
-    /not authorized/
-  );
-  assert.equal(called, false);
 });
 
 test("registered research tool returns cleaned source-linked results without requiring approval", async () => {
@@ -226,7 +169,11 @@ test("research orchestration combines encyclopedia excerpts with scholarly metad
   assert.equal(result.results.length, 1);
   assert.equal(result.scholarlyResearch.results.length, 1);
   assert.equal(result.scholarlyResearch.results[0].provider, "Crossref");
-  assert.deepEqual(result.providerAvailability, { encyclopedia: "available", scholarly: "available" });
+  assert.deepEqual(result.providerAvailability, {
+    encyclopedia: "available",
+    globalPublicSources: "available",
+    scholarly: "available"
+  });
 });
 
 test("automatic chat research can use the audited encyclopedia tool without scholarly provider calls", async () => {
