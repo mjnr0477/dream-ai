@@ -109,15 +109,13 @@ def load_corpus_records(path: Path) -> list[dict]:
     normalized = []
     for record in records:
         content, fields = corpus_record_text(record)
-        if not content:
-            continue
         normalized.append({
             "__content__": content,
             "__fields__": fields,
             "__record_id__": record.get("id", record.get("record_id")),
             "__source_group__": record.get("source_group"),
         })
-    if not normalized:
+    if not any(item["__content__"].strip() for item in normalized):
         raise ValueError(f"Corpus has no recognized text fields: {path.name}")
     return normalized
 
@@ -132,8 +130,8 @@ def audit(benchmark_path: Path, corpus_paths: list[Path]) -> dict:
     benchmark_raw = benchmark_path.read_bytes()
     tasks = load_benchmark(benchmark_path)
     overlaps = []
-    checked_fields = 0
-    skipped_short_fields = 0
+    field_comparisons = 0
+    short_field_comparisons_skipped = 0
     corpus_summaries = []
 
     for corpus_path in corpus_paths:
@@ -144,6 +142,8 @@ def audit(benchmark_path: Path, corpus_paths: list[Path]) -> dict:
         scanned = 0
         for record in records:
             content = record["__content__"]
+            if not content.strip():
+                continue
             normalized_content = normalize_text(content)
             if not normalized_content:
                 continue
@@ -155,9 +155,9 @@ def audit(benchmark_path: Path, corpus_paths: list[Path]) -> dict:
                 for field, phrase in task_phrases(task):
                     normalized_phrase = normalize_text(phrase)
                     if len(normalized_phrase) < MIN_MATCH_CHARS:
-                        skipped_short_fields += 1
+                        short_field_comparisons_skipped += 1
                         continue
-                    checked_fields += 1
+                    field_comparisons += 1
                     if normalized_phrase in normalized_content:
                         overlaps.append({
                             "task_id": task["id"],
@@ -187,8 +187,8 @@ def audit(benchmark_path: Path, corpus_paths: list[Path]) -> dict:
         "benchmark_tasks": len(tasks),
         "corpus_files": corpus_summaries,
         "corpus_records_scanned": sum(item["records_scanned"] for item in corpus_summaries),
-        "task_fields_checked": checked_fields,
-        "short_task_fields_skipped": skipped_short_fields,
+        "task_field_comparisons": field_comparisons,
+        "short_field_comparisons_skipped": short_field_comparisons_skipped,
         "minimum_match_characters": MIN_MATCH_CHARS,
         "overlap_count": len(overlaps),
         "status": "overlap_detected" if overlaps else "no_exact_normalized_overlap_found",
@@ -225,7 +225,7 @@ def main() -> int:
         "status": report["status"],
         "benchmark_tasks": report["benchmark_tasks"],
         "corpus_records_scanned": report["corpus_records_scanned"],
-        "task_fields_checked": report["task_fields_checked"],
+        "task_field_comparisons": report["task_field_comparisons"],
         "overlap_count": report["overlap_count"],
         "report": str(args.out),
     }, indent=2))
