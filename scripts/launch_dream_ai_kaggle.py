@@ -227,7 +227,7 @@ def launch() -> int:
                     matching.append((candidate_ref, candidate_files))
             if not matching:
                 print("WAITING_FOR_PRIVATE_REVIEWED_DATASET: no private dataset with all four required files was found.")
-                for report_index, report in enumerate(dataset_reports, 1):
+                for report in dataset_reports:
                     label = report["label"]
                     if report.get("inventory_error") is True:
                         print(f"DATASET_FILE_CHECK: {label} | inventory could not be verified")
