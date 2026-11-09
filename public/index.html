@@ -78,9 +78,44 @@
             </section>
           </details>
           <span class="top-tag"><i aria-hidden="true"></i> GUEST WORKSPACE</span>
+          <button class="plugins-button" id="plugins-open" type="button" aria-haspopup="dialog" aria-controls="plugins-dialog">▦ <span>Plugins</span></button>
           <button class="icon-button" id="export-chat" type="button" title="Export conversation" aria-label="Export conversation">⇩</button>
         </div>
       </header>
+
+  <dialog class="plugins-dialog" id="plugins-dialog" aria-labelledby="plugins-title">
+    <div class="plugins-shell">
+      <header class="plugins-header">
+        <div>
+          <p class="plugins-eyebrow">DREAM AI ECOSYSTEM</p>
+          <h2 id="plugins-title">Plugins</h2>
+          <p class="plugins-intro">Explore public information sources and integrations. Account access is only available when a provider's secure authorization is enabled.</p>
+        </div>
+        <button class="plugins-close" id="plugins-close" type="button" aria-label="Close plugins">×</button>
+      </header>
+      <div class="plugins-toolbar">
+        <label class="sr-only" for="plugins-search">Search plugins</label>
+        <input id="plugins-search" type="search" placeholder="Search plugins…" autocomplete="off">
+        <label class="sr-only" for="plugins-category">Filter by category</label>
+        <select id="plugins-category"><option value="all">All categories</option></select>
+        <label class="sr-only" for="plugins-status">Filter by availability</label>
+        <select id="plugins-status">
+          <option value="all">All availability</option>
+          <option value="connected_read_only">Available now</option>
+          <option value="requires_user_authorization">Account authorization</option>
+          <option value="requires_provider_access">Provider access needed</option>
+          <option value="catalogued">Catalogued</option>
+          <option value="planned">Planned</option>
+        </select>
+      </div>
+      <p class="plugins-count" id="plugins-count" role="status" aria-live="polite">Loading plugins…</p>
+      <div class="plugins-list" id="plugins-list" aria-live="polite"></div>
+      <footer class="plugins-footer">
+        <p><strong>Your accounts stay yours.</strong> Dream AI will never ask for your password or API key in chat. Private account access must use the provider's secure sign-in and permission screen. Connecting an account can allow access to private information, so permissions must be clear and revocable.</p>
+      </footer>
+    </div>
+  </dialog>
+
       <section class="welcome" id="welcome" aria-labelledby="welcome-title">
         <div class="hero-kicker"><span aria-hidden="true"></span> YOUR IDEAS, IN MOTION</div>
         <div class="hero-symbol" aria-hidden="true"><span>✳</span><i></i></div>
