@@ -2,7 +2,7 @@ name: DREAM AI autonomous adapter training
 
 on:
   schedule:
-    - cron: "17 2 * * *"
+    - cron: "17 1 * * *"
   workflow_dispatch:
 
 permissions:
@@ -69,17 +69,25 @@ jobs:
         if: steps.prepare.outputs.eligible == 'true'
         env:
           KAGGLE_JSON: ${{ secrets.KAGGLE_JSON }}
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           python - <<'PY'
           import json, os
-          kaggle = os.environ.get("KAGGLE_JSON", "")
+          raw = os.environ.get("KAGGLE_JSON", "")
+          if raw:
+              credentials = json.loads(raw)
+          else:
+              credentials = {
+                  "username": os.environ.get("KAGGLE_USERNAME", ""),
+                  "key": os.environ.get("KAGGLE_KEY", "")
+              }
           hf = os.environ.get("HF_TOKEN", "")
-          if not kaggle or not hf:
-              raise SystemExit("Eligible data exists but KAGGLE_JSON or HF_TOKEN GitHub secret is missing.")
-          credentials = json.loads(kaggle)
-          if not isinstance(credentials.get("username"), str) or not credentials.get("key"):
-              raise SystemExit("KAGGLE_JSON must contain Kaggle username and key.")
+          if not credentials.get("username") or not credentials.get("key") or not hf:
+              raise SystemExit(
+                  "Eligible data exists but Kaggle credentials or HF_TOKEN GitHub secret is missing."
+              )
           print("Kaggle credential structure: valid")
           print("Hugging Face token supplied: yes")
           PY
@@ -89,12 +97,23 @@ jobs:
         id: kaggle
         env:
           KAGGLE_JSON: ${{ secrets.KAGGLE_JSON }}
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
         run: |
           mkdir -p "$HOME/.kaggle"
           python - <<'PY'
           import json, os
           from pathlib import Path
-          data = json.loads(os.environ["KAGGLE_JSON"])
+          raw = os.environ.get("KAGGLE_JSON", "")
+          if raw:
+              data = json.loads(raw)
+          else:
+              data = {
+                  "username": os.environ.get("KAGGLE_USERNAME", ""),
+                  "key": os.environ.get("KAGGLE_KEY", "")
+              }
+          if not data.get("username") or not data.get("key"):
+              raise SystemExit("Kaggle username/key credentials are missing.")
           path = Path.home() / ".kaggle" / "kaggle.json"
           path.write_text(json.dumps(data), encoding="utf-8")
           path.chmod(0o600)
