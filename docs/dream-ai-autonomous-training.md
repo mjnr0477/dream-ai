@@ -21,7 +21,7 @@ Open the DREAM AI repository on GitHub, then go to Settings → Secrets and vari
 | Secret | Value |
 |---|---|
 | DREAM_AI_SUPABASE_SERVICE_ROLE_KEY | The service-role key from the Dream education Supabase project ldpcawixzxcolbmakrfc. Do not use the Mariona/VYBORA project. |
-| KAGGLE_JSON | The complete contents of the kaggle.json file downloaded from Kaggle account settings → API. It contains the Kaggle username and API key. |
+| KAGGLE_JSON (optional alternative to the existing KAGGLE_USERNAME and KAGGLE_KEY secrets) | The complete contents of the kaggle.json file downloaded from Kaggle account settings → API. It contains the Kaggle username and API key. |
 | HF_TOKEN | A Hugging Face fine-grained token with read/write access only to msjnr0477/dream-ai-adapter. |
 
 The Supabase project URL is already configured in the workflow. Never commit credentials or paste them into source files, issues or chat.
@@ -45,7 +45,7 @@ The script fetches only pending v3 opt-ins, presents each exchange for the four 
 
 ## Schedule and limits
 
-- The workflow checks the database daily at 02:17 UTC and can also be started with GitHub Actions → DREAM AI autonomous adapter training → Run workflow.
+- The workflow checks the database daily at 01:17 UTC and can also be started with GitHub Actions → DREAM AI autonomous adapter training → Run workflow.
 - It does nothing when the dataset has fewer than 32 approved examples, fewer than 8 independent source groups, a failed audit, or no new training data.
 - The Kaggle notebook runs a bounded four-minute optimizer segment and stores a resumable private checkpoint. If a segment reaches its time budget, a later daily run can resume the exact same run.
 - Kaggle GPU availability, free quotas, GitHub Actions availability and third-party service limits are not guaranteed. This is recurring automation, not an unconditional promise of uninterrupted training forever.
