@@ -323,6 +323,35 @@ test("chat endpoint rejects malformed JSON", async () => {
   assert.equal(response.status, 400);
 });
 
+test("general chat returns validated multi-file artifacts for an application build request", async () => {
+  const originalReply = modelReply;
+  modelReply = [
+    "--- DREAM FILE: README.md ---",
+    "# Appointment Booking",
+    "Run with npm install then npm start.",
+    "--- END DREAM FILE ---",
+    "--- DREAM FILE: package.json ---",
+    JSON.stringify({ name: "appointment-booking", private: true, scripts: { start: "node server.js" } }, null, 2),
+    "--- END DREAM FILE ---"
+  ].join("\n");
+  try {
+    const before = modelRequests.length;
+    const response = await postChat({
+      mode: "general",
+      messages: [{ role: "user", content: "Build a complete web app for booking appointments." }]
+    });
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.mode, "general");
+    assert.equal(data.artifacts.length, 2);
+    assert.deepEqual(data.artifacts.map(file => file.path), ["README.md", "package.json"]);
+    assert.equal(modelRequests.length, before + 1);
+    assert.match(modelRequests.at(-1).body.messages[0].content, /return only the validated DREAM FILE blocks/i);
+  } finally {
+    modelReply = originalReply;
+  }
+});
+
 test("coding endpoint returns validated multi-file artifacts without changing ordinary replies", async () => {
   modelReply = [
     "--- DREAM FILE: src/index.js ---",

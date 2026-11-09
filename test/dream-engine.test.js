@@ -27,6 +27,18 @@ test("system prompt guides structured reasoning, calibration and evidence checks
   assert.match(prompt, /User prefers concise explanations/);
 });
 
+test("application requests require ZIP-compatible file-only output and ordinary questions remain normal", async () => {
+  const { buildSystemPrompt } = await import("../lib/dream-engine.js");
+  const prompt = buildSystemPrompt("general", "", "Build a complete web app for booking appointments.");
+  assert.match(prompt, /APPLICATION BUILD MODE/);
+  assert.match(prompt, /return only the validated DREAM FILE blocks/i);
+  assert.match(prompt, /project overview.*README\.md/i);
+  assert.match(prompt, /Do not put prose, Markdown fences or commentary outside the file blocks/i);
+  assert.match(prompt, /isolated execution sandbox/);
+  const ordinary = buildSystemPrompt("general", "", "What is an application?");
+  assert.doesNotMatch(ordinary, /APPLICATION BUILD MODE/);
+});
+
 const messages = [{ role: "user", content: "Hello DREAM AI" }];
 
 test("remote native model runtimes must use HTTPS", async () => {
