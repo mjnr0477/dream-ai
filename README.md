@@ -40,6 +40,14 @@ python model/evaluate_tasks.py \
 
 The report includes deterministic exact-match results by category and language, model/checkpoint hashes and every generated answer. This 15-task starter set is a debugging aid, not a comprehensive reasoning, factuality, safety or multilingual benchmark; its score cannot establish production readiness or superiority over other models. Expand it with independently authored and reviewed tests before making capability claims.
 
+## Full application generation
+
+DREAM can generate validated multi-file project bundles for web applications, mobile apps, desktop software, backend/API services, command-line tools, games, browser extensions, bots and embedded/IoT projects. Requests are recognized across chat modes, and the Coding Studio returns a project bundle that can be edited file by file or downloaded as a ZIP archive.
+
+When a stack is not supplied, DREAM chooses a suitable mainstream framework and includes project configuration, a README, example environment settings, tests and exact run/build instructions where relevant. The existing artifact validator limits each response to 50 files, 64 KiB per file and 256 KiB total.
+
+**Execution boundary:** DREAM does not yet run generated code in an isolated build sandbox. A generated project is not proof of a successful build, test, emulator run or deployment. DREAM must label those checks as not run until a separately secured execution environment is integrated. Platform release may also require tools or services such as Xcode on macOS, Android SDKs, signing credentials, hardware, provider approval or cloud accounts.
+
 ## Plugin ecosystem and connected accounts\n\nDREAM includes a searchable, guest-first Plugins directory. Public connectors are enabled read-only; integrations that need official account consent or provider approval are clearly marked. Gmail is implemented as the first private account connector with Google OAuth, encrypted token storage and read-only mail retrieval; it remains disabled until operator-side OAuth credentials and durable persistent storage are configured. It remains disabled until operator-side OAuth credentials and durable persistent storage are configured. See [PLUGIN_ECOSYSTEM.md](docs/PLUGIN_ECOSYSTEM.md) for status and setup requirements.\n\n## Keyless information source catalogue
 
 See [KEYLESS_INFORMATION_SOURCES.md](docs/KEYLESS_INFORMATION_SOURCES.md) and the machine-readable [source catalogue](data/keyless-source-catalog.json) for existing public connectors, additional no-key sources, rate limits, licensing boundaries and the autonomous training gap.
