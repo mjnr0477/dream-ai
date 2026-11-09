@@ -46,7 +46,10 @@ const baseEnv = () => ({
 
 test("Meta sign-in stays disabled without app credentials and never returns the operator token", async () => {
   const env = { META_ACCESS_TOKEN: "operator-secret-token-that-must-not-leak" };
-  const service = createMetaAccountService({ env });
+  const service = createMetaAccountService({
+    env,
+    fetchImpl: async () => jsonResponse({ error: { code: 190, message: "invalid token" } }, 401)
+  });
   const status = await service.status({ headers: {}, socket: { encrypted: true } }, responseRecorder());
   assert.equal(status.metaOAuthConfigured, false);
   assert.equal(status.operatorTokenConfigured, true);
