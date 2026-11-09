@@ -348,6 +348,37 @@ test("coding endpoint returns validated multi-file artifacts without changing or
   } finally { modelReply = "Test response from the DREAM model runtime."; }
 });
 
+test("general chat recognizes complete application requests and returns validated project files", async () => {
+  const originalReply = modelReply;
+  modelReply = [
+    "--- DREAM FILE: README.md ---",
+    "# Appointment Booking",
+    "Run with npm install && npm start.",
+    "--- END DREAM FILE ---",
+    "--- DREAM FILE: package.json ---",
+    JSON.stringify({ name: "appointment-booking", private: true, scripts: { start: "node server.js" } }, null, 2),
+    "--- END DREAM FILE ---"
+  ].join("\n");
+  try {
+    const before = modelRequests.length;
+    const response = await postChat({
+      mode: "general",
+      messages: [{ role: "user", content: "Build a complete web app for booking appointments." }]
+    });
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.mode, "general");
+    assert.equal(data.artifacts.length, 2);
+    assert.deepEqual(data.artifacts.map(item => item.path), ["README.md", "package.json"]);
+    const request = modelRequests.at(-1);
+    assert.equal(modelRequests.length, before + 1);
+    assert.match(request.body.messages[0].content, /APPLICATION BUILD MODE/);
+    assert.match(request.body.messages[0].content, /browser can assemble a complete ZIP|complete, coherent project/);
+  } finally {
+    modelReply = originalReply;
+  }
+});
+
 test("coding endpoint ignores malformed artifact metadata without losing the model reply", async () => {
   modelReply = "--- DREAM FILE: ../unsafe.js ---\nalert(0);\n--- END DREAM FILE ---";
   try {
