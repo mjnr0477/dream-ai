@@ -822,6 +822,135 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
   }
 }
 
+
+const pluginsDialog = document.querySelector("#plugins-dialog");
+const pluginsOpen = document.querySelector("#plugins-open");
+const pluginsClose = document.querySelector("#plugins-close");
+const pluginsSearch = document.querySelector("#plugins-search");
+const pluginsCategory = document.querySelector("#plugins-category");
+const pluginsStatus = document.querySelector("#plugins-status");
+const pluginsList = document.querySelector("#plugins-list");
+const pluginsCount = document.querySelector("#plugins-count");
+let pluginCatalog = null;
+
+function pluginAvailability(status) {
+  return ({
+    connected_read_only: "Public access available",
+    requires_user_authorization: "Account sign-in required",
+    requires_provider_access: "Provider approval required",
+    catalogued: "Listed · not connected",
+    planned: "Planned"
+  })[status] || "Status unknown";
+}
+
+function renderPluginCards() {
+  if (!pluginCatalog || !pluginsList) return;
+  const query = pluginsSearch.value.trim().toLowerCase();
+  const category = pluginsCategory.value;
+  const status = pluginsStatus.value;
+  const matches = pluginCatalog.plugins.filter(plugin => {
+    const categoryName = pluginCatalog.categories.find(item => item.id === plugin.category)?.name || "";
+    const haystack = [plugin.name, plugin.note, categoryName, ...(plugin.capabilities || [])].join(" ").toLowerCase();
+    return (!query || haystack.includes(query)) &&
+      (category === "all" || plugin.category === category) &&
+      (status === "all" || plugin.status === status);
+  });
+  pluginsList.replaceChildren();
+  pluginsCount.textContent = matches.length + " of " + pluginCatalog.plugins.length + " plugins";
+  for (const plugin of matches) {
+    const card = document.createElement("article");
+    card.className = "plugin-card";
+    const top = document.createElement("div");
+    top.className = "plugin-card-top";
+    const name = document.createElement("h3");
+    name.textContent = plugin.name;
+    const badge = document.createElement("span");
+    badge.className = "plugin-status plugin-status-" + plugin.status;
+    badge.textContent = pluginAvailability(plugin.status);
+    top.append(name, badge);
+    const categoryLabel = document.createElement("p");
+    categoryLabel.className = "plugin-category";
+    categoryLabel.textContent = pluginCatalog.categories.find(item => item.id === plugin.category)?.name || "Other";
+    const note = document.createElement("p");
+    note.className = "plugin-note";
+    note.textContent = plugin.note;
+    const capabilities = document.createElement("p");
+    capabilities.className = "plugin-capabilities";
+    capabilities.textContent = (plugin.capabilities || []).map(value => value.replaceAll("_", " ")).join(" · ");
+    const actions = document.createElement("div");
+    actions.className = "plugin-actions";
+    if (plugin.status === "connected_read_only") {
+      const use = document.createElement("button");
+      use.type = "button";
+      use.className = "plugin-use";
+      use.textContent = "Ask DREAM AI";
+      use.addEventListener("click", () => {
+        const prompt = "Research my next question. Use " + plugin.name + " if it is available and relevant. Explicitly tell me whether you actually consulted it; never claim you used it if it was unavailable or not searched.";
+        pluginsDialog.close();
+        setMode("research");
+        input.value = prompt;
+        input.focus();
+        input.style.height = "auto";
+        input.style.height = Math.min(input.scrollHeight, 180) + "px";
+      });
+      actions.append(use);
+    } else {
+      const locked = document.createElement("span");
+      locked.className = "plugin-locked";
+      locked.textContent = plugin.status === "requires_user_authorization"
+        ? "Secure sign-in not enabled yet"
+        : plugin.status === "requires_provider_access"
+          ? "Provider approval not configured"
+          : "Not connected yet";
+      actions.append(locked);
+    }
+    card.append(top, categoryLabel, note, capabilities, actions);
+    pluginsList.append(card);
+  }
+  if (!matches.length) {
+    const empty = document.createElement("p");
+    empty.className = "plugins-empty";
+    empty.textContent = "No plugins match those filters.";
+    pluginsList.append(empty);
+  }
+}
+
+async function loadPluginCatalog() {
+  if (pluginCatalog) return;
+  pluginsCount.textContent = "Loading plugins…";
+  try {
+    const response = await fetch("/api/plugins", { headers: { accept: "application/json" } });
+    if (!response.ok) throw new Error("Plugin directory is unavailable.");
+    const data = await response.json();
+    if (!Array.isArray(data.categories) || !Array.isArray(data.plugins)) throw new Error("Invalid plugin directory response.");
+    pluginCatalog = data;
+    for (const category of data.categories) {
+      const option = document.createElement("option");
+      option.value = category.id;
+      option.textContent = category.name;
+      pluginsCategory.append(option);
+    }
+    renderPluginCards();
+  } catch {
+    pluginsCount.textContent = "Could not load the plugin directory. Please try again later.";
+    pluginsList.replaceChildren();
+  }
+}
+
+pluginsOpen?.addEventListener("click", async () => {
+  if (!pluginsDialog.open) pluginsDialog.showModal();
+  await loadPluginCatalog();
+  pluginsSearch?.focus();
+});
+pluginsClose?.addEventListener("click", () => pluginsDialog.close());
+pluginsDialog?.addEventListener("click", event => {
+  if (event.target === pluginsDialog) pluginsDialog.close();
+});
+pluginsSearch?.addEventListener("input", renderPluginCards);
+pluginsCategory?.addEventListener("change", renderPluginCards);
+pluginsStatus?.addEventListener("change", renderPluginCards);
+
+
 function closeMobileHistory() {
   document.body.classList.remove("sidebar-open");
   mobileHistoryButton?.setAttribute("aria-expanded", "false");
