@@ -23,7 +23,7 @@ test("recognizes conversational news and transfer questions as current research 
 });
 
 test("researches factual questions in general, coding and learning modes", () => {
-  for (const mode of ["general", "coding", "learning"]) {
+  for (const mode of ["general", "coding", "learning", "research"]) {
     assert.equal(shouldAutoResearch("Who is Ada Lovelace?", mode), true, mode);
     assert.equal(shouldAutoResearch("How do JavaScript promises work?", mode), true, mode);
     assert.equal(shouldAutoResearch("What are the latest Python releases today?", mode), true, mode);
