@@ -122,6 +122,26 @@ test("time-sensitive research context balances providers instead of letting Wiki
   assert.ok(prepared.sources.length <= 14);
 });
 
+test("Google News publisher excerpts are preserved in automatic answer context", () => {
+  const prepared = buildResearchContext({
+    query: "news around Manchester City",
+    platformResearch: {
+      results: [{
+        provider: "Google News RSS",
+        title: "Manchester City update",
+        url: "https://www.bbc.com/sport/football/example",
+        snippet: "Publisher: BBC Sport — The report describes a squad update.",
+        publisher: "BBC Sport",
+        publishedAt: "2026-11-09T12:00:00Z"
+      }]
+    }
+  });
+  assert.equal(prepared.sources.length, 1);
+  assert.match(prepared.context, /Publisher: BBC Sport/);
+  assert.match(prepared.context, /report describes a squad update/);
+  assert.match(prepared.context, /PUBLISHED AT: 2026-11-09T12:00:00Z/);
+});
+
 test("research context enforces a strict evidence size limit", () => {
   const prepared = buildResearchContext({ results: Array.from({ length: 5 }, (_, index) => ({
     title: "Source " + index,
