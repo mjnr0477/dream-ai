@@ -832,7 +832,6 @@ const pluginsStatus = document.querySelector("#plugins-status");
 const pluginsList = document.querySelector("#plugins-list");
 const pluginsCount = document.querySelector("#plugins-count");
 let pluginCatalog = null;
-let pluginLoadFailed = false;
 
 function pluginAvailability(status) {
   return ({
@@ -886,7 +885,7 @@ function renderPluginCards() {
       use.className = "plugin-use";
       use.textContent = "Ask DREAM AI";
       use.addEventListener("click", () => {
-        const prompt = "Use available public information from " + plugin.name + " to help answer my next question. Tell me clearly if this source is unavailable or returns no results.";
+        const prompt = "Research my next question. Use " + plugin.name + " if it is available and relevant. Explicitly tell me whether you actually consulted it; never claim you used it if it was unavailable or not searched.";
         pluginsDialog.close();
         setMode("research");
         input.value = prompt;
@@ -917,7 +916,7 @@ function renderPluginCards() {
 }
 
 async function loadPluginCatalog() {
-  if (pluginCatalog || pluginLoadFailed) return;
+  if (pluginCatalog) return;
   pluginsCount.textContent = "Loading plugins…";
   try {
     const response = await fetch("/api/plugins", { headers: { accept: "application/json" } });
@@ -933,7 +932,6 @@ async function loadPluginCatalog() {
     }
     renderPluginCards();
   } catch {
-    pluginLoadFailed = true;
     pluginsCount.textContent = "Could not load the plugin directory. Please try again later.";
     pluginsList.replaceChildren();
   }
