@@ -61,3 +61,50 @@ Evaluation datasets must be original, explicitly licensed or otherwise authorize
 - Structural checks validate JSON, required fields, IDs and arithmetic answer keys; they do not validate linguistic quality.
 - Benchmark contamination checks require corpus-level overlap scans and human source review before any benchmark can be called uncontaminated.
 - Creating or validating a dataset does not train DREAM AI.
+
+## Probabilistic forecast evaluation
+
+DREAM can score a set of resolved forecasts independently of the language model. Each JSONL record represents one event with a mutually exclusive, exhaustive outcome set and one probability per outcome:
+
+```json
+{
+  "id": "match-2026-11-09-city-united",
+  "domain": "sports",
+  "model": "DREAM AI",
+  "modelVersion": "forecast-engine-v1",
+  "horizon": "kickoff-to-full-time",
+  "issuedAt": "2026-11-08T12:00:00Z",
+  "resolvedAt": "2026-11-09T21:00:00Z",
+  "outcomes": ["home", "draw", "away"],
+  "probabilities": [0.52, 0.27, 0.21],
+  "actualOutcome": "home",
+  "baselineProbabilities": [0.44, 0.29, 0.27]
+}
+```
+
+Use timezone-qualified ISO 8601 timestamps. Probabilities must be finite, between 0 and 1, aligned with outcome labels, and sum to 1 within 1e-6. Baseline probabilities are optional, but must be present for every row or none. Only resolved results belong in a scoring file. Keep one model version (and one checkpoint hash, when available) per scoring run.
+
+Run:
+
+```sh
+npm run score:forecasts -- eval-results/resolved-forecasts.jsonl
+# Optionally choose the summary destination:
+npm run score:forecasts -- eval-results/resolved-forecasts.jsonl eval-results/forecast-summary.json
+```
+
+The scorer reports multiclass Brier score (mean sum of squared class errors per event), log loss, tie-aware top-outcome accuracy, expected calibration error, reliability bins, per-domain results, per-horizon results, and optional Brier skill score against a supplied baseline. Lower Brier, log loss and calibration error are better; positive Brier skill means the model beats the stated baseline. It clips zero actual-outcome probabilities at 1e-15 for finite log loss.
+
+This scorer does not create predictions, verify that an event outcome is true, validate the completeness of the outcome set, or prove that a model is calibrated. Forecast records and resolution evidence must be independently maintained and audited. Evaluate against chronological held-out periods, include simple baselines, keep unresolved events out of the score, and report sample counts. Do not promote a forecasting model based on a small or cherry-picked sample.
+
+### Chronological forecast backtesting requirements
+
+- Freeze each probability vector, model/version, checkpoint digest, issue timestamp and forecast horizon before the event resolves. Never revise the stored probability after observing the outcome.
+- Use chronological rolling-origin or strictly held-out future periods. At the issue time, exclude future observations, post-event news, final line-ups, closing prices or any other information not yet available.
+- Keep event identity unique across partitions. Do not let the same match, weather episode, market interval or near-duplicate event appear in both tuning and evaluation.
+- Score each domain and forecast horizon separately before any aggregate. Publish the number of resolved events, missing records, coverage dates and outcome-label definitions alongside every score.
+- Compare against predeclared, reproducible baselines appropriate to the domain (for example, historical base rates or a simple persistence forecast). Do not choose a baseline after viewing DREAM's score.
+- Assess calibration and discrimination separately. Reliability bins and expected calibration error are sample-sensitive; include bin counts and do not claim calibration from a handful of cases.
+- Retain all issued forecasts, including abstentions, failures and low-confidence cases, under a documented inclusion rule. Do not cherry-pick only forecasts that resolved cleanly or agree with the prediction.
+- Independent resolution records must cite authoritative outcome evidence and record who or what resolved the event. The scoring tool checks structure and arithmetic; it does not certify the truth of the event result.
+
+A forecast evaluation is a measurement exercise, not a source of new forecasts or evidence that the underlying model is generally intelligent. Only sustained out-of-time performance against strong baselines, with appropriate sample sizes and uncertainty intervals, can support a claim of predictive value.
