@@ -376,6 +376,11 @@ function addMessage(role, content, artifacts = null) {
   return body;
 }
 
+function isPrivateAccountPrompt(prompt) {
+  return typeof prompt === "string" &&
+    /\b(?:my gmail|search (?:my )?gmail|check (?:my )?gmail|look in (?:my )?gmail|read (?:my )?gmail|gmail inbox|gmail emails?|gmail messages?|my emails?|my inbox|email(?:s)? from|messages? in my inbox|search my mail)\b/i.test(prompt);
+}
+
 function appendAssistantActions(replyNode, replyText, prompt = "", mode = "general") {
   const host = replyNode?.parentElement;
   if (!host || host.querySelector(".message-tools")) return;
@@ -397,7 +402,7 @@ function appendAssistantActions(replyNode, replyText, prompt = "", mode = "gener
   tools.append(copy);
 
   const cleanPrompt = typeof prompt === "string" ? prompt.trim() : "";
-  if (cleanPrompt) {
+  if (cleanPrompt && !isPrivateAccountPrompt(cleanPrompt)) {
     const share = document.createElement("button");
     share.type = "button";
     share.className = "message-tool-share";
