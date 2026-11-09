@@ -37,6 +37,8 @@ function jsonResponse(value, status = 200) {
 const baseEnv = () => ({
   META_APP_ID: "123456789012345",
   META_APP_SECRET: "test_meta_app_secret_value_1234567890",
+  THREADS_APP_ID: "987654321098765",
+  THREADS_APP_SECRET: "test_threads_app_secret_value_1234567890",
   META_FACEBOOK_REDIRECT_URI: "https://dream.example/api/account/meta/facebook/callback",
   META_THREADS_REDIRECT_URI: "https://dream.example/api/account/meta/threads/callback",
   DREAM_PUBLIC_ORIGIN: "https://dream.example"
@@ -145,6 +147,7 @@ test("Threads uses its separate OAuth flow and separate encrypted session cookie
     }
     if (parsed.hostname === "graph.threads.net" && parsed.pathname === "/access_token") {
       assert.equal(parsed.searchParams.get("grant_type"), "th_exchange_token");
+      assert.equal(parsed.searchParams.get("client_secret"), baseEnv().THREADS_APP_SECRET);
       assert.equal(options.headers?.authorization, "Bearer SHORT_THREADS_SECRET");
       assert.equal(parsed.searchParams.has("access_token"), false);
       return jsonResponse({ access_token: "LONG_THREADS_SECRET", expires_in: 5184000 });
@@ -160,6 +163,7 @@ test("Threads uses its separate OAuth flow and separate encrypted session cookie
   service.begin(req, startResponse, "threads");
   const authorize = new URL(startResponse.getHeader("location"));
   assert.equal(authorize.hostname, "threads.net");
+  assert.equal(authorize.searchParams.get("client_id"), baseEnv().THREADS_APP_ID);
   assert.equal(authorize.searchParams.get("scope"), "threads_basic");
   const stateCookie = cookieValue(startResponse.getHeader("set-cookie"), "dream_meta_threads_state");
   const state = stateCookie.split("=")[1];
