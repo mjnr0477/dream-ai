@@ -11,7 +11,7 @@ import { getDreamPluginCatalog } from "./lib/plugin-catalog.js";
 import { createGoogleAccountService, isGmailRequest } from "./lib/google-account.js";
 import { createMetaAccountService, isMetaRequest } from "./lib/meta-account.js";
 import { runPublicResearch } from "./lib/dream-tools.js";
-import { shouldAutoResearch, buildResearchContext } from "./lib/auto-research.js";
+import { shouldAutoResearch, buildResearchContext, buildResearchAttemptContext } from "./lib/auto-research.js";
 import { ClientConcurrencyLimiter } from "./lib/client-limiter.js";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
@@ -320,24 +320,41 @@ async function handleChat(req, res) {
       }
     }
     if (!requestsGmail && !requestsMeta && isDreamEngineConfigured(process.env) && shouldAutoResearch(latestQuestion, mode)) {
+      const researchQuery = latestQuestion.trim().replace(/\s+/g, " ").slice(0, 200);
       try {
         // Research current public sources as well as stable reference material.
-        // The evidence builder labels provider/date limits and never implies full web coverage.
-        const research = await runPublicResearch(
-          latestQuestion.trim().replace(/\s+/g, " ").slice(0, 200)
-        );
+        // Keep provider diagnostics even when no source survives evidence validation,
+        // so the model can explain the actual retrieval result instead of guessing.
+        const research = await runPublicResearch(researchQuery);
         const prepared = buildResearchContext(research);
-        if (prepared.context && prepared.sources.length) {
-          researchContext = prepared.context;
-          automaticResearch = {
-            sourceCount: prepared.sources.length,
-            sources: prepared.sources,
-            providers: research.providerAvailability || {}
-          };
-        }
+        researchContext = [
+          prepared.context,
+          buildResearchAttemptContext(research, { sourceCount: prepared.sources.length })
+        ].filter(Boolean).join("\n\n");
+        automaticResearch = {
+          attempted: true,
+          sourceCount: prepared.sources.length,
+          status: prepared.sources.length ? "sources-found" : "no-usable-sources",
+          sources: prepared.sources,
+          providers: {
+            ...(research.providerAvailability || {}),
+            globalPublicSources: research.globalResearch?.providers || [],
+            platformSources: research.platformResearch?.providers || [],
+            scholarlySources: research.scholarlyResearch?.providers || []
+          }
+        };
       } catch (error) {
-        // Research is optional: normal chat remains available on provider failure.
+        // A failed search must not become a false claim that DREAM has no
+        // real-time capability. Preserve a safe, explicit failure state for chat.
         console.info("DREAM automatic research unavailable:", error.message);
+        researchContext = buildResearchAttemptContext(null, { failed: true });
+        automaticResearch = {
+          attempted: true,
+          sourceCount: 0,
+          status: "unavailable",
+          sources: [],
+          providers: {}
+        };
       }
     }
     const result = await generateDreamReply(
