@@ -28,7 +28,7 @@ test("queries Crossref and OpenAlex and returns source-attributed scholarly meta
       publication_date: "2018-01-01", authorships: [], primary_location: {}
     }]));
   }, now, { arxivMinIntervalMs: 0 });
-  assert.deepEqual(calls.map(x => x.hostname).sort(), ["api.crossref.org", "api.openalex.org"]);
+  assert.deepEqual(calls.map(x => x.hostname).sort(), ["api.crossref.org", "api.openalex.org", "api.semanticscholar.org", "export.arxiv.org"]);
   assert.equal(result.providers.length, 4);
   assert.equal(result.providers.find(p => p.provider === "arXiv").status, "unavailable");
   assert.equal(result.providers.find(p => p.provider === "Semantic Scholar").status, "unavailable");
