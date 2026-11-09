@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { generateDreamReply, getDreamRuntimeStatus, isDreamEngineConfigured } from "./lib/dream-engine.js";
 import { parseCodeArtifactsIfPresent } from "./lib/code-artifacts.js";
 import { getDreamCapabilities } from "./lib/capabilities.js";
+import { getDreamPluginCatalog } from "./lib/plugin-catalog.js";
 import { runPublicResearch } from "./lib/dream-tools.js";
 import { shouldAutoResearch, buildResearchContext } from "./lib/auto-research.js";
 import { ClientConcurrencyLimiter } from "./lib/client-limiter.js";
@@ -470,6 +471,9 @@ const server = http.createServer(async (req, res) => {
       delete capabilities.model.checkpointSha256;
     }
     return json(res, 200, capabilities);
+  }
+  if (req.method === "GET" && url.pathname === "/api/plugins") {
+    return json(res, 200, getDreamPluginCatalog());
   }
   if (req.method === "POST" && url.pathname === "/api/learning/examples") {
     try {
