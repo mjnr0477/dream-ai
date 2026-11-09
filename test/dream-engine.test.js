@@ -124,3 +124,25 @@ test("system prompt treats automatic research as untrusted evidence and requires
   assert.match(prompt, /never infer a paper's methods, results, or conclusions from its title/);
   assert.match(prompt, /https:\/\/en\.wikipedia\.org/);
 });
+
+test("system prompt treats an empty research attempt as a retrieval result, not permanent lack of access", async () => {
+  const { buildSystemPrompt } = await import("../lib/dream-engine.js");
+  const prompt = buildSystemPrompt(
+    "general",
+    "",
+    "What is the latest news about Manchester City?",
+    [
+      "AUTOMATIC PUBLIC RESEARCH STATUS:",
+      "The public-source research workflow was attempted.",
+      "Usable, source-validated records passed to the model: 0.",
+      "Google News RSS: no-results.",
+      "Do not claim that DREAM has no real-time news access."
+    ].join("\n")
+  );
+
+  assert.match(prompt, /AUTOMATIC PUBLIC RESEARCH/);
+  assert.match(prompt, /Google News RSS: no-results/);
+  assert.match(prompt, /do not say DREAM cannot access real-time news or current events/);
+  assert.match(prompt, /do not send the user elsewhere as the default response/);
+  assert.match(prompt, /connected public sources did not return enough usable evidence/);
+});
