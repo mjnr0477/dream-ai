@@ -843,6 +843,7 @@ let accountStatus = {
   gmail: { connected: false, email: null },
   meta: {
     metaOAuthConfigured: false,
+    threadsOAuthConfigured: false,
     operatorTokenConfigured: false,
     operatorTokenValid: false,
     facebook: { connected: false, label: null, scopes: [] },
@@ -857,6 +858,7 @@ async function loadAccountStatus() {
     gmail: { connected: false, email: null },
     meta: {
       metaOAuthConfigured: false,
+      threadsOAuthConfigured: false,
       operatorTokenConfigured: false,
       operatorTokenValid: false,
       facebook: { connected: false, label: null, scopes: [] },
@@ -880,6 +882,7 @@ async function loadAccountStatus() {
     },
     meta: {
       metaOAuthConfigured: meta.metaOAuthConfigured === true,
+      threadsOAuthConfigured: meta.threadsOAuthConfigured === true,
       operatorTokenConfigured: meta.operatorTokenConfigured === true,
       operatorTokenValid: meta.operatorTokenValid === true,
       facebook: {
@@ -941,7 +944,7 @@ function renderPluginCards() {
       ].filter(Boolean);
       badge.textContent = connected.length
         ? "Connected · " + connected.join(" · ")
-        : accountStatus.meta.metaOAuthConfigured
+        : accountStatus.meta.metaOAuthConfigured || accountStatus.meta.threadsOAuthConfigured
           ? "Secure account sign-in available"
           : accountStatus.meta.operatorTokenConfigured
             ? "Admin token saved · user sign-in setup needed"
@@ -1015,6 +1018,17 @@ function renderPluginCards() {
         } else {
           addMetaButton("Connect Facebook + Instagram", "/api/account/meta/facebook/start");
         }
+      } else {
+        const locked = document.createElement("span");
+        locked.className = "plugin-locked";
+        locked.textContent = accountStatus.meta.operatorTokenConfigured
+          ? accountStatus.meta.operatorTokenValid
+            ? "META_ACCESS_TOKEN verified. Add META_APP_ID and META_APP_SECRET to enable Facebook/Instagram sign-in."
+            : "META_ACCESS_TOKEN is saved but could not be verified. Add META_APP_ID and META_APP_SECRET for Facebook/Instagram sign-in."
+          : "Add META_APP_ID and META_APP_SECRET privately in Render to enable Facebook/Instagram sign-in.";
+        actions.append(locked);
+      }
+      if (accountStatus.meta.threadsOAuthConfigured) {
         if (accountStatus.meta.threads.connected) {
           addMetaButton("Ask my Threads", "", "Check my Threads profile.");
           addMetaDisconnect("threads", "Disconnect Threads");
@@ -1024,11 +1038,7 @@ function renderPluginCards() {
       } else {
         const locked = document.createElement("span");
         locked.className = "plugin-locked";
-        locked.textContent = accountStatus.meta.operatorTokenConfigured
-          ? accountStatus.meta.operatorTokenValid
-            ? "META_ACCESS_TOKEN verified. Add META_APP_ID and META_APP_SECRET to enable secure sign-in for each user."
-            : "META_ACCESS_TOKEN is saved but could not be verified. Add META_APP_ID and META_APP_SECRET for user sign-in."
-          : "Configure the Meta app credentials to enable official user sign-in.";
+        locked.textContent = "Add THREADS_APP_ID and THREADS_APP_SECRET privately in Render to enable Threads sign-in.";
         actions.append(locked);
       }
     } else if (plugin.id === "gmail") {
