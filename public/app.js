@@ -1,4 +1,5 @@
 import { appendUserMessage } from "/chat-state.js";
+import { createProjectZip } from "./project-archive.js";
 const form = document.querySelector("#chat-form");
 const input = document.querySelector("#message");
 const send = document.querySelector("#send");
@@ -153,6 +154,32 @@ function renderAssistantContent(container, content, artifacts = null) {
     const summary = document.createElement("p");
     summary.textContent = "Generated " + artifacts.length + " project files.";
     container.append(summary);
+    const projectActions = document.createElement("div");
+    projectActions.className = "code-block-actions";
+    const downloadProject = document.createElement("button");
+    downloadProject.type = "button";
+    downloadProject.textContent = "Download project ZIP";
+    downloadProject.addEventListener("click", () => {
+      try {
+        const archive = createProjectZip(artifacts);
+        const url = URL.createObjectURL(archive);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = "dream-ai-project.zip";
+        link.hidden = true;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+        downloadProject.textContent = "ZIP downloaded";
+        downloadProject.title = "The validated project archive was prepared for download.";
+      } catch (error) {
+        downloadProject.textContent = "ZIP unavailable";
+        downloadProject.title = error?.message || "The project archive could not be created.";
+      }
+    });
+    projectActions.append(downloadProject);
+    container.append(projectActions);
     for (const artifact of artifacts) {
       const block = document.createElement("div");
       block.className = "code-block";
