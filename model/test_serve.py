@@ -410,6 +410,18 @@ class DreamServingTests(unittest.TestCase):
         )
         original_forward_cached = model.forward_cached
 
+        def assert_model_lock_released():
+            # The HTTP response can reach the client just before the request
+            # handler executes its finally block. Wait for that cleanup rather
+            # than racing it, while still enforcing a strict bounded deadline.
+            deadline = time.monotonic() + 2
+            while time.monotonic() < deadline:
+                if serve.MODEL_LOCK.acquire(blocking=False):
+                    serve.MODEL_LOCK.release()
+                    return
+                time.sleep(0.01)
+            self.fail("DREAM model inference lock was not released after timeout")
+
         def slow_prefill(*args, **kwargs):
             time.sleep(0.02)
             return original_forward_cached(*args, **kwargs)
@@ -423,8 +435,7 @@ class DreamServingTests(unittest.TestCase):
                 self.assertEqual(raised.exception.code, 504)
                 body = json.loads(raised.exception.read().decode("utf-8"))
                 self.assertIn("timed out", body["error"]["message"])
-            self.assertTrue(serve.MODEL_LOCK.acquire(blocking=False))
-            serve.MODEL_LOCK.release()
+            assert_model_lock_released()
 
             # Exercise the uncached sliding-window branch with an overlong
             # model forward pass, not just the cached prompt-prefill branch.
