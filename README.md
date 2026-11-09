@@ -65,11 +65,11 @@ DREAM's research layer fans a query out to independent providers in parallel. Ea
 
 Find candidate public datasets without adding a search-provider API key:
 
-\`\`\`sh
+```sh
 npm run discover:datasets -- --query "Kiswahili education"
-\`\`\`
+```
 
-The command writes a timestamped report under \`eval-results/\`. It reads Hugging Face Hub dataset metadata only. It does not download dataset files, inspect or retain dataset rows, start training, or approve candidates. Declared licenses remain unverified claims; rights, privacy, provenance, quality and source-group separation must pass DREAM's existing review gates before any training use.
+The command writes a timestamped report under `eval-results/`. It reads Hugging Face Hub dataset metadata only. It does not download dataset files, inspect or retain dataset rows, start training, or approve candidates. Declared licenses remain unverified claims; rights, privacy, provenance, quality and source-group separation must pass DREAM's existing review gates before any training use.
 
 Store every credential only as a private server-side environment variable on the deployment. Never put credentials in frontend code, a committed `.env` file, notebook output or chat messages.
 
