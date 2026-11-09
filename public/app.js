@@ -937,8 +937,13 @@ function renderPluginCards() {
               body: "{}"
             });
             if (!response.ok) throw new Error("Could not disconnect Gmail.");
+            const result = await response.json();
+            if (result.disconnected !== true) throw new Error("Gmail was not disconnected in this browser.");
             await loadAccountStatus();
             renderPluginCards();
+            statusText.textContent = result.providerRevoked === true
+              ? "Gmail disconnected and Google token revocation confirmed."
+              : "Gmail disconnected in DREAM, but Google did not confirm token revocation. Review third-party access in your Google Account security settings.";
           } catch {
             disconnect.disabled = false;
             disconnect.textContent = "Retry disconnect";
