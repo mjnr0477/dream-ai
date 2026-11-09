@@ -365,3 +365,24 @@ test("automatic research failure is described as a failed retrieval attempt, not
   assert.match(context, /retrieval attempt failed/);
   assert.match(context, /not DREAM having no real-time access in general/);
 });
+
+test("background-only sources are not presented as current news coverage", () => {
+  const context = buildResearchAttemptContext({
+    globalResearch: {
+      providers: [{ provider: "GDELT", status: "no-results" }],
+      news: []
+    },
+    platformResearch: {
+      providers: [{ provider: "Google News RSS", status: "no-results" }],
+      results: []
+    },
+    scholarlyResearch: {
+      providers: [{ provider: "Crossref", status: "ok" }]
+    }
+  }, { sourceCount: 2 });
+
+  assert.match(context, /Some public sources returned background or reference records/);
+  assert.match(context, /no recent-news records were returned/);
+  assert.match(context, /do not present them as current reporting/);
+  assert.match(context, /Do not claim that DREAM has no real-time news access/);
+});
