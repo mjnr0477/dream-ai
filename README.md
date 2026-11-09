@@ -40,6 +40,12 @@ python model/evaluate_tasks.py \
 
 The report includes deterministic exact-match results by category and language, model/checkpoint hashes and every generated answer. This 15-task starter set is a debugging aid, not a comprehensive reasoning, factuality, safety or multilingual benchmark; its score cannot establish production readiness or superiority over other models. Expand it with independently authored and reviewed tests before making capability claims.
 
+## Full application generation
+
+DREAM can generate complete multi-file projects for web, Android/iOS, desktop, backend/API, command-line, games, browser extensions, bots and embedded/IoT software. Requests are recognized from any chat mode. Generated files are validated, shown individually for local editing/copying, and can be downloaded together as a ZIP. Project instructions and exact run/build/test commands belong in each generated project's README.
+
+**Execution boundary:** DREAM does not yet execute generated code in an isolated build sandbox. A generated project is not proof of a successful build, test, emulator run or deployment. Platform releases may also require tools or services such as Xcode on macOS, Android SDKs, signing credentials, hardware, provider approval or cloud accounts.
+
 ## Plugin ecosystem and connected accounts\n\nDREAM includes a searchable, guest-first Plugins directory. Public connectors are enabled read-only; integrations that need official account consent or provider approval are clearly marked. Gmail is implemented as the first private account connector with Google OAuth, encrypted token storage and read-only mail retrieval; it remains disabled until operator-side OAuth credentials and durable persistent storage are configured. It remains disabled until operator-side OAuth credentials and durable persistent storage are configured. See [PLUGIN_ECOSYSTEM.md](docs/PLUGIN_ECOSYSTEM.md) for status and setup requirements.\n\n## Keyless information source catalogue
 
 See [KEYLESS_INFORMATION_SOURCES.md](docs/KEYLESS_INFORMATION_SOURCES.md) and the machine-readable [source catalogue](data/keyless-source-catalog.json) for existing public connectors, additional no-key sources, rate limits, licensing boundaries and the autonomous training gap.
