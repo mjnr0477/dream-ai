@@ -15,6 +15,13 @@ test("routes current and time-sensitive questions to fresh public-source researc
   assert.equal(shouldAutoResearch("Who is leading the league right now?"), true);
 });
 
+test("recognizes conversational news and transfer questions as current research requests", () => {
+  assert.equal(shouldAutoResearch("I am hearing a lot of news around man city."), true);
+  assert.equal(shouldAutoResearch("What is happening with Manchester City?"), true);
+  assert.equal(shouldAutoResearch("Any transfer rumours around City?"), true);
+  assert.equal(shouldAutoResearch("What's new around the club?"), true);
+});
+
 test("researches factual questions in general, coding and learning modes", () => {
   for (const mode of ["general", "coding", "learning"]) {
     assert.equal(shouldAutoResearch("Who is Ada Lovelace?", mode), true, mode);
