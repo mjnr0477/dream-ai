@@ -1,6 +1,6 @@
 # Keyless information sources and autonomous learning
 
-Catalog revision: 2026-11-08. The machine-readable inventory is `data/keyless-source-catalog.json`.
+Catalog revision: 2026-11-09. The machine-readable inventory is `data/keyless-source-catalog.json`.
 
 ## Requirement
 
@@ -23,21 +23,20 @@ The current research tools in `lib/dream-tools.js` fan out to these public provi
 | Google News RSS | Headline discovery, publisher links and dates | Headline/feed access is not a training license for the publisher's article. |
 | Bluesky public AppView | Searchable public posts | Public visibility is not author permission for model training. |
 | Stack Exchange API | Public technical Q&A, question excerpts, tags, scores and answer counts | Anonymous shared-IP quota; use for retrieval with attribution, not automatic training. |
+| World Bank Indicators API | Keyless country and global statistics for population, GDP, inflation, education, health, poverty and development | Each returned value carries its observation year; it is not a live measurement. Check source-specific licensing exceptions before training. |
 
 The main entry points are `lib/research.js`, `lib/research-global.js`, `lib/research-multisource.js`, `lib/research-news.js` and `lib/research-platforms.js`.
 
 ## Additional anonymous sources to connect
 
-The catalog records each endpoint, what it can return and its training boundary. High-value next integrations are:
+The machine-readable catalog tracks the endpoints, returned fields and training boundaries. High-value next integrations are:
 
-1. **World Bank Indicators API and Data360** — country and global development indicators across economics, population, education, health and poverty. The World Bank's default license for its own open datasets is CC BY 4.0, but individual datasets can have exceptions or third-party terms. Check each dataset's metadata before reuse.
-2. **CKAN public-data portals** — a common read API used by many government and civic open-data catalogues. The CKAN API itself does not grant rights; check each dataset and downloadable resource.
-3. **Hugging Face public dataset viewer** — discover public dataset metadata, license fields, schemas, splits and sample rows without a user token for non-gated datasets. Never treat the declared license field alone as proof that all underlying records are cleared.
-4. **Common Crawl** — free public crawl indexes and WARC/WAT/WET archives, useful for discovering public web pages and building a search index. Archive access is not a license to train on the archived page. Check source-level rights, opt-outs and robots signals before retention or training.
-5. **NCBI PubMed E-utilities** — public bibliographic search and abstracts; no API key is required at ordinary usage rates (NCBI documents a limit of three requests per second without a key). The linked article's rights still apply.
-6. **Stack Exchange API** — anonymous public Q&A search without a key; responses include a remaining-quota field and can request a backoff interval. Respect shared-IP throttles and cache repeated queries. Posts carry attribution/share-alike requirements, so this connector is for retrieval rather than automatic training. [API docs](https://api.stackexchange.com/docs), [throttles](https://api.stackexchange.com/docs/throttle).
-7. **GitHub public REST API** — public repository metadata, releases, issues and source files can be read without authentication, but the anonymous limit is 60 requests per hour. Public visibility is not a license: require a verified compatible repository/file license before considering code for training.
-8. **Open Library** — useful book and edition metadata. Open Library asks users to register the application use case and says its APIs are not intended as a third-party data backend, so use it conservatively for discovery rather than bulk harvesting.
+1. **CKAN public-data portals** — a common read API used by government and civic open-data catalogues. CKAN is software, not a blanket data license; check each dataset and downloadable resource.
+2. **Hugging Face public dataset viewer** — discover public dataset metadata, license fields, schemas, splits and sample rows without a user token for non-gated datasets. Never treat the declared license field alone as proof that all underlying records are cleared.
+3. **Common Crawl** — free public crawl indexes and WARC/WAT/WET archives, useful for discovering public web pages and building a search index. Archive access is not a license to train on the archived page. Check source-level rights, opt-outs and robots signals before retention or training.
+4. **NCBI PubMed E-utilities** — public bibliographic search and abstracts; no API key is required at ordinary usage rates (NCBI documents a limit of three requests per second without a key). The linked article's rights still apply.
+5. **GitHub public REST API** — public repository metadata, releases, issues and source files can be read without authentication, but the anonymous limit is 60 requests per hour. Public visibility is not a license: require a verified compatible repository/file license before considering code for training.
+6. **Open Library** — useful book and edition metadata. Open Library asks users to register the application use case and says its APIs are not intended as a third-party data backend, so use it conservatively for discovery rather than bulk harvesting.
 
 These should be integrated as independent, fault-tolerant providers with per-source timeouts, backoff, cache/ETag support, retrieval timestamps, canonical source URLs, language and source status. A failed provider must not make DREAM claim that it searched the whole internet.
 
