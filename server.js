@@ -5,6 +5,7 @@ import { extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { generateDreamReply, getDreamRuntimeStatus, isDreamEngineConfigured } from "./lib/dream-engine.js";
 import { parseCodeArtifactsIfPresent } from "./lib/code-artifacts.js";
+import { isAppBuildRequest } from "./lib/app-builder.js";
 import { getDreamCapabilities } from "./lib/capabilities.js";
 import { getDreamPluginCatalog } from "./lib/plugin-catalog.js";
 import { createGoogleAccountService, isGmailRequest } from "./lib/google-account.js";
@@ -331,7 +332,7 @@ async function handleChat(req, res) {
       messages, mode, process.env, memoryContext, researchContext, privateAccountContext
     );
     let artifacts = null;
-    if (mode === "coding") {
+    if (mode === "coding" || isAppBuildRequest(latestQuestion)) {
       try {
         artifacts = parseCodeArtifactsIfPresent(result.reply);
       } catch (error) {
