@@ -180,3 +180,29 @@ test("arXiv and Semantic Scholar abstracts enter context only through their trus
   assert.match(prepared.context, /An abstract retrieved from Semantic Scholar/);
   assert.doesNotMatch(prepared.context, /attacker\.example|This must not enter context/);
 });
+
+
+test("GitHub repository metadata enters coding research only from github.com", () => {
+  const prepared = buildResearchContext({
+    query: "Find a Python CSV library",
+    platformResearch: { results: [
+      {
+        provider: "GitHub Public Repositories",
+        title: "example/csv-parser",
+        url: "https://github.com/example/csv-parser",
+        snippet: "A small Python CSV parser.",
+        sourceType: "public-repository-metadata"
+      },
+      {
+        provider: "GitHub Public Repositories",
+        title: "unsafe/repository",
+        url: "https://attacker.example/unsafe",
+        snippet: "Untrusted URL."
+      }
+    ] }
+  });
+  assert.equal(prepared.sources.length, 1);
+  assert.equal(prepared.sources[0].provider, "GitHub Public Repositories");
+  assert.match(prepared.context, /A small Python CSV parser/);
+  assert.doesNotMatch(prepared.context, /attacker\.example|Untrusted URL/);
+});
