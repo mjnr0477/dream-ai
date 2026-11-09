@@ -15,12 +15,38 @@ test("routes current and time-sensitive questions to fresh public-source researc
   assert.equal(shouldAutoResearch("Who is leading the league right now?"), true);
 });
 
-test("does not research creative, personal, short or specialist-mode requests", () => {
+test("researches factual questions in general, coding and learning modes", () => {
+  for (const mode of ["general", "coding", "learning"]) {
+    assert.equal(shouldAutoResearch("Who is Ada Lovelace?", mode), true, mode);
+    assert.equal(shouldAutoResearch("How do JavaScript promises work?", mode), true, mode);
+    assert.equal(shouldAutoResearch("What are the latest Python releases today?", mode), true, mode);
+  }
+});
+
+test("does not research creative, personal, greeting or unsupported-mode requests", () => {
   assert.equal(shouldAutoResearch("Hi Dream AI"), false);
   assert.equal(shouldAutoResearch("Write me a short story about a moon robot"), false);
   assert.equal(shouldAutoResearch("What do you think about my plan?"), false);
-  assert.equal(shouldAutoResearch("Who is Ada Lovelace?", "coding"), false);
-  assert.equal(shouldAutoResearch("What is photosynthesis?", "learning"), false);
+  assert.equal(shouldAutoResearch("What is photosynthesis?", "unknown"), false);
+});
+
+test("Google's aggregate grounding synthesis is not attributed to an individual publisher", () => {
+  const answer = "A grounded summary that draws on multiple search results.";
+  const prepared = buildResearchContext({
+    query: "latest technology update",
+    platformResearch: {
+      googleGroundedAnswer: answer,
+      results: [
+        { provider: "Google Search", title: "Publisher one", url: "https://www.bbc.com/news/one", snippet: "" },
+        { provider: "Google Search", title: "Publisher two", url: "https://www.reuters.com/world/two", snippet: "" }
+      ]
+    }
+  });
+  assert.equal(prepared.context.split(answer).length - 1, 1);
+  assert.match(prepared.context, /not a verbatim excerpt or a claim attributed to any single listed publisher/);
+  assert.match(prepared.context, /https:\/\/www\.bbc\.com\/news\/one/);
+  assert.match(prepared.context, /https:\/\/www\.reuters\.com\/world\/two/);
+  assert.ok(prepared.sources.every(source => source.provider === "Google Search"));
 });
 
 test("research context accepts only bounded encyclopedia source URLs and text", () => {
