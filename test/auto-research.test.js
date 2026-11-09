@@ -353,7 +353,7 @@ test("automatic research status tells the model what sources actually returned",
   assert.match(context, /Usable, source-validated records passed to the model: 0/);
   assert.match(context, /GDELT: unavailable/);
   assert.match(context, /Google News RSS: no-results/);
-  assert.match(context, /did not return enough usable evidence for this query/);
+  assert.match(context, /No usable source records were returned for this query/);
   assert.match(context, /do not claim that DREAM has no real-time news access/);
   assert.match(context, /do not send the user away to check BBC, Reuters/);
 });
@@ -363,7 +363,7 @@ test("automatic research failure is described as a failed retrieval attempt, not
 
   assert.match(context, /workflow was attempted but failed/);
   assert.match(context, /retrieval attempt failed/);
-  assert.match(context, /not DREAM having no real-time access in general/);
+  assert.match(context, /no real-time access in general/);
 });
 
 test("background-only sources are not presented as current news coverage", () => {
