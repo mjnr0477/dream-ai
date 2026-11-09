@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     env:
-      DREAM_AI_SUPABASE_URL: https://ldpcawixzxcolbmakrfc.supabase.co
+      DREAM_AI_SUPABASE_URL: ${{ vars.DREAM_AI_SUPABASE_URL }}
       DREAM_AI_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.DREAM_AI_SUPABASE_SERVICE_ROLE_KEY }}
 
     steps:
@@ -32,10 +32,15 @@ jobs:
       - name: Check one-time Supabase setup
         id: setup
         run: |
-          if [ -z "$DREAM_AI_SUPABASE_SERVICE_ROLE_KEY" ]; then
+          if [ -z "$DREAM_AI_SUPABASE_URL" ] || [ -z "$DREAM_AI_SUPABASE_SERVICE_ROLE_KEY" ]; then
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            echo "Add DREAM_AI_SUPABASE_SERVICE_ROLE_KEY in repository Actions secrets to enable learning-store checks."
+            echo "Set DREAM_AI_SUPABASE_URL as a repository variable and DREAM_AI_SUPABASE_SERVICE_ROLE_KEY as a repository secret for a dedicated Dream AI database."
+            echo "The workflow will not read or write the Dream Education or Mariona databases."
           else
+            case "$DREAM_AI_SUPABASE_URL" in
+              https://*.supabase.co) ;;
+              *) echo "DREAM_AI_SUPABASE_URL must be an HTTPS Supabase project URL."; exit 1 ;;
+            esac
             echo "configured=true" >> "$GITHUB_OUTPUT"
           fi
 
