@@ -122,7 +122,8 @@ test("automatic research includes current and factual questions but skips creati
   assert.equal(shouldAutoResearch("Taylor Swift"), true);
   assert.equal(shouldAutoResearch("Rihanna"), true);
   assert.equal(shouldAutoResearch("Write me a short story about a footballer."), false);
-  assert.equal(shouldAutoResearch("What is a hash map?", "coding"), false);
+  assert.equal(shouldAutoResearch("What is a hash map?", "coding"), true);
+  assert.equal(shouldAutoResearch("Explain photosynthesis step by step.", "learning"), true);
 });
 
 test("research context includes source links from all public provider types", () => {
