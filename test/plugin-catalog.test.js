@@ -24,7 +24,7 @@ test("catalog distinguishes implemented public connectors from gated integration
   assert.equal(byId.get("semantic_scholar").status, "connected_read_only");
   assert.equal(byId.get("public_github").status, "connected_read_only");
   assert.equal(byId.get("wikipedia").apiKeyFree, true);
-  assert.equal(byId.get("public_github").status, "catalogued");
+  assert.equal(byId.get("public_github").status, "connected_read_only");
   assert.equal(byId.get("facebook_instagram_threads").status, "requires_provider_access");
   assert.equal(byId.get("gmail").status, "requires_user_authorization");
   assert.equal(byId.get("mpesa").status, "requires_provider_access");
