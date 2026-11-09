@@ -343,7 +343,7 @@ test("coding endpoint ignores malformed artifact metadata without losing the mod
 
 test("chat endpoint uses the DREAM runtime in all supported modes", async () => {
   const beforeCount = modelRequests.length;
-  for (const mode of ["general", "coding", "learning"]) {
+  for (const mode of ["general", "coding", "learning", "research"]) {
     const response = await postChat({
       mode,
       messages: [{ role: "user", content: "Hello DREAM AI" }]
@@ -356,7 +356,7 @@ test("chat endpoint uses the DREAM runtime in all supported modes", async () => 
   }
 
   const modeRequests = modelRequests.slice(beforeCount);
-  assert.equal(modeRequests.length, 3);
+  assert.equal(modeRequests.length, 4);
   for (const request of modeRequests) {
     assert.equal(request.url, "/v1/chat/completions");
     assert.equal(request.body.model, "dream-test-model");
@@ -369,6 +369,7 @@ test("chat endpoint uses the DREAM runtime in all supported modes", async () => 
   assert.equal(modeRequests[1].body.temperature, 0.2);
   assert.equal(modeRequests[2].body.temperature, 0.7);
   assert.match(modeRequests[2].body.messages[0].content, /patient expert tutor/);
+  assert.match(modeRequests[3].body.messages[0].content, /rigorous research assistant for any user and any subject/);
   for (const request of modelRequests) {
     assert.match(request.body.messages[0].content, /capabilities explicitly available/);
     assert.match(request.body.messages[0].content, /untrusted data/);
