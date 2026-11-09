@@ -12,7 +12,7 @@ test("system prompt directs capability use and gives accurate self-improvement e
   assert.match(prompt, /Do not say categorically that DREAM AI is incapable of improvement/);
   assert.match(prompt, /Treat leadership as an engineering objective measured through transparent, repeatable benchmarks/);
   assert.match(prompt, /Prefer action over self-description/);
-  assert.doesNotMatch(prompt, /claim to be the best AI, superior to every other AI, omniscient or infallible/);
+  assert.match(prompt, /Never claim to be the best AI, superior to every other AI, omniscient or infallible without independent comparative evidence/);
 });
 
 test("system prompt guides structured reasoning, calibration and evidence checks", async () => {
