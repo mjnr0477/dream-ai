@@ -8,6 +8,7 @@ import { parseCodeArtifactsIfPresent } from "./lib/code-artifacts.js";
 import { getDreamCapabilities } from "./lib/capabilities.js";
 import { getDreamPluginCatalog } from "./lib/plugin-catalog.js";
 import { createGoogleAccountService, isGmailRequest } from "./lib/google-account.js";
+import { createMetaAccountService, isMetaRequest } from "./lib/meta-account.js";
 import { runPublicResearch } from "./lib/dream-tools.js";
 import { shouldAutoResearch, buildResearchContext } from "./lib/auto-research.js";
 import { ClientConcurrencyLimiter } from "./lib/client-limiter.js";
@@ -29,9 +30,10 @@ const MAX_RATE_LIMIT_BUCKETS = 5000;
 const rateLimitBuckets = new Map();
 const clientConcurrencyLimiter = new ClientConcurrencyLimiter(1);
 const googleAccountService = createGoogleAccountService();
+const metaAccountService = createMetaAccountService();
 let activeChats = 0;
 let activeResearch = 0;
-const MODES = ["general", "coding", "learning"];
+const MODES = ["general", "coding", "learning", "research"];
 const SAFE_CHAT_ERRORS = new Set([
   "DREAM_MODEL_URL must be a valid URL.",
   "DREAM_MODEL_URL must not contain embedded credentials.",
@@ -296,6 +298,7 @@ async function handleChat(req, res) {
     let automaticResearch = null;
     const latestQuestion = messages.at(-1).content;
     const requestsGmail = isGmailRequest(latestQuestion);
+    const requestsMeta = isMetaRequest(latestQuestion);
     if (requestsGmail && !isDreamEngineConfigured(process.env)) {
       privateAccountContext = "DREAM's model runtime is not configured. No Gmail messages were retrieved. Explain that private account questions can be answered only after the DREAM model runtime is ready.";
     } else if (requestsGmail) {
@@ -306,7 +309,16 @@ async function handleChat(req, res) {
         privateAccountContext = "Gmail retrieval failed. No email contents were successfully retrieved. Tell the user that account access failed and do not infer or invent email contents.";
       }
     }
-    if (!requestsGmail && isDreamEngineConfigured(process.env) && shouldAutoResearch(latestQuestion, mode)) {
+    if (requestsMeta) {
+      try {
+        const metaContext = await metaAccountService.socialContext(req, latestQuestion);
+        privateAccountContext = [privateAccountContext, metaContext].filter(Boolean).join("\n\n");
+      } catch (error) {
+        console.warn("DREAM Meta account retrieval failed:", error.providerStatus || error.name || "error");
+        privateAccountContext = [privateAccountContext, "Meta account retrieval failed. No private social account data was successfully retrieved. Tell the user to reconnect the relevant Meta account; do not infer or invent account contents."].filter(Boolean).join("\n\n");
+      }
+    }
+    if (!requestsGmail && !requestsMeta && isDreamEngineConfigured(process.env) && shouldAutoResearch(latestQuestion, mode)) {
       try {
         // Research current public sources as well as stable reference material.
         // The evidence builder labels provider/date limits and never implies full web coverage.
@@ -368,6 +380,9 @@ async function handleLearningExample(req, res) {
     ? "dream-learning-opt-in-v1"
     : body.consentVersion;
   const sourceGroupId = body.sourceGroupId;
+  if (isGmailRequest(prompt) || isMetaRequest(prompt)) {
+    return json(res, 403, { error: "Private account questions cannot be submitted to DREAM learning or training collection." });
+  }
   const validSourceGroupId = typeof sourceGroupId === "string" &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sourceGroupId);
   if (!["general", "coding", "learning"].includes(mode) ||
@@ -488,6 +503,55 @@ const server = http.createServer(async (req, res) => {
   }
   if (req.method === "GET" && url.pathname === "/api/plugins") {
     return json(res, 200, getDreamPluginCatalog());
+  }
+  if (req.method === "GET" && url.pathname === "/api/account/meta/status") {
+    try {
+      return json(res, 200, await metaAccountService.status(req, res));
+    } catch {
+      return json(res, 503, { metaOAuthConfigured: false, operatorTokenConfigured: false, facebook: { connected: false }, threads: { connected: false } });
+    }
+  }
+  if (req.method === "GET" && url.pathname === "/api/account/meta/facebook/start") {
+    try { return metaAccountService.begin(req, res, "facebook"); }
+    catch {
+      res.writeHead(303, { ...SECURITY_HEADERS, location: "/?meta=setup-required", "cache-control": "no-store" });
+      return res.end();
+    }
+  }
+  if (req.method === "GET" && url.pathname === "/api/account/meta/facebook/callback") {
+    try { return await metaAccountService.callback(req, res, url, "facebook"); }
+    catch {
+      res.writeHead(303, { ...SECURITY_HEADERS, location: "/?meta=failed", "cache-control": "no-store" });
+      return res.end();
+    }
+  }
+  if (req.method === "GET" && url.pathname === "/api/account/meta/threads/start") {
+    try { return metaAccountService.begin(req, res, "threads"); }
+    catch {
+      res.writeHead(303, { ...SECURITY_HEADERS, location: "/?meta=setup-required", "cache-control": "no-store" });
+      return res.end();
+    }
+  }
+  if (req.method === "GET" && url.pathname === "/api/account/meta/threads/callback") {
+    try { return await metaAccountService.callback(req, res, url, "threads"); }
+    catch {
+      res.writeHead(303, { ...SECURITY_HEADERS, location: "/?meta=failed", "cache-control": "no-store" });
+      return res.end();
+    }
+  }
+  if (req.method === "POST" && url.pathname === "/api/account/meta/disconnect") {
+    try {
+      validateBrowserRequest(req);
+      if (!enforceApiRateLimit(req, res)) return;
+      const body = await readJson(req);
+      const provider = body?.provider || "all";
+      if (! ["all", "facebook", "threads"].includes(provider)) {
+        return json(res, 400, { error: "Choose all, facebook or threads." });
+      }
+      return json(res, 200, await metaAccountService.disconnect(req, res, provider));
+    } catch (error) {
+      return json(res, error.status || 500, { error: "Could not safely disconnect Meta. Please retry." });
+    }
   }
   if (req.method === "GET" && url.pathname === "/api/account/status") {
     try {
