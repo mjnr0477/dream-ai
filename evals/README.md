@@ -61,3 +61,37 @@ Evaluation datasets must be original, explicitly licensed or otherwise authorize
 - Structural checks validate JSON, required fields, IDs and arithmetic answer keys; they do not validate linguistic quality.
 - Benchmark contamination checks require corpus-level overlap scans and human source review before any benchmark can be called uncontaminated.
 - Creating or validating a dataset does not train DREAM AI.
+
+## Probabilistic forecast evaluation
+
+DREAM can score a set of resolved forecasts independently of the language model. Each JSONL record represents one event with a mutually exclusive, exhaustive outcome set and one probability per outcome:
+
+```json
+{
+  "id": "match-2026-11-09-city-united",
+  "domain": "sports",
+  "model": "DREAM AI",
+  "modelVersion": "forecast-engine-v1",
+  "horizon": "kickoff-to-full-time",
+  "issuedAt": "2026-11-08T12:00:00Z",
+  "resolvedAt": "2026-11-09T21:00:00Z",
+  "outcomes": ["home", "draw", "away"],
+  "probabilities": [0.52, 0.27, 0.21],
+  "actualOutcome": "home",
+  "baselineProbabilities": [0.44, 0.29, 0.27]
+}
+```
+
+Use timezone-qualified ISO 8601 timestamps. Probabilities must be finite, between 0 and 1, aligned with outcome labels, and sum to 1 within 1e-6. Baseline probabilities are optional, but must be present for every row or none. Only resolved results belong in a scoring file. Keep one model version (and one checkpoint hash, when available) per scoring run.
+
+Run:
+
+```sh
+npm run score:forecasts -- eval-results/resolved-forecasts.jsonl
+# Optionally choose the summary destination:
+npm run score:forecasts -- eval-results/resolved-forecasts.jsonl eval-results/forecast-summary.json
+```
+
+The scorer reports multiclass Brier score (mean sum of squared class errors per event), log loss, tie-aware top-outcome accuracy, expected calibration error, reliability bins, per-domain results, per-horizon results, and optional Brier skill score against a supplied baseline. Lower Brier, log loss and calibration error are better; positive Brier skill means the model beats the stated baseline. It clips zero actual-outcome probabilities at 1e-15 for finite log loss.
+
+This scorer does not create predictions, verify that an event outcome is true, validate the completeness of the outcome set, or prove that a model is calibrated. Forecast records and resolution evidence must be independently maintained and audited. Evaluate against chronological held-out periods, include simple baselines, keep unresolved events out of the score, and report sample counts. Do not promote a forecasting model based on a small or cherry-picked sample.
