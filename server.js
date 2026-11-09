@@ -3,7 +3,7 @@ import { isIP } from "node:net";
 import { readFile } from "node:fs/promises";
 import { extname, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { generateDreamReply, getDreamRuntimeStatus, isDreamEngineConfigured } from "./lib/dream-engine.js";
+import { generateDreamReply, getDreamRuntimeStatus } from "./lib/dream-engine.js";
 import { parseCodeArtifactsIfPresent } from "./lib/code-artifacts.js";
 import { getDreamCapabilities } from "./lib/capabilities.js";
 import { runPublicResearch } from "./lib/dream-tools.js";
@@ -291,7 +291,7 @@ async function handleChat(req, res) {
     let researchContext = "";
     let automaticResearch = null;
     const latestQuestion = messages.at(-1).content;
-    if (isDreamEngineConfigured(process.env) && shouldAutoResearch(latestQuestion, mode)) {
+    if (shouldAutoResearch(latestQuestion, mode)) {
       try {
         // Research current public sources as well as stable reference material.
         // The evidence builder labels provider/date limits and never implies full web coverage.
