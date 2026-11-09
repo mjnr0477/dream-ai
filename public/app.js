@@ -847,6 +847,7 @@ async function loadAccountStatus() {
     meta: {
       metaOAuthConfigured: false,
       operatorTokenConfigured: false,
+      operatorTokenValid: false,
       facebook: { connected: false, label: null, scopes: [] },
       threads: { connected: false, label: null, scopes: [] }
     }
@@ -869,6 +870,7 @@ async function loadAccountStatus() {
     meta: {
       metaOAuthConfigured: meta.metaOAuthConfigured === true,
       operatorTokenConfigured: meta.operatorTokenConfigured === true,
+      operatorTokenValid: meta.operatorTokenValid === true,
       facebook: {
         connected: meta.facebook?.connected === true,
         label: typeof meta.facebook?.label === "string" ? meta.facebook.label : null,
@@ -1012,7 +1014,9 @@ function renderPluginCards() {
         const locked = document.createElement("span");
         locked.className = "plugin-locked";
         locked.textContent = accountStatus.meta.operatorTokenConfigured
-          ? "META_ACCESS_TOKEN is saved. Add META_APP_ID and META_APP_SECRET to enable secure sign-in for each user."
+          ? accountStatus.meta.operatorTokenValid
+            ? "META_ACCESS_TOKEN verified. Add META_APP_ID and META_APP_SECRET to enable secure sign-in for each user."
+            : "META_ACCESS_TOKEN is saved but could not be verified. Add META_APP_ID and META_APP_SECRET for user sign-in."
           : "Configure the Meta app credentials to enable official user sign-in.";
         actions.append(locked);
       }
