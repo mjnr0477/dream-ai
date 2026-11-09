@@ -306,7 +306,7 @@ async function handleChat(req, res) {
         privateAccountContext = "Gmail retrieval failed. No email contents were successfully retrieved. Tell the user that account access failed and do not infer or invent email contents.";
       }
     }
-    if (!requestsGmail && isDreamEngineConfigured(process.env) && shouldAutoResearch(latestQuestion, mode)) {
+    if (!requestsGmail && shouldAutoResearch(latestQuestion, mode)) {
       try {
         // Research current public sources as well as stable reference material.
         // The evidence builder labels provider/date limits and never implies full web coverage.
