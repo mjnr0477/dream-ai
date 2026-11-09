@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildResearchContext, shouldAutoResearch } from "../lib/auto-research.js";
+import { buildForecastGuidance, classifyForecastDomain, isForecastRequest, buildResearchContext, shouldAutoResearch } from "../lib/auto-research.js";
 
 test("automatically researches stable factual questions in normal chat", () => {
   assert.equal(shouldAutoResearch("Tell me about Manchester City"), true);
@@ -261,4 +261,57 @@ test("GitHub repository metadata enters coding research only from github.com", (
   assert.equal(prepared.sources[0].provider, "GitHub Public Repositories");
   assert.match(prepared.context, /A small Python CSV parser/);
   assert.doesNotMatch(prepared.context, /attacker\.example|Untrusted URL/);
+});
+
+
+test("forecast requests across weather, sport, markets and general events route into fresh research", () => {
+  const cases = [
+    ["Will it rain in Bungoma tomorrow?", "weather"],
+    ["Predict Arsenal vs Manchester City", "sports"],
+    ["Could Bitcoin rise next week?", "markets"],
+    ["What will happen in the next national election?", "general"]
+  ];
+  for (const [query, domain] of cases) {
+    assert.equal(isForecastRequest(query), true, query);
+    assert.equal(classifyForecastDomain(query), domain, query);
+    assert.equal(shouldAutoResearch(query), true, query);
+  }
+});
+
+test("forecast guidance rejects false precision and is domain-aware", () => {
+  const weather = buildForecastGuidance("Forecast the weather in Bungoma tomorrow");
+  assert.match(weather, /official meteorological observations/);
+  assert.match(weather, /probability of precipitation/);
+  const sports = buildForecastGuidance("Predict who will win the football match");
+  assert.match(sports, /include the draw/);
+  const markets = buildForecastGuidance("Predict the stock market next month");
+  assert.match(markets, /timestamped price history/);
+  assert.match(markets, /losses are possible/);
+  const general = buildForecastGuidance("What will happen in the election?");
+  assert.match(general, /historical base rate or reference class/);
+  for (const guidance of [weather, sports, markets, general]) {
+    assert.match(guidance, /Do not invent data/);
+    assert.match(guidance, /calibrated forecasting model/);
+  }
+});
+
+test("forecasting does not turn creative writing requests into research", () => {
+  assert.equal(shouldAutoResearch("Write a short story about who will win the football match"), false);
+  assert.equal(buildForecastGuidance("Write a short story about who will win the football match"), "");
+});
+
+test("forecast research context warns against deriving probabilities from headlines alone", () => {
+  const prepared = buildResearchContext({
+    query: "Predict whether Bitcoin will rise",
+    platformResearch: {
+      results: [{
+        provider: "Google News RSS",
+        title: "Crypto market update",
+        url: "https://www.reuters.com/markets/example",
+        snippet: "Publisher: Reuters — A market report."
+      }]
+    }
+  });
+  assert.match(prepared.context, /not itself a validated forecasting model/);
+  assert.match(prepared.context, /Do not calculate precise event probabilities from retrieved headlines alone/);
 });
