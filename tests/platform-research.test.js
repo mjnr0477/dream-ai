@@ -216,8 +216,11 @@ test("World Bank statistics honour an explicitly requested historical year", asy
     item.url.hostname === "api.worldbank.org" && item.url.pathname.includes("/indicator/")
   );
   assert.ok(call);
+  assert.equal(call.url.pathname, "/v2/country/KEN/indicator/NY.GDP.PCAP.CD", JSON.stringify(requests.map(item => item.url.toString())));
   assert.equal(call.url.searchParams.get("date"), "2020");
   assert.equal(call.url.searchParams.has("mrnev"), false);
+  const provider = result.providers.find(item => item.provider === "World Bank Indicators");
+  assert.equal(provider.status, "ok", JSON.stringify(requests.map(item => item.url.toString())));
   const value = result.results.find(item => item.provider === "World Bank Indicators");
   assert.equal(value.indicatorCode, "NY.GDP.PCAP.CD");
   assert.equal(value.observationYear, "2020");
