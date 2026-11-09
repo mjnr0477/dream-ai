@@ -45,9 +45,10 @@ test("Google Search grounding returns cited public web sources without replacing
   const googleSources = result.results.filter(item => item.provider === "Google Search");
   assert.equal(googleSources.length, 2);
   assert.equal(googleSources[0].title, "Official source");
-  assert.equal(googleSources[0].snippet, "A current public fact with citations.");
+  assert.equal(googleSources[0].snippet, "");
   assert.equal(googleSources[1].url, "https://www.bbc.com/news/example");
   assert.equal(googleSources[1].snippet, "");
+  assert.ok(googleSources.every(source => source.snippet === ""));
 });
 
 test("YouTube search returns public video metadata and uses the server API key", async () => {
