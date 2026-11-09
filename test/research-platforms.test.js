@@ -92,12 +92,11 @@ test("rejects malformed PubMed identifiers and XML without fabricating citations
     jsonResponse({ esearchresult: { idlist: ["javascript:alert(1)"] } })
   ), /invalid-pubmed-search-response/);
 
-  const results = await searchPubMed("climate research", async url => {
+  await assert.rejects(searchPubMed("climate research", async url => {
     const parsed = new URL(url);
     if (parsed.pathname.endsWith("/esearch.fcgi")) {
       return jsonResponse({ esearchresult: { idlist: ["98765"] } });
     }
     return new Response("<html>not XML</html>", { status: 200 });
-  });
-  assert.fail("Expected malformed XML to reject, got " + JSON.stringify(results));
+  }), /invalid-pubmed-response/);
 });
