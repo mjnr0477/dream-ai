@@ -128,6 +128,24 @@ async function postChat(payload, rawBody) {
 }
 
 
+test("learning contribution refuses private account prompts even when called directly", async () => {
+  for (const prompt of [
+    "Check my Gmail inbox.",
+    "Show my Facebook Pages.",
+    "Review my Instagram account.",
+    "Check my Threads profile."
+  ]) {
+    const response = await postLearning({
+      mode: "general",
+      prompt,
+      response: "Private account data must never be collected for training.",
+      consentVersion: "dream-learning-opt-in-v1"
+    });
+    assert.equal(response.status, 403);
+    assert.match((await response.json()).error, /Private account questions cannot be submitted/);
+  }
+});
+
 test("learning contribution requires a valid temporary source group for v2 consent", async () => {
   const missing = await postLearning({
     mode: "general",
@@ -343,7 +361,7 @@ test("coding endpoint ignores malformed artifact metadata without losing the mod
 
 test("chat endpoint uses the DREAM runtime in all supported modes", async () => {
   const beforeCount = modelRequests.length;
-  for (const mode of ["general", "coding", "learning"]) {
+  for (const mode of ["general", "coding", "learning", "research"]) {
     const response = await postChat({
       mode,
       messages: [{ role: "user", content: "Hello DREAM AI" }]
@@ -356,7 +374,7 @@ test("chat endpoint uses the DREAM runtime in all supported modes", async () => 
   }
 
   const modeRequests = modelRequests.slice(beforeCount);
-  assert.equal(modeRequests.length, 3);
+  assert.equal(modeRequests.length, 4);
   for (const request of modeRequests) {
     assert.equal(request.url, "/v1/chat/completions");
     assert.equal(request.body.model, "dream-test-model");
@@ -369,6 +387,7 @@ test("chat endpoint uses the DREAM runtime in all supported modes", async () => 
   assert.equal(modeRequests[1].body.temperature, 0.2);
   assert.equal(modeRequests[2].body.temperature, 0.7);
   assert.match(modeRequests[2].body.messages[0].content, /patient expert tutor/);
+  assert.match(modeRequests[3].body.messages[0].content, /rigorous research assistant for any user and any subject/);
   for (const request of modelRequests) {
     assert.match(request.body.messages[0].content, /capabilities explicitly available/);
     assert.match(request.body.messages[0].content, /untrusted data/);
@@ -673,7 +692,7 @@ test("plugin catalog endpoint exposes guest-first plugin metadata and the fronte
   assert.equal(byId.get("public_github").status, "connected_read_only");
   assert.equal(byId.get("arxiv").status, "connected_read_only");
   assert.equal(byId.get("semantic_scholar").status, "connected_read_only");
-  assert.equal(byId.get("facebook_instagram_threads").status, "requires_provider_access");
+  assert.equal(byId.get("facebook_instagram_threads").status, "requires_user_authorization");
   assert.equal(byId.get("gmail").status, "requires_user_authorization");
   assert.equal(catalog.policy.privateAccountAccessRequiresAuthorization, true);
   assert.equal(catalog.policy.writeAndFinancialActionsRequireExplicitConfirmation, true);

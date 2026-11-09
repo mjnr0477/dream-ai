@@ -25,11 +25,11 @@ test("catalog distinguishes implemented public connectors from gated integration
   assert.equal(byId.get("public_github").status, "connected_read_only");
   assert.equal(byId.get("wikipedia").apiKeyFree, true);
   assert.equal(byId.get("public_github").status, "connected_read_only");
-  assert.equal(byId.get("facebook_instagram_threads").status, "requires_provider_access");
+  assert.equal(byId.get("facebook_instagram_threads").status, "requires_user_authorization");
   assert.equal(byId.get("gmail").status, "requires_user_authorization");
   assert.equal(byId.get("mpesa").status, "requires_provider_access");
   assert.equal(byId.get("facebook_instagram_threads").apiKeyFree, false);
-  assert.equal(byId.get("facebook_instagram_threads").access, "approved_meta_api_and_user_authorization");
+  assert.equal(byId.get("facebook_instagram_threads").access, "official_meta_oauth_and_scoped_user_consent");
 });
 
 test("catalog responses are fresh copies and cannot mutate the server catalogue", () => {

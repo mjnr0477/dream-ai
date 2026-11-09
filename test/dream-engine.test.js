@@ -6,6 +6,12 @@ test("system prompt guides structured reasoning, calibration and evidence checks
   const { buildSystemPrompt } = await import("../lib/dream-engine.js");
   const prompt = buildSystemPrompt("general", "User prefers concise explanations");
   assert.match(prompt, /Decompose multi-step work into ordered, verifiable steps/);
+  assert.match(prompt, /Serve every kind of user, not only students/);
+  assert.match(prompt, /Never assume the user is a student/);
+  assert.match(prompt, /everyday life, science, technology, health information, law and civic information/);
+  assert.match(prompt, /solve it rather than only describing the topic/);
+  assert.match(prompt, /Do not pretend to know everything or promise infallibility/);
+  assert.match(prompt, /medical, legal, financial and other high-impact topics/);
   assert.match(prompt, /recompute the result independently/);
   assert.match(prompt, /describe the conflict/);
   assert.match(prompt, /ask one focused clarification/);

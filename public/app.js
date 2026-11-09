@@ -405,7 +405,7 @@ function addMessage(role, content, artifacts = null) {
 
 function isPrivateAccountPrompt(prompt) {
   return typeof prompt === "string" &&
-    /\b(?:my gmail|search (?:my )?gmail|check (?:my )?gmail|look in (?:my )?gmail|read (?:my )?gmail|gmail inbox|gmail emails?|gmail messages?|my emails?|my inbox|email(?:s)? from|messages? in my inbox|search my mail)\b/i.test(prompt);
+    /\b(?:my gmail|search (?:my )?gmail|check (?:my )?gmail|look in (?:my )?gmail|read (?:my )?gmail|gmail inbox|gmail emails?|gmail messages?|my emails?|my inbox|email(?:s)? from|messages? in my inbox|search my mail|my (?:facebook|instagram|threads)(?: account| profile| page| pages| posts| insights| comments)?|(?:check|look at|show|review|read|search|connect) (?:my )?(?:facebook|instagram|threads))\b/i.test(prompt);
 }
 
 function appendAssistantActions(replyNode, replyText, prompt = "", mode = "general") {
@@ -864,24 +864,66 @@ const pluginsStatus = document.querySelector("#plugins-status");
 const pluginsList = document.querySelector("#plugins-list");
 const pluginsCount = document.querySelector("#plugins-count");
 let pluginCatalog = null;
-let accountStatus = { googleOAuthConfigured: false, persistentStorageReady: false, gmail: { connected: false, email: null } };
+let accountStatus = {
+  googleOAuthConfigured: false,
+  persistentStorageReady: false,
+  gmail: { connected: false, email: null },
+  meta: {
+    metaOAuthConfigured: false,
+    threadsOAuthConfigured: false,
+    operatorTokenConfigured: false,
+    operatorTokenValid: false,
+    facebook: { connected: false, label: null, scopes: [] },
+    threads: { connected: false, label: null, scopes: [] }
+  }
+};
 
 async function loadAccountStatus() {
-  try {
-    const response = await fetch("/api/account/status", { headers: { accept: "application/json" }, cache: "no-store" });
-    if (!response.ok) throw new Error("Account status unavailable");
-    const result = await response.json();
-    accountStatus = {
-      googleOAuthConfigured: result.googleOAuthConfigured === true,
-      persistentStorageReady: result.persistentStorageReady === true,
-      gmail: {
-        connected: result.gmail?.connected === true,
-        email: typeof result.gmail?.email === "string" ? result.gmail.email : null
+  const defaults = {
+    googleOAuthConfigured: false,
+    persistentStorageReady: false,
+    gmail: { connected: false, email: null },
+    meta: {
+      metaOAuthConfigured: false,
+      threadsOAuthConfigured: false,
+      operatorTokenConfigured: false,
+      operatorTokenValid: false,
+      facebook: { connected: false, label: null, scopes: [] },
+      threads: { connected: false, label: null, scopes: [] }
+    }
+  };
+  const [googleResult, metaResult] = await Promise.allSettled([
+    fetch("/api/account/status", { headers: { accept: "application/json" }, cache: "no-store" })
+      .then(response => { if (!response.ok) throw new Error("Google account status unavailable"); return response.json(); }),
+    fetch("/api/account/meta/status", { headers: { accept: "application/json" }, cache: "no-store" })
+      .then(response => { if (!response.ok) throw new Error("Meta account status unavailable"); return response.json(); })
+  ]);
+  const google = googleResult.status === "fulfilled" ? googleResult.value : {};
+  const meta = metaResult.status === "fulfilled" ? metaResult.value : {};
+  accountStatus = {
+    googleOAuthConfigured: google.googleOAuthConfigured === true,
+    persistentStorageReady: google.persistentStorageReady === true,
+    gmail: {
+      connected: google.gmail?.connected === true,
+      email: typeof google.gmail?.email === "string" ? google.gmail.email : null
+    },
+    meta: {
+      metaOAuthConfigured: meta.metaOAuthConfigured === true,
+      threadsOAuthConfigured: meta.threadsOAuthConfigured === true,
+      operatorTokenConfigured: meta.operatorTokenConfigured === true,
+      operatorTokenValid: meta.operatorTokenValid === true,
+      facebook: {
+        connected: meta.facebook?.connected === true,
+        label: typeof meta.facebook?.label === "string" ? meta.facebook.label : null,
+        scopes: Array.isArray(meta.facebook?.scopes) ? meta.facebook.scopes : []
+      },
+      threads: {
+        connected: meta.threads?.connected === true,
+        label: typeof meta.threads?.label === "string" ? meta.threads.label : null,
+        scopes: Array.isArray(meta.threads?.scopes) ? meta.threads.scopes : []
       }
-    };
-  } catch {
-    accountStatus = { googleOAuthConfigured: false, persistentStorageReady: false, gmail: { connected: false, email: null } };
-  }
+    }
+  };
 }
 
 function pluginAvailability(status) {
@@ -922,6 +964,18 @@ function renderPluginCards() {
       badge.textContent = accountStatus.gmail.connected
         ? "Connected · " + (accountStatus.gmail.email || "Google account")
         : accountStatus.googleOAuthConfigured ? "Secure sign-in available" : "Operator setup required";
+    } else if (plugin.id === "facebook_instagram_threads") {
+      const connected = [
+        accountStatus.meta.facebook.connected ? "Facebook + Instagram" : "",
+        accountStatus.meta.threads.connected ? "Threads" : ""
+      ].filter(Boolean);
+      badge.textContent = connected.length
+        ? "Connected · " + connected.join(" · ")
+        : accountStatus.meta.metaOAuthConfigured || accountStatus.meta.threadsOAuthConfigured
+          ? "Secure account sign-in available"
+          : accountStatus.meta.operatorTokenConfigured
+            ? "Admin token saved · user sign-in setup needed"
+            : "Meta app setup required";
     }
     top.append(name, badge);
     const categoryLabel = document.createElement("p");
@@ -935,7 +989,86 @@ function renderPluginCards() {
     capabilities.textContent = (plugin.capabilities || []).map(value => value.replaceAll("_", " ")).join(" · ");
     const actions = document.createElement("div");
     actions.className = "plugin-actions";
-    if (plugin.id === "gmail") {
+    if (plugin.id === "facebook_instagram_threads") {
+      const addMetaButton = (label, path, prompt) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "plugin-use";
+        button.textContent = label;
+        button.addEventListener("click", () => {
+          if (prompt) {
+            pluginsDialog.close();
+            setMode("general");
+            input.value = prompt;
+            input.focus();
+            input.setSelectionRange(input.value.length, input.value.length);
+            input.style.height = "auto";
+            input.style.height = Math.min(input.scrollHeight, 180) + "px";
+          } else {
+            window.location.assign(path);
+          }
+        });
+        actions.append(button);
+      };
+      const addMetaDisconnect = (provider, label) => {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "plugin-use";
+        button.textContent = label;
+        button.addEventListener("click", async () => {
+          button.disabled = true;
+          button.textContent = "Disconnecting…";
+          try {
+            const response = await fetch("/api/account/meta/disconnect", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ provider })
+            });
+            if (!response.ok) throw new Error("Disconnect failed");
+            await loadAccountStatus();
+            renderPluginCards();
+            statusText.textContent = provider === "facebook"
+              ? "Facebook and linked Instagram disconnected in this browser."
+              : "Threads disconnected in this browser.";
+          } catch {
+            button.disabled = false;
+            button.textContent = "Retry disconnect";
+          }
+        });
+        actions.append(button);
+      };
+      if (accountStatus.meta.metaOAuthConfigured) {
+        if (accountStatus.meta.facebook.connected) {
+          addMetaButton("Ask my Facebook", "", "Check my Facebook profile and Pages.");
+          addMetaButton("Ask my Instagram", "", "Check my Instagram account and linked professional accounts.");
+          addMetaDisconnect("facebook", "Disconnect Facebook + Instagram");
+        } else {
+          addMetaButton("Connect Facebook + Instagram", "/api/account/meta/facebook/start");
+        }
+      } else {
+        const locked = document.createElement("span");
+        locked.className = "plugin-locked";
+        locked.textContent = accountStatus.meta.operatorTokenConfigured
+          ? accountStatus.meta.operatorTokenValid
+            ? "META_ACCESS_TOKEN verified. Add META_APP_ID and META_APP_SECRET to enable Facebook/Instagram sign-in."
+            : "META_ACCESS_TOKEN is saved but could not be verified. Add META_APP_ID and META_APP_SECRET for Facebook/Instagram sign-in."
+          : "Add META_APP_ID and META_APP_SECRET privately in Render to enable Facebook/Instagram sign-in.";
+        actions.append(locked);
+      }
+      if (accountStatus.meta.threadsOAuthConfigured) {
+        if (accountStatus.meta.threads.connected) {
+          addMetaButton("Ask my Threads", "", "Check my Threads profile.");
+          addMetaDisconnect("threads", "Disconnect Threads");
+        } else {
+          addMetaButton("Connect Threads", "/api/account/meta/threads/start");
+        }
+      } else {
+        const locked = document.createElement("span");
+        locked.className = "plugin-locked";
+        locked.textContent = "Add THREADS_APP_ID and THREADS_APP_SECRET privately in Render to enable Threads sign-in.";
+        actions.append(locked);
+      }
+    } else if (plugin.id === "gmail") {
       if (accountStatus.gmail.connected) {
         const ask = document.createElement("button");
         ask.type = "button";
@@ -1052,7 +1185,8 @@ async function loadPluginCatalog() {
 
 pluginsOpen?.addEventListener("click", async () => {
   if (!pluginsDialog.open) pluginsDialog.showModal();
-  await loadPluginCatalog();
+  await Promise.all([loadPluginCatalog(), loadAccountStatus()]);
+  renderPluginCards();
   pluginsSearch?.focus();
 });
 pluginsClose?.addEventListener("click", () => pluginsDialog.close());
