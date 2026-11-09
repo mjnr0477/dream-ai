@@ -190,3 +190,49 @@ test("GitHub anonymous quota errors are reported and never retried", async () =>
   assert.equal(result.providers.find(item => item.provider === "GitHub Public Repositories").status, "unavailable");
   assert.equal(result.results.some(item => item.provider === "GitHub Public Repositories"), false);
 });
+
+test("automatic public research uses the freshness-filtered regional Google News feed", async () => {
+  const calls = [];
+  const publishedAt = new Date(Date.now() - 20 * 60 * 1000);
+  const xml = [
+    "<rss><channel><item>",
+    "<title><![CDATA[Manchester City announce a squad update]]></title>",
+    "<link>https://news.google.com/rss/articles/CBMiRecentStory</link>",
+    "<pubDate>" + publishedAt.toUTCString() + "</pubDate>",
+    '<source url="https://www.bbc.com/">BBC Sport</source>',
+    "<description><![CDATA[The report includes a dated squad update.]]></description>",
+    "</item></channel></rss>"
+  ].join("");
+
+  const research = await searchPlatformSources(
+    "latest Manchester City news today",
+    async (url, options = {}) => {
+      const parsed = new URL(url);
+      calls.push({ parsed, options });
+      if (parsed.hostname === "news.google.com") {
+        return new Response(xml, { status: 200, headers: { "content-type": "application/rss+xml" } });
+      }
+      if (parsed.hostname === "public.api.bsky.app") return jsonResponse({ posts: [] });
+      if (parsed.hostname === "api.stackexchange.com") return jsonResponse({ items: [] });
+      if (parsed.hostname === "www.ebi.ac.uk") return jsonResponse({ resultList: { result: [] } });
+      if (parsed.hostname === "eutils.ncbi.nlm.nih.gov") return jsonResponse({ esearchresult: { idlist: [] } });
+      throw new Error("Unexpected external provider: " + parsed.hostname);
+    },
+    {}
+  );
+
+  const news = research.results.find(item => item.provider === "Google News RSS");
+  assert.ok(news);
+  assert.equal(news.title, "Manchester City announce a squad update");
+  assert.equal(news.publisher, "BBC Sport");
+  assert.equal(news.publishedAt, publishedAt.toISOString());
+  assert.match(news.snippet, /dated squad update/);
+  assert.equal(news.sourceType, "recent-news-headline");
+  assert.equal(new URL(news.url).hostname, "news.google.com");
+
+  const feedCall = calls.find(call => call.parsed.hostname === "news.google.com");
+  assert.ok(feedCall);
+  assert.equal(feedCall.parsed.searchParams.get("q"), "latest Manchester City news today when:1d");
+  assert.equal(feedCall.options.redirect, "error");
+  assert.equal(research.providers.find(item => item.provider === "Google News RSS").status, "ok");
+});
