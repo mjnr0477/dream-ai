@@ -15,7 +15,7 @@ DREAM has its own decoder-only transformer architecture, byte-tokenizer default,
 DREAM AI is the independent AI project created by **Mathias Simiyu**. Its mission is to help people learn, create, reason and find reliable information through transparent, evidence-based assistance. The application injects this verified product identity into every model system prompt. This product identity does not imply that every model weight was personally authored by the creator or that the native from-scratch model is already production-trained. Dream Education, Dream Wi-Fi and VYBORA are separate projects.\n\n## Current application
 
 - Responsive mobile-first chat workspace.
-- General, coding, learning and public-source Research modes. Public research combines Wikipedia excerpts, Wikidata public entity records, GDELT news headlines from the last seven days, and Crossref/OpenAlex scholarly metadata. Optional Brave Search integration adds general web-index results when `DREAM_BRAVE_SEARCH_API_KEY` is configured server-side. Retrieved records are cited as evidence leads; they are not proof, full-page extraction or unrestricted web access.
+- General, coding, learning and public-source Research modes. Public research combines Wikipedia excerpts, Wikidata public entity records, GDELT news headlines from the last seven days, Crossref/OpenAlex scholarly metadata, Europe PMC records and abstracts, and PubMed citations and abstracts where supplied. Optional Brave Search integration adds general web-index results when `DREAM_BRAVE_SEARCH_API_KEY` is configured server-side. Retrieved records are cited as evidence leads; they are not proof, full-page extraction or unrestricted web access.
 - Browser-local conversation history, export and copy.
 - Node API with bounded request validation, two-request model concurrency protection with retry guidance, and health status.
 - Provider-independent DREAM engine adapter.
@@ -51,6 +51,7 @@ DREAM's research layer fans a query out to independent providers in parallel. Ea
 - Crossref and OpenAlex scholarly publication metadata, plus Europe PMC biomedical abstracts and publication records where supplied.
 - Google News RSS headlines and publisher links (headline discovery, not full article text).
 - Europe PMC's public biomedical literature API (abstracts and publication metadata where available).
+- NCBI PubMed E-utilities for public biomedical citations and abstracts; the connector serializes requests conservatively and does not require a user API key.
 - Bluesky public-post search through its public AppView API.
 - Stack Exchange public Q&A search through the anonymous Stack Exchange API; it uses a shared IP quota and remains a retrieval-only source unless item-level training rights are established.
 
@@ -59,6 +60,16 @@ DREAM's research layer fans a query out to independent providers in parallel. Ea
 - YouTube Data API v3 public video search: set `DREAM_YOUTUBE_API_KEY`. This returns video/channel metadata and descriptions, not guaranteed transcripts or private account data. See [YouTube Data API](https://developers.google.com/youtube/data/reference/rest).
 - X recent public-post search: set `DREAM_X_BEARER_TOKEN`. An eligible X developer plan, quotas and applicable fees may be required.
 - Brave LLM Context: set `DREAM_BRAVE_SEARCH_API_KEY` for extracted web-page passages and source metadata. See [Brave LLM Context](https://api-dashboard.search.brave.com/documentation/services/llm-context).
+
+### Public dataset discovery (metadata only)
+
+Find candidate public datasets without adding a search-provider API key:
+
+\`\`\`sh
+npm run discover:datasets -- --query "Kiswahili education"
+\`\`\`
+
+The command writes a timestamped report under \`eval-results/\`. It reads Hugging Face Hub dataset metadata only. It does not download dataset files, inspect or retain dataset rows, start training, or approve candidates. Declared licenses remain unverified claims; rights, privacy, provenance, quality and source-group separation must pass DREAM's existing review gates before any training use.
 
 Store every credential only as a private server-side environment variable on the deployment. Never put credentials in frontend code, a committed `.env` file, notebook output or chat messages.
 
