@@ -21,12 +21,12 @@ Open the DREAM AI repository on GitHub, then go to Settings → Secrets and vari
 | Secret | Value |
 |---|---|
 | DREAM_AI_SUPABASE_SERVICE_ROLE_KEY | The service-role key from the Dream education Supabase project ldpcawixzxcolbmakrfc. Do not use the Mariona/VYBORA project. |
-| KAGGLE_JSON (optional alternative to the existing KAGGLE_USERNAME and KAGGLE_KEY secrets) | The complete contents of the kaggle.json file downloaded from Kaggle account settings → API. It contains the Kaggle username and API key. |
-| HF_TOKEN | A Hugging Face fine-grained token with read/write access only to msjnr0477/dream-ai-adapter. |
+| KAGGLE_USERNAME and KAGGLE_KEY | The existing Kaggle GitHub Actions secrets. Alternatively, set KAGGLE_JSON with the full downloaded kaggle.json contents. |
+| HF_TOKEN (optional) | A Hugging Face fine-grained token with read/write access only to msjnr0477/dream-ai-adapter. The notebook can use its existing linked Kaggle Secret named HF_TOKEN when this GitHub secret is absent. |
 
 The Supabase project URL is already configured in the workflow. Never commit credentials or paste them into source files, issues or chat.
 
-Kaggle API-pushed kernels do not inherit interactive notebook secrets reliably. The workflow therefore places HF_TOKEN in a private, owner-controlled Kaggle input dataset so the private training notebook can download the current adapter and upload a candidate. The token is not printed or committed to GitHub. Use a dedicated fine-grained token; rotate it if the private Kaggle dataset is ever shared or its access changes.
+Kaggle API-pushed kernels do not inherit interactive notebook secrets reliably. When the GitHub Actions HF_TOKEN secret is supplied, the workflow places it in a private, owner-controlled Kaggle input dataset so the training notebook can download the current adapter and upload a candidate. Otherwise, the notebook tries the linked Kaggle Secret named HF_TOKEN. The token is never printed or committed to the repository. Use a dedicated fine-grained token; rotate it if the private Kaggle dataset is ever shared or its access changes.
 
 ## Reviewing new contributions
 
