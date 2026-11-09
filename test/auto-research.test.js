@@ -98,3 +98,25 @@ test("research context enforces a strict evidence size limit", () => {
   assert.ok(prepared.context.length <= 4000);
   assert.ok(prepared.sources.length <= 5);
 });
+
+
+test("Stack Exchange evidence is accepted only from the Stack Overflow host", () => {
+  const prepared = buildResearchContext({ platformResearch: { results: [
+    {
+      provider: "Stack Exchange",
+      title: "A public programming answer",
+      url: "https://stackoverflow.com/questions/123456/example",
+      snippet: "A concise answer excerpt."
+    },
+    {
+      provider: "Stack Exchange",
+      title: "Untrusted host",
+      url: "https://attacker.example/questions/123",
+      snippet: "Must not be included."
+    }
+  ] } });
+  assert.equal(prepared.sources.length, 1);
+  assert.equal(prepared.sources[0].provider, "Stack Exchange");
+  assert.match(prepared.context, /A concise answer excerpt/);
+  assert.doesNotMatch(prepared.context, /attacker\.example/);
+});
