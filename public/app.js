@@ -837,7 +837,18 @@ const pluginsStatus = document.querySelector("#plugins-status");
 const pluginsList = document.querySelector("#plugins-list");
 const pluginsCount = document.querySelector("#plugins-count");
 let pluginCatalog = null;
-let accountStatus = { googleOAuthConfigured: false, persistentStorageReady: false, gmail: { connected: false, email: null } };
+let accountStatus = {
+  googleOAuthConfigured: false,
+  persistentStorageReady: false,
+  gmail: { connected: false, email: null },
+  meta: {
+    metaOAuthConfigured: false,
+    operatorTokenConfigured: false,
+    operatorTokenValid: false,
+    facebook: { connected: false, label: null, scopes: [] },
+    threads: { connected: false, label: null, scopes: [] }
+  }
+};
 
 async function loadAccountStatus() {
   const defaults = {
