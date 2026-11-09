@@ -45,6 +45,21 @@ test("discovers only public Hugging Face dataset metadata without credentials", 
           id: "owner/private",
           private: true,
           gated: false
+        },
+        {
+          id: "owner/string-private",
+          private: "true",
+          gated: false
+        },
+        {
+          id: "restricted/string-gated",
+          private: false,
+          gated: "true"
+        },
+        {
+          id: "../path",
+          private: false,
+          gated: false
         }
       ]);
     }
