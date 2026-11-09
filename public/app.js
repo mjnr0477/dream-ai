@@ -378,7 +378,7 @@ function addMessage(role, content, artifacts = null) {
 
 function isPrivateAccountPrompt(prompt) {
   return typeof prompt === "string" &&
-    /\b(?:my gmail|search (?:my )?gmail|check (?:my )?gmail|look in (?:my )?gmail|read (?:my )?gmail|gmail inbox|gmail emails?|gmail messages?|my emails?|my inbox|email(?:s)? from|messages? in my inbox|search my mail)\b/i.test(prompt);
+    /\b(?:my gmail|search (?:my )?gmail|check (?:my )?gmail|look in (?:my )?gmail|read (?:my )?gmail|gmail inbox|gmail emails?|gmail messages?|my emails?|my inbox|email(?:s)? from|messages? in my inbox|search my mail|my (?:facebook|instagram|threads)(?: account| profile| page| pages| posts| insights| comments)?|(?:check|look at|show|review|read|search|connect) (?:my )?(?:facebook|instagram|threads))\b/i.test(prompt);
 }
 
 function appendAssistantActions(replyNode, replyText, prompt = "", mode = "general") {
