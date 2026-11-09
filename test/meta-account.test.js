@@ -144,6 +144,9 @@ test("Threads uses its separate OAuth flow and separate encrypted session cookie
       return jsonResponse({ access_token: "SHORT_THREADS_SECRET", user_id: "threads-12", expires_in: 3600 });
     }
     if (parsed.hostname === "graph.threads.net" && parsed.pathname === "/access_token") {
+      assert.equal(parsed.searchParams.get("grant_type"), "th_exchange_token");
+      assert.equal(options.headers?.authorization, "Bearer SHORT_THREADS_SECRET");
+      assert.equal(parsed.searchParams.has("access_token"), false);
       return jsonResponse({ access_token: "LONG_THREADS_SECRET", expires_in: 5184000 });
     }
     if (parsed.hostname === "graph.threads.net" && parsed.pathname === "/v1.0/me") {
