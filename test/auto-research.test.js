@@ -178,5 +178,5 @@ test("arXiv and Semantic Scholar abstracts enter context only through their trus
   assert.ok(prepared.sources.some(source => source.provider === "Semantic Scholar"));
   assert.match(prepared.context, /An abstract retrieved from the arXiv API/);
   assert.match(prepared.context, /An abstract retrieved from Semantic Scholar/);
-  assert.doesNotMatch(prepared.context, /attacker\\.example|This must not enter context/);
+  assert.doesNotMatch(prepared.context, /attacker\.example|This must not enter context/);
 });
