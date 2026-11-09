@@ -380,6 +380,9 @@ async function handleLearningExample(req, res) {
     ? "dream-learning-opt-in-v1"
     : body.consentVersion;
   const sourceGroupId = body.sourceGroupId;
+  if (isGmailRequest(prompt) || isMetaRequest(prompt)) {
+    return json(res, 403, { error: "Private account questions cannot be submitted to DREAM learning or training collection." });
+  }
   const validSourceGroupId = typeof sourceGroupId === "string" &&
     /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sourceGroupId);
   if (!["general", "coding", "learning"].includes(mode) ||
