@@ -56,6 +56,10 @@ jobs:
         run: python -m pip install --index-url https://download.pytorch.org/whl/cpu --extra-index-url https://pypi.org/simple -r model/requirements.txt
       - name: Compile Python sources
         run: python -m compileall -q model
+      - name: Test benchmark contamination audit
+        run: |
+          python -m py_compile model/audit_benchmark_contamination.py
+          python -m unittest discover -s model -p 'test_audit_benchmark_contamination.py' -v
       - name: Compile corpus importers
         run: >-
           python -m py_compile
