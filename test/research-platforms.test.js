@@ -54,7 +54,7 @@ test("GitHub public repository search runs for coding intent without credentials
   assert.equal(request.parsed.searchParams.get("per_page"), "5");
   assert.equal(request.parsed.searchParams.get("sort"), "stars");
   assert.equal(request.options.method, "GET");
-  assert.equal(request.options.headers["x-github-api-version"], "2022-11-28");
+  assert.equal(request.options.headers["x-github-api-version"], "2026-03-10");
   assert.equal(request.options.headers.authorization, undefined);
   assert.equal(result.providers.find(item => item.provider === "GitHub Public Repositories").status, "ok");
 });
