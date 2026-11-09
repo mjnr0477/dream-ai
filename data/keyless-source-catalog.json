@@ -1,6 +1,6 @@
 {
   "schema": "dream-keyless-source-catalog-v1",
-  "catalog_updated": "2026-11-08",
+  "catalog_updated": "2026-11-09",
   "policy": {
     "user_supplied_source_api_keys_required": false,
     "anonymous_public_read_only_by_default": true,
@@ -168,13 +168,14 @@
       "endpoint": "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/",
       "category": "biomedical_literature",
       "access": "anonymous_read_rate_limited",
-      "integration_status": "catalogued_not_yet_connected",
+      "integration_status": "already_connected",
       "returns": [
         "PubMed search results",
         "citations",
-        "abstract metadata"
+        "abstract text where supplied",
+        "authors and journal metadata"
       ],
-      "training_status": "metadata_or_per_article_license_review",
+      "training_status": "retrieval_by_default_abstract_and_per_article_rights_review_required",
       "license_note": "An API key is only needed for higher request rates; abstracts and linked article text remain subject to their own rights.",
       "terms_url": "https://eutilities.github.io/site/API_Key/usageandkey/"
     },
@@ -286,6 +287,24 @@
       "training_status": "candidate_when_dataset_license_is_cc_by_4_or_otherwise_verified",
       "license_note": "CC BY 4.0 is the default for World Bank-produced open datasets, but exceptions and third-party datasets carry their own terms.",
       "terms_url": "https://datacatalog.worldbank.org/public-licenses"
+    },
+    {
+      "id": "huggingface_hub_dataset_metadata",
+      "name": "Hugging Face Hub public dataset metadata search",
+      "endpoint": "https://huggingface.co/api/datasets",
+      "category": "public_dataset_discovery",
+      "access": "anonymous_read_public_metadata",
+      "integration_status": "metadata_discovery_script_connected",
+      "returns": [
+        "public dataset identifiers",
+        "dataset-card license declarations",
+        "tags",
+        "download and like counts",
+        "last-modified metadata"
+      ],
+      "training_status": "unreviewed_candidate_only_never_automatically_approved",
+      "license_note": "The discovery script downloads metadata only, excludes gated/private datasets, and marks all rights/privacy/quality reviews pending. A declared license is an unverified claim and does not clear underlying records for AI training.",
+      "terms_url": "https://huggingface.co/docs/huggingface_hub/package_reference/hf_api"
     }
   ]
 }
