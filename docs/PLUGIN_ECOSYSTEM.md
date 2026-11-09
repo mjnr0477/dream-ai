@@ -38,6 +38,8 @@ The integration intentionally stays disabled on Render instances without an expl
 
 Google account access may require Google OAuth app review, test-user allowlisting or other provider approval. Operator credentials enable the connection flow; each user must still explicitly approve Google’s permission screen.
 
+**Important public-launch gate:** Google's current Gmail scope reference classifies `https://www.googleapis.com/auth/gmail.readonly` as a **restricted scope**. A public app requesting it must complete Google's restricted-scope verification unless an exception applies. Because DREAM stores refresh tokens and receives Gmail message data on its server, Google may also require an independent security assessment by a Google-approved assessor. This is a provider approval requirement, not something a code change or an operator API key can bypass. Keep the connection disabled for general public users until Google confirms the required verification and assessment are complete. See [Google's Gmail scope classifications](https://developers.google.com/workspace/gmail/api/auth/scopes) and [restricted-scope verification](https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification).
+
 ## Remaining integrations
 
 Google Drive, Calendar, Outlook, Dropbox, social networks, e-commerce, developer accounts, payment providers and automation services remain separately gated. Each requires its own official OAuth/API terms, minimal scopes, secure storage, revocation, quotas, and per-action confirmation for any write, purchase, message or financial action. They must not be represented as connected merely because they appear in the directory.
