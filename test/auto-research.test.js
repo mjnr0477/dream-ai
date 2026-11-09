@@ -30,6 +30,25 @@ test("does not research creative, personal, greeting or unsupported-mode request
   assert.equal(shouldAutoResearch("What is photosynthesis?", "unknown"), false);
 });
 
+test("Google's aggregate grounding synthesis is not attributed to an individual publisher", () => {
+  const answer = "A grounded summary that draws on multiple search results.";
+  const prepared = buildResearchContext({
+    query: "latest technology update",
+    platformResearch: {
+      googleGroundedAnswer: answer,
+      results: [
+        { provider: "Google Search", title: "Publisher one", url: "https://www.bbc.com/news/one", snippet: "" },
+        { provider: "Google Search", title: "Publisher two", url: "https://www.reuters.com/world/two", snippet: "" }
+      ]
+    }
+  });
+  assert.equal(prepared.context.split(answer).length - 1, 1);
+  assert.match(prepared.context, /not a verbatim excerpt or a claim attributed to any single listed publisher/);
+  assert.match(prepared.context, /https:\/\/www\.bbc\.com\/news\/one/);
+  assert.match(prepared.context, /https:\/\/www\.reuters\.com\/world\/two/);
+  assert.ok(prepared.sources.every(source => source.provider === "Google Search"));
+});
+
 test("research context accepts only bounded encyclopedia source URLs and text", () => {
   const prepared = buildResearchContext({ results: [
     { title: "Manchester City F.C.", url: "https://en.wikipedia.org/wiki/Manchester_City_F.C.", snippet: "A football club based in Manchester." },
