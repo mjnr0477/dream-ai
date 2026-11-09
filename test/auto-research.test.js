@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildForecastGuidance, classifyForecastDomain, isForecastRequest, buildResearchContext, shouldAutoResearch } from "../lib/auto-research.js";
+import { buildForecastGuidance, classifyForecastDomain, isForecastRequest, buildResearchContext, buildResearchAttemptContext, shouldAutoResearch } from "../lib/auto-research.js";
 
 test("automatically researches stable factual questions in normal chat", () => {
   assert.equal(shouldAutoResearch("Tell me about Manchester City"), true);
@@ -326,4 +326,42 @@ test("forecast research context warns against deriving probabilities from headli
   });
   assert.match(prepared.context, /not itself a validated forecasting model/);
   assert.match(prepared.context, /Do not calculate precise event probabilities from retrieved headlines alone/);
+});
+
+test("automatic research status tells the model what sources actually returned", () => {
+  const context = buildResearchAttemptContext({
+    globalResearch: {
+      providers: [
+        { provider: "Wikidata", status: "no-results" },
+        { provider: "GDELT", status: "unavailable" }
+      ],
+      news: []
+    },
+    platformResearch: {
+      providers: [
+        { provider: "Google News RSS", status: "no-results" },
+        { provider: "Bluesky", status: "ok" }
+      ],
+      results: []
+    },
+    scholarlyResearch: {
+      providers: [{ provider: "Crossref", status: "ok" }]
+    }
+  }, { sourceCount: 0 });
+
+  assert.match(context, /workflow was attempted/);
+  assert.match(context, /Usable, source-validated records passed to the model: 0/);
+  assert.match(context, /GDELT: unavailable/);
+  assert.match(context, /Google News RSS: no-results/);
+  assert.match(context, /did not return enough usable evidence for this query/);
+  assert.match(context, /do not claim that DREAM has no real-time news access/);
+  assert.match(context, /do not send the user away to check BBC, Reuters/);
+});
+
+test("automatic research failure is described as a failed retrieval attempt, not permanent lack of access", () => {
+  const context = buildResearchAttemptContext(null, { failed: true });
+
+  assert.match(context, /workflow was attempted but failed/);
+  assert.match(context, /retrieval attempt failed/);
+  assert.match(context, /not DREAM having no real-time access in general/);
 });
