@@ -40,14 +40,15 @@ test("World Bank indicator observations pass the evidence URL allow-list", () =>
         url: "https://api.worldbank.org/v2/country/KEN/indicator/SP.POP.TOTL?format=json&mrnev=5",
         snippet: "Population, total for Kenya: 56,432,900. Observation year: 2024.",
         sourceType: "official development indicator data",
-        publishedAt: "2024",
         observationYear: "2024"
       }]
     }
   });
   assert.ok(prepared.sources.some(source => source.provider === "World Bank Indicators"));
   assert.match(prepared.context, /SOURCE PROVIDER: World Bank Indicators/);
-  assert.match(prepared.context, /Observation year: 2024/);
+  assert.match(prepared.context, /OBSERVATION YEAR: 2024/);
+  assert.doesNotMatch(prepared.context, /PUBLISHED AT: 2024/);
+  assert.equal(prepared.sources.find(source => source.provider === "World Bank Indicators").observationYear, "2024");
 });
 
 test("Google's aggregate grounding synthesis is not attributed to an individual publisher", () => {
