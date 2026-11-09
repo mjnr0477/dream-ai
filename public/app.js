@@ -817,8 +817,12 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
     if (!response.ok) throw new Error(data.error || "The request failed.");
     renderAssistantContent(replyNode, data.reply, data.artifacts);
     appendAutoResearchSources(replyNode, data.autoResearch);
-    statusText.textContent = data.autoResearch?.sourceCount
-      ? `${data.source === "dream-model" ? "Native model connected" : "Application online"} · consulted ${data.autoResearch.sourceCount} public sources`
+    statusText.textContent = data.autoResearch?.attempted
+      ? data.autoResearch.sourceCount > 0
+        ? `${data.source === "dream-model" ? "DREAM model connected" : "Application online"} · consulted ${data.autoResearch.sourceCount} public sources`
+        : data.autoResearch.status === "unavailable"
+          ? "DREAM AI online · public-source retrieval unavailable"
+          : "DREAM AI online · checked public sources, no usable results"
       : data.source === "dream-model"
         ? "DREAM native model connected"
         : "Application online · native model not connected";
