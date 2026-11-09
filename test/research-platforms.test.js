@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { searchPubMed } from "../lib/research-platforms.js";
+import { searchPubMed, searchPlatformSources } from "../lib/research-platforms.js";
 
 function jsonResponse(payload, status = 200) {
   return new Response(JSON.stringify(payload), {
