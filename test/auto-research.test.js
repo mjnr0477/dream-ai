@@ -146,3 +146,33 @@ test("Stack Exchange evidence is accepted only from the Stack Overflow host", ()
   assert.match(prepared.context, /A concise answer excerpt/);
   assert.doesNotMatch(prepared.context, /attacker\.example/);
 });
+
+test("PubMed abstracts are accepted from the official PubMed host and cited as abstracts", () => {
+  const prepared = buildResearchContext({
+    query: "What does recent PubMed research say about malaria prevention?",
+    platformResearch: {
+      results: [
+        {
+          provider: "PubMed",
+          title: "Malaria prevention study",
+          url: "https://pubmed.ncbi.nlm.nih.gov/12345678/",
+          snippet: "The abstract reports a reduction in infection in the study population.",
+          sourceType: "pubmed-abstract",
+          publishedAt: "2025"
+        },
+        {
+          provider: "PubMed",
+          title: "Untrusted PubMed lookalike",
+          url: "https://pubmed.ncbi.nlm.nih.gov.attacker.example/123/",
+          snippet: "Must be excluded."
+        }
+      ]
+    }
+  });
+  assert.equal(prepared.sources.length, 1);
+  assert.equal(prepared.sources[0].provider, "PubMed");
+  assert.match(prepared.context, /abstract reports a reduction/);
+  assert.match(prepared.context, /PubMed abstracts are summaries, not full-text articles/);
+  assert.doesNotMatch(prepared.context, /attacker\\.example|Must be excluded/);
+});
+

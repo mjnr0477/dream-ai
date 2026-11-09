@@ -581,7 +581,7 @@ async function sendResearch(text, isRetry = false) {
     replyNode.append(heading);
     const note = document.createElement("p");
     note.className = "research-note";
-    note.textContent = "Results may include Google Search grounding, Google News RSS headlines, YouTube public video metadata, Bluesky and optional X public posts, Wikipedia, Wikidata, GDELT, Brave web passages, Crossref and OpenAlex scholarly metadata, and Europe PMC biomedical abstracts. Social and video results are public metadata, not private account access or complete transcripts. Search results are leads, not proof. Check primary sources before treating important claims as established.";
+    note.textContent = "Results may include Google Search grounding, Google News RSS headlines, YouTube public video metadata, Bluesky and optional X public posts, Wikipedia, Wikidata, GDELT, Brave web passages, Crossref and OpenAlex scholarly metadata, and Europe PMC and PubMed biomedical abstracts. Social and video results are public metadata, not private account access or complete transcripts. Search results are leads, not proof. Check primary sources before treating important claims as established.";
     replyNode.append(note);
     const transcript = [];
     for (const result of results) {
