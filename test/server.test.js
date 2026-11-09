@@ -652,6 +652,8 @@ test("plugin catalog endpoint exposes guest-first plugin metadata and the fronte
   const appSource = await frontend.text();
   assert.match(appSource, /function renderPluginCards/);
   assert.match(appSource, /Connect Gmail/);\n  assert.match(appSource, /Operator must enable Google OAuth/);
+  assert.match(appSource, /function isPrivateAccountPrompt/);
+  assert.match(appSource, /cleanPrompt && !isPrivateAccountPrompt\(cleanPrompt\)/);
 
   const response = await fetch(`${base}/api/plugins`);
   assert.equal(response.status, 200);
