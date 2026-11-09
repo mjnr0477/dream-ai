@@ -29,8 +29,9 @@ test("queries Crossref and OpenAlex and returns source-attributed scholarly meta
     }]));
   }, now, { arxivMinIntervalMs: 0 });
   assert.deepEqual(calls.map(x => x.hostname).sort(), ["api.crossref.org", "api.openalex.org"]);
-  assert.equal(result.providers.length, 3);
+  assert.equal(result.providers.length, 4);
   assert.equal(result.providers.find(p => p.provider === "arXiv").status, "unavailable");
+  assert.equal(result.providers.find(p => p.provider === "Semantic Scholar").status, "unavailable");
   assert.equal(result.providerCountSucceeded, 2);
   assert.equal(result.results.length, 2);
   assert.equal(result.results[0].doi, "10.1234/example");
@@ -128,4 +129,38 @@ test("searches arXiv without credentials and returns an attributed preprint abst
   assert.equal(record.url, "https://arxiv.org/abs/2601.01234v1");
   assert.equal(record.freshness, "recent");
   assert.equal(result.providers.find(p => p.provider === "arXiv").status, "ok");
+});
+
+
+test("searches Semantic Scholar's anonymous paper endpoint and returns abstract metadata", async () => {
+  const requests = [];
+  const result = await searchMultiSourceResearch("reliable public AI", async url => {
+    const parsed = new URL(url);
+    requests.push(parsed);
+    if (parsed.hostname === "api.semanticscholar.org") {
+      return jsonResponse({ data: [{
+        paperId: "0123456789abcdef0123456789abcdef01234567",
+        title: "Reliable public AI systems",
+        abstract: "A study of reliability, transparency and evidence.",
+        year: 2026,
+        authors: [{ name: "A. Researcher" }],
+        url: "https://www.semanticscholar.org/paper/Reliable-public-AI-systems/0123456789abcdef0123456789abcdef01234567",
+        externalIds: { DOI: "10.1234/reliable-ai" },
+        isOpenAccess: true
+      }] });
+    }
+    if (parsed.hostname === "export.arxiv.org") {
+      return new Response("<feed></feed>", { status: 200, headers: { "content-type": "application/atom+xml" } });
+    }
+    if (parsed.hostname === "api.crossref.org") return jsonResponse(crossref([]));
+    return jsonResponse(openalex([]));
+  }, now, { arxivMinIntervalMs: 0 });
+  const record = result.results.find(item => item.provider === "Semantic Scholar");
+  assert.ok(requests.some(url => url.hostname === "api.semanticscholar.org"));
+  assert.equal(record.title, "Reliable public AI systems");
+  assert.equal(record.abstract, "A study of reliability, transparency and evidence.");
+  assert.equal(record.publicationDate, "2026");
+  assert.equal(record.doi, "10.1234/reliable-ai");
+  assert.equal(record.openAccess, true);
+  assert.equal(result.providers.find(p => p.provider === "Semantic Scholar").status, "ok");
 });
