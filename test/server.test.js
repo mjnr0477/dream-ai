@@ -637,3 +637,23 @@ test("learning contribution terms page explains the independent review gate", as
   assert.match(html, /services that DREAM AI may operate/);
   assert.match(html, /VERSION 3/);
 });
+
+test("plugin catalog endpoint exposes guest-first plugin metadata without enabling account actions", async () => {
+  const response = await fetch(`${base}/api/plugins`);
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") || "", /application\/json/);
+
+  const catalog = await response.json();
+  assert.equal(catalog.guestAccessSupported, true);
+  assert.equal(catalog.userRegistrationRequired, false);
+  assert.equal(catalog.userSuppliedApiKeysRequired, false);
+  assert.ok(Array.isArray(catalog.categories));
+  assert.ok(Array.isArray(catalog.plugins));
+
+  const byId = new Map(catalog.plugins.map(plugin => [plugin.id, plugin]));
+  assert.equal(byId.get("bluesky").status, "connected_read_only");
+  assert.equal(byId.get("facebook_instagram_threads").status, "requires_provider_access");
+  assert.equal(byId.get("gmail").status, "requires_user_authorization");
+  assert.equal(catalog.policy.privateAccountAccessRequiresAuthorization, true);
+  assert.equal(catalog.policy.writeAndFinancialActionsRequireExplicitConfirmation, true);
+});
