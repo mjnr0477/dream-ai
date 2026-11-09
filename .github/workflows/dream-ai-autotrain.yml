@@ -1,0 +1,311 @@
+name: DREAM AI autonomous adapter training
+
+on:
+  schedule:
+    - cron: "17 1 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dream-ai-autonomous-training
+  cancel-in-progress: false
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      DREAM_AI_SUPABASE_URL: ${{ vars.DREAM_AI_SUPABASE_URL }}
+      DREAM_AI_SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.DREAM_AI_SUPABASE_SERVICE_ROLE_KEY }}
+
+    steps:
+      - name: Check out DREAM AI
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check one-time Supabase setup
+        id: setup
+        run: |
+          if [ -z "$DREAM_AI_SUPABASE_URL" ] || [ -z "$DREAM_AI_SUPABASE_SERVICE_ROLE_KEY" ]; then
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "Set DREAM_AI_SUPABASE_URL as a repository variable and DREAM_AI_SUPABASE_SERVICE_ROLE_KEY as a repository secret for a dedicated Dream AI database."
+            echo "The workflow will not read or write the Dream Education or Mariona databases."
+          else
+            case "$DREAM_AI_SUPABASE_URL" in
+              https://*.supabase.co) ;;
+              *) echo "DREAM_AI_SUPABASE_URL must be an HTTPS Supabase project URL."; exit 1 ;;
+            esac
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prepare only human-approved v3 examples
+        id: prepare
+        if: steps.setup.outputs.configured == 'true'
+        run: |
+          python scripts/prepare_dream_ai_autotraining.py \
+            --output-dir "$RUNNER_TEMP/dream-ai-training-input" \
+            --summary "$RUNNER_TEMP/dream-ai-preparation.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          summary = json.loads(Path(os.environ["RUNNER_TEMP"] + "/dream-ai-preparation.json").read_text())
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write("eligible=" + str(summary.get("eligible") is True).lower() + "\n")
+              output.write("dataset_sha256=" + str(summary.get("dataset_sha256", "")) + "\n")
+          print("AUTOTRAIN STATUS:", summary.get("status"))
+          print("APPROVED ROWS:", summary.get("valid_reviewed_rows", 0))
+          print("INDEPENDENT SOURCE GROUPS:", summary.get("independent_source_groups", 0))
+          print("TRAIN RECORDS:", summary.get("train_records", 0))
+          print("VALIDATION RECORDS:", summary.get("validation_records", 0))
+          PY
+
+      - name: Stop safely when data is not eligible
+        if: steps.prepare.outputs.eligible != 'true'
+        run: |
+          echo "No new eligible reviewed dataset. No model training was started."
+
+      - name: Validate API credentials
+        if: steps.prepare.outputs.eligible == 'true'
+        env:
+          KAGGLE_JSON: ${{ secrets.KAGGLE_JSON }}
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          python - <<'PY'
+          import json, os
+          raw = os.environ.get("KAGGLE_JSON", "")
+          if raw:
+              credentials = json.loads(raw)
+          else:
+              credentials = {
+                  "username": os.environ.get("KAGGLE_USERNAME", ""),
+                  "key": os.environ.get("KAGGLE_KEY", "")
+              }
+          hf = os.environ.get("HF_TOKEN", "")
+          if not credentials.get("username") or not credentials.get("key"):
+              raise SystemExit("Eligible data exists but Kaggle username/key credentials are missing.")
+          print("Kaggle credential structure: valid")
+          print("GitHub HF_TOKEN supplied:", bool(hf))
+          print("If not supplied, the private Kaggle notebook will try its linked HF_TOKEN secret.")
+          PY
+
+      - name: Configure Kaggle API
+        if: steps.prepare.outputs.eligible == 'true'
+        id: kaggle
+        env:
+          KAGGLE_JSON: ${{ secrets.KAGGLE_JSON }}
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+        run: |
+          mkdir -p "$HOME/.kaggle"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          raw = os.environ.get("KAGGLE_JSON", "")
+          if raw:
+              data = json.loads(raw)
+          else:
+              data = {
+                  "username": os.environ.get("KAGGLE_USERNAME", ""),
+                  "key": os.environ.get("KAGGLE_KEY", "")
+              }
+          if not data.get("username") or not data.get("key"):
+              raise SystemExit("Kaggle username/key credentials are missing.")
+          path = Path.home() / ".kaggle" / "kaggle.json"
+          path.write_text(json.dumps(data), encoding="utf-8")
+          path.chmod(0o600)
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write("username=" + data["username"] + "\n")
+          PY
+          python -m pip install --disable-pip-version-check kaggle
+
+      - name: Create or update the private Kaggle input dataset
+        if: steps.prepare.outputs.eligible == 'true'
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          KAGGLE_USERNAME: ${{ steps.kaggle.outputs.username }}
+        run: |
+          DATASET_DIR="$RUNNER_TEMP/dream-ai-kaggle-dataset"
+          mkdir -p "$DATASET_DIR"
+          cp "$RUNNER_TEMP/dream-ai-training-input/train.jsonl" "$DATASET_DIR/"
+          cp "$RUNNER_TEMP/dream-ai-training-input/validation.jsonl" "$DATASET_DIR/"
+          cp "$RUNNER_TEMP/dream-ai-training-input/manifest.json" "$DATASET_DIR/"
+          cp "$RUNNER_TEMP/dream-ai-training-input/audit-gate.json" "$DATASET_DIR/"
+          cp "$RUNNER_TEMP/dream-ai-training-input/parent_adapter_path.txt" "$DATASET_DIR/"
+          # Prefer a GitHub-provided token in the owner-only private dataset.
+          # If absent, the notebook can use its linked Kaggle HF_TOKEN secret.
+          if [ -n "$HF_TOKEN" ]; then
+            printf '%s' "$HF_TOKEN" > "$DATASET_DIR/hf_token.txt"
+            chmod 600 "$DATASET_DIR/hf_token.txt"
+          fi
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          folder = Path(os.environ["RUNNER_TEMP"]) / "dream-ai-kaggle-dataset"
+          username = os.environ["KAGGLE_USERNAME"]
+          (folder / "dataset-metadata.json").write_text(json.dumps({
+              "title": "DREAM AI Auto Training Input",
+              "id": f"{username}/dream-ai-auto-training-input",
+              "licenses": [{"name": "other"}]
+          }, indent=2) + "\n", encoding="utf-8")
+          PY
+          DATASET_REF="$KAGGLE_USERNAME/dream-ai-auto-training-input"
+          VERIFY_DIR="$RUNNER_TEMP/dream-ai-kaggle-private-check"
+          mkdir -p "$VERIFY_DIR"
+          verify_private_dataset() {
+            kaggle datasets metadata "$DATASET_REF" --path "$VERIFY_DIR" >/dev/null
+            python - "$VERIFY_DIR/dataset-metadata.json" <<'PY'
+          import json, sys
+          from pathlib import Path
+          metadata = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          info = metadata.get("info", metadata)
+          private = info.get("isPrivate") if isinstance(info, dict) else None
+          if private is not True and str(private).strip().lower() not in ("true", "1", "yes"):
+              raise SystemExit(
+                  "Kaggle did not confirm that the DREAM training input dataset is private; refusing to upload or use training data."
+              )
+          PY
+          }
+          if kaggle datasets status "$DATASET_REF" >/dev/null 2>&1; then
+            verify_private_dataset
+            kaggle datasets version -p "$DATASET_DIR" \
+              -m "Reviewed DREAM AI data ${{ steps.prepare.outputs.dataset_sha256 }}" \
+              -q -t -r skip
+          else
+            # Kaggle dataset creation is private by default; this command deliberately
+            # omits --public, then the metadata check must confirm privacy.
+            kaggle datasets create -p "$DATASET_DIR" -q -t -r skip
+            verify_private_dataset
+          fi
+          echo "Kaggle input dataset privacy verified and files updated."
+
+      - name: Register training run
+        if: steps.prepare.outputs.eligible == 'true'
+        id: run
+        run: |
+          python scripts/manage_dream_ai_autotraining_run.py start \
+            --summary "$RUNNER_TEMP/dream-ai-preparation.json" \
+            > "$RUNNER_TEMP/dream-ai-run-id.txt"
+          RUN_ID="$(tail -n 1 "$RUNNER_TEMP/dream-ai-run-id.txt")"
+          test -n "$RUN_ID"
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+          echo "Registered automatic training run."
+
+      - name: Prepare private Kaggle GPU notebook
+        if: steps.prepare.outputs.eligible == 'true'
+        env:
+          KAGGLE_USERNAME: ${{ steps.kaggle.outputs.username }}
+        run: |
+          KERNEL_DIR="$RUNNER_TEMP/dream-ai-kernel"
+          mkdir -p "$KERNEL_DIR"
+          cp training/auto-train-kernel/dream_ai_auto_train.ipynb \
+            "$KERNEL_DIR/dream_ai_auto_train.ipynb"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          folder = Path(os.environ["RUNNER_TEMP"]) / "dream-ai-kernel"
+          username = os.environ["KAGGLE_USERNAME"]
+          metadata = {
+              "id": f"{username}/dream-ai-auto-train",
+              "title": "DREAM AI Auto Train",
+              "code_file": "dream_ai_auto_train.ipynb",
+              "language": "python",
+              "kernel_type": "notebook",
+              "is_private": "true",
+              "enable_gpu": "true",
+              "enable_internet": "true",
+              "machine_shape": "NvidiaTeslaT4",
+              "dataset_sources": [f"{username}/dream-ai-auto-training-input"],
+              "competition_sources": [],
+              "kernel_sources": [],
+              "model_sources": []
+          }
+          (folder / "kernel-metadata.json").write_text(
+              json.dumps(metadata, indent=2) + "\n", encoding="utf-8"
+          )
+          PY
+
+      - name: Launch private Kaggle T4 training
+        if: steps.prepare.outputs.eligible == 'true'
+        env:
+          KAGGLE_USERNAME: ${{ steps.kaggle.outputs.username }}
+        run: |
+          kaggle kernels push -p "$RUNNER_TEMP/dream-ai-kernel" \
+            --accelerator NvidiaTeslaT4 --timeout 7200
+          echo "Kaggle training kernel submitted."
+
+      - name: Wait for Kaggle training
+        if: steps.prepare.outputs.eligible == 'true'
+        env:
+          KAGGLE_USERNAME: ${{ steps.kaggle.outputs.username }}
+        run: |
+          KERNEL_REF="$KAGGLE_USERNAME/dream-ai-auto-train"
+          COMPLETED=0
+          for attempt in $(seq 1 130); do
+            STATUS="$(kaggle kernels status "$KERNEL_REF" 2>&1 || true)"
+            LOWER="$(printf '%s' "$STATUS" | tr '[:upper:]' '[:lower:]')"
+            echo "Kaggle status check $attempt: $STATUS"
+            if printf '%s' "$LOWER" | grep -Eqi '(^|[^a-z])(complete|succeeded|success)([^a-z]|$)'; then
+              COMPLETED=1
+              break
+            fi
+            if printf '%s' "$LOWER" | grep -Eqi '(^|[^a-z])(error|failed|failure|cancelled|canceled)([^a-z]|$)'; then
+              exit 1
+            fi
+            sleep 60
+          done
+          if [ "$COMPLETED" -ne 1 ]; then
+            echo "Kaggle training did not finish within the monitoring window."
+            exit 1
+          fi
+
+      - name: Download and verify the private candidate
+        if: steps.prepare.outputs.eligible == 'true'
+        env:
+          KAGGLE_USERNAME: ${{ steps.kaggle.outputs.username }}
+        run: |
+          OUTPUT_DIR="$RUNNER_TEMP/dream-ai-kaggle-output"
+          mkdir -p "$OUTPUT_DIR"
+          kaggle kernels output "$KAGGLE_USERNAME/dream-ai-auto-train" -p "$OUTPUT_DIR"
+          MANIFEST="$(find "$OUTPUT_DIR" -name dream-candidate-manifest.json -type f -print -quit)"
+          WEIGHTS="$(find "$OUTPUT_DIR" -name adapter_model.safetensors -type f -print -quit)"
+          CONFIG="$(find "$OUTPUT_DIR" -name adapter_config.json -type f -print -quit)"
+          test -n "$MANIFEST" && test -s "$MANIFEST"
+          test -n "$WEIGHTS" && test -s "$WEIGHTS"
+          test -n "$CONFIG" && test -s "$CONFIG"
+          python - "$MANIFEST" "${{ steps.prepare.outputs.dataset_sha256 }}" <<'PY'
+          import json, sys
+          from pathlib import Path
+          manifest = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          if manifest.get("dataset_sha256") != sys.argv[2]:
+              raise SystemExit("Candidate dataset fingerprint does not match this run.")
+          if manifest.get("status") != "candidate-not-active":
+              raise SystemExit("Candidate is not marked as non-active.")
+          if manifest.get("audit_gate_passed") is not True:
+              raise SystemExit("Candidate is missing a passing audit-gate marker.")
+          print("Candidate manifest verified:", manifest.get("candidate_id"))
+          PY
+          echo "$MANIFEST" > "$RUNNER_TEMP/dream-ai-candidate-manifest-path.txt"
+
+      - name: Register candidate without activating it
+        if: steps.prepare.outputs.eligible == 'true'
+        run: |
+          MANIFEST="$(cat "$RUNNER_TEMP/dream-ai-candidate-manifest-path.txt")"
+          python scripts/manage_dream_ai_autotraining_run.py finish \
+            --run-id "${{ steps.run.outputs.run_id }}" \
+            --candidate-manifest "$MANIFEST"
+
+      - name: Mark failed run in the DREAM AI registry
+        if: failure() && steps.run.outputs.run_id != ''
+        continue-on-error: true
+        run: |
+          python scripts/manage_dream_ai_autotraining_run.py fail \
+            --run-id "${{ steps.run.outputs.run_id }}" \
+            --reason "GitHub Actions or Kaggle training/evaluation step failed."
