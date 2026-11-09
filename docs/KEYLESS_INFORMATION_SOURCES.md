@@ -65,13 +65,21 @@ A safe autonomous loop is:
 
 Automated checks can reduce review work, but cannot honestly certify unclear legal rights, consent or every privacy issue. Candidate discovery can run unattended; disputed or unknown rights must remain quarantined.
 
-## What the current daily workflow actually does
+## What the current training controller actually does
 
-`.github/workflows/dream-ai-autonomous-training.yml` schedules a daily training trigger and calls `scripts/launch_dream_ai_kaggle.py`. The launcher checks for an eligible private Kaggle dataset with the exact reviewed adapter-training files, then submits `training/dream_ai_adapter_self_train_kaggle.ipynb`. The notebook continues a DREAM-specific adapter on its selected foundation model and uploads candidate/progress artifacts; it does not train the foundation model and does not automatically promote a candidate into production.
+`.github/workflows/dream-ai-autotrain.yml` is the single daily **adapter-training controller** (04:17 Kenya time) and supports manual dispatch. The former duplicate trigger has been retired. The controller:
 
-The workflow currently does **not** automatically discover, download, license-screen and prepare new public training data. It also depends on the existing Kaggle credentials and Kaggle-side Hugging Face secret for job execution and candidate uploads. Those are infrastructure credentials, not public-source API keys. Missing credentials or a missing eligible reviewed dataset must stop safely rather than pretend training occurred.
+1. Requires `DREAM_AI_SUPABASE_URL` as a repository variable and `DREAM_AI_SUPABASE_SERVICE_ROLE_KEY` as a repository secret for a dedicated DREAM AI database. If either is absent, it skips database access and training. It has no fallback to Dream Education or Mariona.
+2. Reads only DREAM AI training examples with explicit v3 consent, approved status and human-review fields. It requires at least 32 qualifying examples across at least 8 independent source groups; legacy records and single-session experiments are excluded.
+3. Builds reproducible train/validation splits and audit files, then uploads the inputs to an owner-controlled private Kaggle dataset. The workflow checks Kaggle's dataset metadata and stops if it cannot confirm the dataset is private.
+4. Reuses the existing Kaggle username/key secrets. A GitHub `HF_TOKEN` secret is optional when the private Kaggle notebook already has its own linked `HF_TOKEN` secret.
+5. Launches a bounded, resumable GPU adapter experiment and uploads the result under a candidate path in the private Hugging Face adapter repository.
 
-The separate native model notebook trains DREAM's from-scratch transformer, but it is not the same daily adapter-training job. The native model still requires substantial, high-quality corpus data and much more compute than the tiny CI smoke tests.
+This workflow **does not automatically approve data**, scrape restricted services, train the Qwen foundation model, or promote a candidate into production. Candidate weights remain inactive until a separate evaluation and release decision passes. The dedicated DREAM AI database URL and key are not configured by default, so the workflow safely performs no database reads or GPU training until that independent store is set up.
+
+The workflow also does not yet autonomously discover, license-screen and prepare every new training corpus. The public-source network above improves live retrieval; model training remains a separate process requiring source-level rights, consent, quality, privacy, deduplication and contamination checks.
+
+The from-scratch native DREAM transformer uses separate training notebooks and scripts. The adapter workflow does not train or certify the native model. Tiny CI training tests validate code paths only; they are not evidence of production-level intelligence.
 
 ## References
 
