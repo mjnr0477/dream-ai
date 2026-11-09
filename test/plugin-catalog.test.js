@@ -20,6 +20,9 @@ test("catalog distinguishes implemented public connectors from gated integration
   const byId = new Map(catalog.plugins.map(plugin => [plugin.id, plugin]));
 
   assert.equal(byId.get("bluesky").status, "connected_read_only");
+  assert.equal(byId.get("arxiv").status, "connected_read_only");
+  assert.equal(byId.get("semantic_scholar").status, "connected_read_only");
+  assert.equal(byId.get("public_github").status, "connected_read_only");
   assert.equal(byId.get("wikipedia").apiKeyFree, true);
   assert.equal(byId.get("public_github").status, "catalogued");
   assert.equal(byId.get("facebook_instagram_threads").status, "requires_provider_access");
