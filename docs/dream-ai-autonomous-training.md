@@ -54,4 +54,4 @@ The script fetches only pending v3 opt-ins, presents each exchange for the four 
 
 ## Current starting state
 
-At the time this automation was prepared, the DREAM AI store contained two pending legacy v1/v2 examples and zero approved v3 examples. Those legacy examples are deliberately excluded. The 10-record Kaggle experiment from a single assistant-generated session is also excluded. The first automatic GPU run will occur only after sufficient new, independently sourced v3 contributions have been explicitly reviewed and approved.
+A dedicated Dream AI Supabase project is not configured yet. Until its URL and matching service-role key are set, the workflow does not read any database and starts no training. After setup, the first preflight will report the actual eligible counts. Legacy v1/v2 examples and single-session experiments remain excluded; a GPU run requires at least 32 explicitly consented and human-reviewed v3 examples across at least 8 independent source groups.
