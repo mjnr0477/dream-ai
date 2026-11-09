@@ -193,7 +193,7 @@ test("GitHub anonymous quota errors are reported and never retried", async () =>
 
 test("automatic public research uses the freshness-filtered regional Google News feed", async () => {
   const calls = [];
-  const publishedAt = new Date(Date.now() - 20 * 60 * 1000);
+  const publishedAt = new Date(Math.floor((Date.now() - 20 * 60 * 1000) / 1000) * 1000);
   const xml = [
     "<rss><channel><item>",
     "<title><![CDATA[Manchester City announce a squad update]]></title>",
