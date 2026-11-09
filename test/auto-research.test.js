@@ -278,6 +278,14 @@ test("forecast requests across weather, sport, markets and general events route 
   }
 });
 
+test("implicit weather horizons activate forecasting without requiring the word forecast", () => {
+  assert.equal(isForecastRequest("Weather in Bungoma tomorrow"), true);
+  assert.equal(classifyForecastDomain("Weather in Bungoma tomorrow"), "weather");
+  assert.equal(shouldAutoResearch("Weather in Bungoma tomorrow"), true);
+  assert.equal(isForecastRequest("Weather in Bungoma for the next 5 days"), true);
+  assert.equal(isForecastRequest("Explain how rain forms"), false);
+});
+
 test("forecast guidance rejects false precision and is domain-aware", () => {
   const weather = buildForecastGuidance("Forecast the weather in Bungoma tomorrow");
   assert.match(weather, /official meteorological observations/);
