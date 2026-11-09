@@ -32,9 +32,14 @@ function declaredLicense(dataset) {
 
 function normalizeCandidate(dataset) {
   const id = typeof dataset?.id === "string" ? dataset.id.trim() : "";
-  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(id)) return null;
-  if (dataset.private === true || dataset.gated === true ||
-      dataset.gated === "auto" || dataset.gated === "manual") return null;
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(id) ||
+      id.split("/").some(part => part === "." || part === "..")) return null;
+  const privateFlag = dataset.private;
+  const gatedFlag = dataset.gated;
+  const isPrivate = privateFlag === true || privateFlag === "true";
+  const isGated = gatedFlag !== undefined && gatedFlag !== null &&
+    gatedFlag !== false && gatedFlag !== "false";
+  if (isPrivate || isGated) return null;
 
   const license = declaredLicense(dataset);
   const tags = Array.isArray(dataset.tags)
@@ -157,6 +162,7 @@ async function main(argv = process.argv.slice(2)) {
   const output = resolve(process.cwd(), args.output || "eval-results/" + defaultName);
   const fromEvaluationDirectory = relative(evaluationDirectory, output);
   if (isAbsolute(fromEvaluationDirectory) ||
+      fromEvaluationDirectory === "" ||
       fromEvaluationDirectory === ".." ||
       fromEvaluationDirectory.startsWith(".." + sep)) {
     throw new Error("Output must remain inside the eval-results directory.");
