@@ -296,7 +296,9 @@ async function handleChat(req, res) {
     let automaticResearch = null;
     const latestQuestion = messages.at(-1).content;
     const requestsGmail = isGmailRequest(latestQuestion);
-    if (requestsGmail) {
+    if (requestsGmail && !isDreamEngineConfigured(process.env)) {
+      privateAccountContext = "DREAM's model runtime is not configured. No Gmail messages were retrieved. Explain that private account questions can be answered only after the DREAM model runtime is ready.";
+    } else if (requestsGmail) {
       try {
         privateAccountContext = await googleAccountService.gmailContext(req, latestQuestion);
       } catch (error) {
