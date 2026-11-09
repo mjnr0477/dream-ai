@@ -7,6 +7,7 @@ import { generateDreamReply, getDreamRuntimeStatus, isDreamEngineConfigured } fr
 import { parseCodeArtifactsIfPresent } from "./lib/code-artifacts.js";
 import { getDreamCapabilities } from "./lib/capabilities.js";
 import { getDreamPluginCatalog } from "./lib/plugin-catalog.js";
+import { createGoogleAccountService, isGmailRequest } from "./lib/google-account.js";
 import { runPublicResearch } from "./lib/dream-tools.js";
 import { shouldAutoResearch, buildResearchContext } from "./lib/auto-research.js";
 import { ClientConcurrencyLimiter } from "./lib/client-limiter.js";
@@ -27,6 +28,7 @@ const RATE_LIMIT_IDLE_MS = 10 * 60 * 1000;
 const MAX_RATE_LIMIT_BUCKETS = 5000;
 const rateLimitBuckets = new Map();
 const clientConcurrencyLimiter = new ClientConcurrencyLimiter(1);
+const googleAccountService = createGoogleAccountService();
 let activeChats = 0;
 let activeResearch = 0;
 const MODES = ["general", "coding", "learning"];
@@ -290,9 +292,19 @@ async function handleChat(req, res) {
   activeChats += 1;
   try {
     let researchContext = "";
+    let privateAccountContext = "";
     let automaticResearch = null;
     const latestQuestion = messages.at(-1).content;
-    if (isDreamEngineConfigured(process.env) && shouldAutoResearch(latestQuestion, mode)) {
+    const requestsGmail = isGmailRequest(latestQuestion);
+    if (requestsGmail) {
+      try {
+        privateAccountContext = await googleAccountService.gmailContext(req, latestQuestion);
+      } catch (error) {
+        console.warn("DREAM Gmail retrieval failed:", error.providerStatus || error.name || "error");
+        privateAccountContext = "Gmail retrieval failed. No email contents were successfully retrieved. Tell the user that account access failed and do not infer or invent email contents.";
+      }
+    }
+    if (!requestsGmail && isDreamEngineConfigured(process.env) && shouldAutoResearch(latestQuestion, mode)) {
       try {
         // Research current public sources as well as stable reference material.
         // The evidence builder labels provider/date limits and never implies full web coverage.
@@ -314,7 +326,7 @@ async function handleChat(req, res) {
       }
     }
     const result = await generateDreamReply(
-      messages, mode, process.env, memoryContext, researchContext
+      messages, mode, process.env, memoryContext, researchContext, privateAccountContext
     );
     let artifacts = null;
     if (mode === "coding") {
@@ -474,6 +486,37 @@ const server = http.createServer(async (req, res) => {
   }
   if (req.method === "GET" && url.pathname === "/api/plugins") {
     return json(res, 200, getDreamPluginCatalog());
+  }
+  if (req.method === "GET" && url.pathname === "/api/account/status") {
+    try {
+      return json(res, 200, await googleAccountService.status(req, res));
+    } catch {
+      return json(res, 503, { googleOAuthConfigured: false, gmail: { connected: false, email: null, reason: "account_status_unavailable" } });
+    }
+  }
+  if (req.method === "GET" && url.pathname === "/api/account/google/start") {
+    try { return googleAccountService.begin(req, res); }
+    catch {
+      res.writeHead(303, { ...SECURITY_HEADERS, location: "/?account=setup-required", "cache-control": "no-store" });
+      return res.end();
+    }
+  }
+  if (req.method === "GET" && url.pathname === "/api/account/google/callback") {
+    try { return await googleAccountService.callback(req, res, url); }
+    catch {
+      res.writeHead(303, { ...SECURITY_HEADERS, location: "/?account=failed", "cache-control": "no-store" });
+      return res.end();
+    }
+  }
+  if (req.method === "POST" && url.pathname === "/api/account/google/disconnect") {
+    try {
+      validateBrowserRequest(req);
+      if (!enforceApiRateLimit(req, res)) return;
+      await readJson(req);
+      return json(res, 200, await googleAccountService.disconnect(req, res));
+    } catch (error) {
+      return json(res, error.status || 500, { error: "Could not safely disconnect Gmail. Please retry." });
+    }
   }
   if (req.method === "POST" && url.pathname === "/api/learning/examples") {
     try {
