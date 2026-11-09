@@ -655,6 +655,7 @@ test("plugin catalog endpoint exposes guest-first plugin metadata and the fronte
   assert.match(appSource, /Operator must enable Google OAuth/);
   assert.match(appSource, /function isPrivateAccountPrompt/);
   assert.match(appSource, /cleanPrompt && !isPrivateAccountPrompt\(cleanPrompt\)/);
+  assert.match(appSource, /Google did not confirm token revocation/);
 
   const response = await fetch(`${base}/api/plugins`);
   assert.equal(response.status, 200);
