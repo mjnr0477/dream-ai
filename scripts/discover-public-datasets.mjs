@@ -42,6 +42,11 @@ function normalizeCandidate(dataset) {
   if (isPrivate || isGated) return null;
 
   const license = declaredLicense(dataset);
+  // Pin the exact Hub repository commit when the public API supplies one.
+  // A branch name or malformed value is not a reproducible source revision.
+  const rawRevision = typeof dataset?.sha === "string" ? dataset.sha.trim() : "";
+  const revision = /^[a-f0-9]{40}$/i.test(rawRevision) ? rawRevision.toLowerCase() : null;
+  const url = "https://huggingface.co/datasets/" + id.split("/").map(encodeURIComponent).join("/");
   const tags = Array.isArray(dataset.tags)
     ? dataset.tags.filter(tag => typeof tag === "string").slice(0, 16).map(tag => cleanText(tag, 80))
     : [];
@@ -53,7 +58,13 @@ function normalizeCandidate(dataset) {
   return {
     id,
     title: id,
-    url: "https://huggingface.co/datasets/" + id.split("/").map(encodeURIComponent).join("/"),
+    url,
+    sourceRevision: revision,
+    sourceRevisionUrl: revision ? url + "/tree/" + revision : null,
+    // A dataset repository is not automatically an independent training source.
+    // A reviewer must establish source-group independence before corpus import.
+    sourceGroup: null,
+    sourceGroupStatus: "pending_human_assignment",
     description: cleanText(dataset.description || dataset.cardData?.description, 500),
     declaredLicense: license.value,
     licenseEvidence: license.evidence,
@@ -123,6 +134,7 @@ export async function discoverPublicDatasets(query, {
       limitations: [
         "This operation discovers public dataset metadata only; it does not download dataset files or start training.",
         "A declared license or Hub tag is an unverified claim, not proof of rights for every record or AI training.",
+        "A captured Hub commit pins the metadata snapshot when available; it does not prove record-level provenance or source-group independence.",
         "Every candidate remains unapproved until rights, privacy, provenance, quality and source-group separation are reviewed.",
         "Gated and private datasets are excluded; DREAM does not request access or bypass restrictions."
       ]

@@ -26,6 +26,7 @@ test("discovers only public Hugging Face dataset metadata without credentials", 
           downloads: 120,
           likes: 9,
           lastModified: "2026-11-01T00:00:00.000Z",
+          sha: "A".repeat(40),
           private: false,
           gated: false
         },
@@ -74,7 +75,15 @@ test("discovers only public Hugging Face dataset metadata without credentials", 
   assert.equal(report.candidateCount, 2);
   assert.equal(report.candidates[0].declaredLicense, "cc-by-4.0");
   assert.equal(report.candidates[0].licenseEvidence, "dataset-card-metadata");
+  assert.equal(report.candidates[0].sourceRevision, "a".repeat(40));
+  assert.equal(
+    report.candidates[0].sourceRevisionUrl,
+    "https://huggingface.co/datasets/open-data/kenya-learning/tree/" + "a".repeat(40)
+  );
+  assert.equal(report.candidates[0].sourceGroup, null);
+  assert.equal(report.candidates[0].sourceGroupStatus, "pending_human_assignment");
   assert.equal(report.candidates[1].declaredLicense, null);
+  assert.equal(report.candidates[1].sourceRevision, null);
   assert.equal(report.candidates[0].trainingApproved, false);
   assert.deepEqual(report.candidates[0].review, {
     rights: "pending", privacy: "pending", quality: "pending"
@@ -96,6 +105,29 @@ test("uses a Hub license tag only as a declaration, never approval", async () =>
   assert.equal(report.candidates[0].declaredLicense, "mit");
   assert.equal(report.candidates[0].licenseEvidence, "hub-license-tag");
   assert.equal(report.candidates[0].trainingApproved, false);
+});
+
+
+test("pins only valid immutable Hub revisions and never infers source-group independence", async () => {
+  const report = await discoverPublicDatasets("revision provenance", {
+    fetchImpl: async () => jsonResponse([
+      { id: "publisher/valid-revision", sha: "b".repeat(40), private: false, gated: false },
+      { id: "publisher/branch-name", sha: "main", private: false, gated: false },
+      { id: "publisher/malformed-revision", sha: "1234-not-a-commit", private: false, gated: false }
+    ])
+  });
+
+  assert.equal(report.candidates[0].sourceRevision, "b".repeat(40));
+  assert.match(report.candidates[0].sourceRevisionUrl, /\/tree\/b{40}$/);
+  for (const candidate of report.candidates) {
+    assert.equal(candidate.sourceGroup, null);
+    assert.equal(candidate.sourceGroupStatus, "pending_human_assignment");
+  }
+  assert.equal(report.candidates[1].sourceRevision, null);
+  assert.equal(report.candidates[1].sourceRevisionUrl, null);
+  assert.equal(report.candidates[2].sourceRevision, null);
+  assert.equal(report.candidates[2].sourceRevisionUrl, null);
+  assert.equal(report.candidates.every(candidate => candidate.trainingApproved === false), true);
 });
 
 test("rejects invalid discovery queries and limits before making requests", async () => {
