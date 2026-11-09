@@ -26,7 +26,9 @@ test("creator identity is included only for a direct creator question", () => {
     "Who created you?",
     "Who is the creator of DREAM AI?",
     "Who founded DREAM AI?",
-    "Who is your developer?"
+    "Who is your developer?",
+    "Who is the creator?",
+    "Who are you created by?"
   ]) {
     assert.equal(isDirectCreatorQuestion(query), true, query);
     const prompt = buildSystemPrompt("general", "", query);
