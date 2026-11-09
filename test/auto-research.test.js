@@ -283,6 +283,10 @@ test("implicit weather horizons activate forecasting without requiring the word 
   assert.equal(classifyForecastDomain("Weather in Bungoma tomorrow"), "weather");
   assert.equal(shouldAutoResearch("Weather in Bungoma tomorrow"), true);
   assert.equal(isForecastRequest("Weather in Bungoma for the next 5 days"), true);
+  assert.equal(isForecastRequest("Bitcoin next week"), true);
+  assert.equal(classifyForecastDomain("Bitcoin next week"), "markets");
+  assert.equal(isForecastRequest("Arsenal vs Chelsea tomorrow"), true);
+  assert.equal(classifyForecastDomain("Arsenal vs Chelsea tomorrow"), "sports");
   assert.equal(isForecastRequest("Explain how rain forms"), false);
 });
 
