@@ -179,3 +179,47 @@ test("Gmail intent detection is narrow and excludes unrelated questions", () => 
   assert.equal(isGmailRequest("Tell me about Gmail security"), false);
   assert.equal(isGmailRequest("Explain photosynthesis"), false);
 });
+
+
+test("Google OAuth rejects insecure redirects and mismatched state before exchanging a code", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "dream-account-state-"));
+  let providerCalls = 0;
+  try {
+    const service = createGoogleAccountService({
+      fetchImpl: async () => { providerCalls += 1; return jsonResponse({}); },
+      env: {
+        DREAM_GOOGLE_OAUTH_CLIENT_ID: "client-id",
+        DREAM_GOOGLE_OAUTH_CLIENT_SECRET: "client-secret",
+        DREAM_GOOGLE_OAUTH_REDIRECT_URI: "https://dream.example/api/account/google/callback",
+        DREAM_ACCOUNT_ENCRYPTION_KEY: "c".repeat(64),
+        DREAM_ACCOUNT_STORE_PATH: join(directory, "accounts.json"),
+        DREAM_ACCOUNT_STORE_PERSISTENT: "true"
+      }
+    });
+    const insecureReq = { headers: {}, socket: { encrypted: false } };
+    assert.throws(() => service.begin(insecureReq, responseRecorder()), /require HTTPS/);
+
+    const req = { headers: {}, socket: { encrypted: true } };
+    const res = responseRecorder();
+    await service.status(req, res);
+    const session = cookieValue(res.getHeader("set-cookie"), "dream_session");
+    service.begin(req, res);
+    const cookies = res.getHeader("set-cookie");
+    req.headers.cookie = [
+      session,
+      cookieValue(cookies, "dream_google_oauth_state"),
+      cookieValue(cookies, "dream_google_oauth_verifier")
+    ].join("; ");
+    await assert.rejects(
+      service.callback(
+        req,
+        responseRecorder(),
+        new URL("https://dream.example/api/account/google/callback?code=authorization-code-123&state=wrong-state")
+      ),
+      /state could not be verified/
+    );
+    assert.equal(providerCalls, 0);
+  } finally {
+    await rm(directory, { recursive: true, force: true });
+  }
+});
