@@ -33,7 +33,7 @@ const googleAccountService = createGoogleAccountService();
 const metaAccountService = createMetaAccountService();
 let activeChats = 0;
 let activeResearch = 0;
-const MODES = ["general", "coding", "learning"];
+const MODES = ["general", "coding", "learning", "research"];
 const SAFE_CHAT_ERRORS = new Set([
   "DREAM_MODEL_URL must be a valid URL.",
   "DREAM_MODEL_URL must not contain embedded credentials.",
