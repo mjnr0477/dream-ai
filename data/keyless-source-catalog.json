@@ -1,6 +1,6 @@
 {
   "schema": "dream-keyless-source-catalog-v1",
-  "catalog_updated": "2026-11-08",
+  "catalog_updated": "2026-11-09",
   "policy": {
     "user_supplied_source_api_keys_required": false,
     "anonymous_public_read_only_by_default": true,
@@ -220,7 +220,7 @@
       "endpoint": "https://api.stackexchange.com/2.3/search/advanced",
       "category": "technical_questions_and_answers",
       "access": "anonymous_read_shared_ip_quota",
-      "integration_status": "connected_in_this_branch",
+      "integration_status": "already_connected",
       "returns": [
         "public programming and technical Q&A",
         "question body excerpts",
@@ -274,18 +274,20 @@
       "endpoint": "https://api.worldbank.org/v2/",
       "category": "global_statistics_and_development",
       "access": "anonymous_read",
-      "integration_status": "catalogued_not_yet_connected",
+      "integration_status": "already_connected",
       "returns": [
-        "country indicators",
-        "education",
-        "health",
-        "population",
-        "economics",
-        "development statistics"
+        "official country and global indicator values",
+        "population, GDP and economic growth",
+        "inflation and unemployment",
+        "life expectancy, poverty and mortality",
+        "education, literacy and school enrollment",
+        "electricity, internet and emissions indicators",
+        "observation years and source metadata"
       ],
-      "training_status": "candidate_when_dataset_license_is_cc_by_4_or_otherwise_verified",
+      "training_status": "retrieval_only_by_default_candidate_after_item_level_dataset_license_and_quality_review",
       "license_note": "CC BY 4.0 is the default for World Bank-produced open datasets, but exceptions and third-party datasets carry their own terms.",
-      "terms_url": "https://datacatalog.worldbank.org/public-licenses"
+      "terms_url": "https://datacatalog.worldbank.org/public-licenses",
+      "api_docs": "https://datahelpdesk.worldbank.org/knowledgebase/articles/889392"
     }
   ]
 }

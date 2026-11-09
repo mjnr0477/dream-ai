@@ -15,7 +15,7 @@ DREAM has its own decoder-only transformer architecture, byte-tokenizer default,
 DREAM AI is the independent AI project created by **Mathias Simiyu**. Its mission is to help people learn, create, reason and find reliable information through transparent, evidence-based assistance. The application injects this verified product identity into every model system prompt. This product identity does not imply that every model weight was personally authored by the creator or that the native from-scratch model is already production-trained. Dream Education, Dream Wi-Fi and VYBORA are separate projects.\n\n## Current application
 
 - Responsive mobile-first chat workspace.
-- General, coding, learning and public-source Research modes. Public research combines Wikipedia excerpts, Wikidata public entity records, GDELT news headlines from the last seven days, and Crossref/OpenAlex scholarly metadata. Optional Brave Search integration adds general web-index results when `DREAM_BRAVE_SEARCH_API_KEY` is configured server-side. Retrieved records are cited as evidence leads; they are not proof, full-page extraction or unrestricted web access.
+- General, coding, learning and public-source Research modes. Public research combines Wikipedia excerpts, Wikidata public entity records, GDELT news headlines from the last seven days, Crossref/OpenAlex scholarly metadata, and keyless World Bank indicator data for supported country statistics. Optional Brave Search integration adds general web-index results when `DREAM_BRAVE_SEARCH_API_KEY` is configured server-side. Retrieved records are cited as evidence leads; they are not proof, full-page extraction or unrestricted web access.
 - Browser-local conversation history, export and copy.
 - Node API with bounded request validation, two-request model concurrency protection with retry guidance, and health status.
 - Provider-independent DREAM engine adapter.
@@ -53,6 +53,7 @@ DREAM's research layer fans a query out to independent providers in parallel. Ea
 - Europe PMC's public biomedical literature API (abstracts and publication metadata where available).
 - Bluesky public-post search through its public AppView API.
 - Stack Exchange public Q&A search through the anonymous Stack Exchange API; it uses a shared IP quota and remains a retrieval-only source unless item-level training rights are established.
+- World Bank Indicators API: keyless official statistics for population, GDP, inflation, unemployment, literacy, education, health, poverty, internet access and emissions. DREAM labels the reported observation year and does not treat it as a live measurement; training reuse remains subject to dataset-specific license review.
 
 **Optional server-side integrations**
 - Google Search grounding through the Gemini API: set `DREAM_GOOGLE_GEMINI_API_KEY`. Google performs the web search and returns a grounded answer with source citations. This is a retrieval service; it does not train or replace DREAM. See [Google Search grounding](https://ai.google.dev/gemini-api/docs/generate-content/google-search).

@@ -126,6 +126,107 @@ test("Europe PMC returns biomedical abstracts with publication provenance", asyn
   assert.equal(paper.openAccess, true);
 });
 
+test("World Bank Indicators returns country statistics without an API key and preserves observation years", async () => {
+  const { fetchImpl, requests } = captureFetch(request => {
+    if (request.url.hostname === "api.worldbank.org") {
+      if (request.url.pathname === "/v2/country") {
+        return jsonResponse([{
+          page: 1, pages: 1, per_page: "400", total: 3
+        }, [
+          { id: "KEN", name: "Kenya", region: { value: "Sub-Saharan Africa" } },
+          { id: "UGA", name: "Uganda", region: { value: "Sub-Saharan Africa" } },
+          { id: "WLD", name: "World", region: { value: "Aggregates" } }
+        ]]);
+      }
+      if (request.url.pathname === "/v2/country/KEN/indicator/SP.POP.TOTL") {
+        return jsonResponse([{
+          page: 1, pages: 1, per_page: "25", total: 1, lastupdated: "2026-10-01"
+        }, [{
+          country: { id: "KEN", value: "Kenya" },
+          countryiso3code: "KEN",
+          indicator: { id: "SP.POP.TOTL", value: "Population, total" },
+          date: "2024",
+          value: 56432900,
+          unit: "",
+          obs_status: "",
+          decimal: 0
+        }]]);
+      }
+    }
+    if (request.url.hostname === "public.api.bsky.app") return jsonResponse({ posts: [] });
+    if (request.url.hostname === "news.google.com") return textResponse("<rss></rss>");
+    if (request.url.hostname === "api.stackexchange.com") return jsonResponse({ items: [], quota_remaining: 9000 });
+    if (request.url.hostname === "www.ebi.ac.uk") return jsonResponse({ resultList: { result: [] } });
+    throw new Error("unexpected provider request");
+  });
+
+  const result = await searchPlatformSources("What is the population of Kenya?", fetchImpl, {});
+  const countryCall = requests.find(item =>
+    item.url.hostname === "api.worldbank.org" && item.url.pathname === "/v2/country"
+  );
+  const dataCall = requests.find(item =>
+    item.url.hostname === "api.worldbank.org" && item.url.pathname.includes("/indicator/")
+  );
+  assert.ok(countryCall);
+  assert.ok(dataCall);
+  assert.equal(countryCall.url.searchParams.get("format"), "json");
+  assert.equal(dataCall.url.pathname, "/v2/country/KEN/indicator/SP.POP.TOTL");
+  assert.equal(dataCall.url.searchParams.get("mrnev"), "5");
+  assert.equal(dataCall.options.headers.authorization, undefined);
+
+  const provider = result.providers.find(item => item.provider === "World Bank Indicators");
+  assert.equal(provider.status, "ok");
+  const observation = result.results.find(item => item.provider === "World Bank Indicators");
+  assert.equal(observation.country, "Kenya");
+  assert.equal(observation.indicatorCode, "SP.POP.TOTL");
+  assert.equal(observation.observationYear, "2024");
+  assert.match(observation.snippet, /Observation year: 2024/);
+  assert.match(observation.snippet, /not a live measurement/);
+  assert.equal(observation.url, "https://api.worldbank.org/v2/country/KEN/indicator/SP.POP.TOTL?format=json&mrnev=5");
+});
+
+test("World Bank statistics honour an explicitly requested historical year", async () => {
+  const { fetchImpl, requests } = captureFetch(request => {
+    if (request.url.hostname === "api.worldbank.org") {
+      if (request.url.pathname === "/v2/country") {
+        return jsonResponse([{}, [
+          { id: "KEN", name: "Kenya", region: { value: "Sub-Saharan Africa" } }
+        ]]);
+      }
+      if (request.url.pathname === "/v2/country/KEN/indicator/NY.GDP.PCAP.CD") {
+        return jsonResponse([{}, [{
+          country: { id: "KEN", value: "Kenya" },
+          countryiso3code: "KEN",
+          indicator: { id: "NY.GDP.PCAP.CD", value: "GDP per capita (current US$)" },
+          date: "2020",
+          value: 1966.2,
+          unit: ""
+        }]]);
+      }
+    }
+    if (request.url.hostname === "public.api.bsky.app") return jsonResponse({ posts: [] });
+    if (request.url.hostname === "news.google.com") return textResponse("<rss></rss>");
+    if (request.url.hostname === "api.stackexchange.com") return jsonResponse({ items: [], quota_remaining: 9000 });
+    if (request.url.hostname === "www.ebi.ac.uk") return jsonResponse({ resultList: { result: [] } });
+    throw new Error("unexpected provider request");
+  });
+
+  const result = await searchPlatformSources("What was GDP per capita in Kenya in 2020?", fetchImpl, {});
+  const call = requests.find(item =>
+    item.url.hostname === "api.worldbank.org" && item.url.pathname.includes("/indicator/")
+  );
+  assert.ok(call);
+  assert.equal(call.url.pathname, "/v2/country/KEN/indicator/NY.GDP.PCAP.CD", JSON.stringify(requests.map(item => item.url.toString())));
+  assert.equal(call.url.searchParams.get("date"), "2020");
+  assert.equal(call.url.searchParams.has("mrnev"), false);
+  const provider = result.providers.find(item => item.provider === "World Bank Indicators");
+  assert.equal(provider.status, "ok", JSON.stringify(requests.map(item => item.url.toString())));
+  const value = result.results.find(item => item.provider === "World Bank Indicators");
+  assert.equal(value.indicatorCode, "NY.GDP.PCAP.CD");
+  assert.equal(value.observationYear, "2020");
+  assert.equal(new URL(value.url).searchParams.get("date"), "2020");
+});
+
 test("Google News RSS returns headline metadata with publisher links", async () => {
   const xml = '<rss><channel><item><title>Kenya technology update</title><link>https://publisher.example/news/1</link><pubDate>Sun, 08 Nov 2026 10:00:00 GMT</pubDate></item></channel></rss>';
   const { fetchImpl, requests } = captureFetch(() => textResponse(xml));
@@ -146,6 +247,7 @@ test("unconfigured providers are reported honestly and invalid queries are rejec
   assert.equal(result.providers.find(p => p.provider === "Google Search").status, "not-configured");
   assert.equal(result.providers.find(p => p.provider === "YouTube Data API").status, "not-configured");
   assert.equal(result.providers.find(p => p.provider === "X API").status, "not-configured");
+  assert.equal(result.providers.find(p => p.provider === "World Bank Indicators").status, "not-applicable");
   await assert.rejects(() => searchPlatformSources(""), /1 to 200/);
 });
 

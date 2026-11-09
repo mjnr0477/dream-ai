@@ -1,6 +1,6 @@
 # Keyless information sources and autonomous learning
 
-Catalog revision: 2026-11-08. The machine-readable inventory is `data/keyless-source-catalog.json`.
+Catalog revision: 2026-11-09. The machine-readable inventory is `data/keyless-source-catalog.json`.
 
 ## Requirement
 
@@ -23,21 +23,20 @@ The current research tools in `lib/dream-tools.js` fan out to these public provi
 | Google News RSS | Headline discovery, publisher links and dates | Headline/feed access is not a training license for the publisher's article. |
 | Bluesky public AppView | Searchable public posts | Public visibility is not author permission for model training. |
 | Stack Exchange API | Public technical Q&A, question excerpts, tags, scores and answer counts | Anonymous shared-IP quota; use for retrieval with attribution, not automatic training. |
+| World Bank Indicators API | Keyless country and global statistics for population, GDP, inflation, education, health, poverty and development | Each returned value carries its observation year; it is not a live measurement. Check source-specific licensing exceptions before training. |
 
 The main entry points are `lib/research.js`, `lib/research-global.js`, `lib/research-multisource.js`, `lib/research-news.js` and `lib/research-platforms.js`.
 
 ## Additional anonymous sources to connect
 
-The catalog records each endpoint, what it can return and its training boundary. High-value next integrations are:
+The machine-readable catalog tracks the endpoints, returned fields and training boundaries. High-value next integrations are:
 
-1. **World Bank Indicators API and Data360** — country and global development indicators across economics, population, education, health and poverty. The World Bank's default license for its own open datasets is CC BY 4.0, but individual datasets can have exceptions or third-party terms. Check each dataset's metadata before reuse.
-2. **CKAN public-data portals** — a common read API used by many government and civic open-data catalogues. The CKAN API itself does not grant rights; check each dataset and downloadable resource.
-3. **Hugging Face public dataset viewer** — discover public dataset metadata, license fields, schemas, splits and sample rows without a user token for non-gated datasets. Never treat the declared license field alone as proof that all underlying records are cleared.
-4. **Common Crawl** — free public crawl indexes and WARC/WAT/WET archives, useful for discovering public web pages and building a search index. Archive access is not a license to train on the archived page. Check source-level rights, opt-outs and robots signals before retention or training.
-5. **NCBI PubMed E-utilities** — public bibliographic search and abstracts; no API key is required at ordinary usage rates (NCBI documents a limit of three requests per second without a key). The linked article's rights still apply.
-6. **Stack Exchange API** — anonymous public Q&A search without a key; responses include a remaining-quota field and can request a backoff interval. Respect shared-IP throttles and cache repeated queries. Posts carry attribution/share-alike requirements, so this connector is for retrieval rather than automatic training. [API docs](https://api.stackexchange.com/docs), [throttles](https://api.stackexchange.com/docs/throttle).
-7. **GitHub public REST API** — public repository metadata, releases, issues and source files can be read without authentication, but the anonymous limit is 60 requests per hour. Public visibility is not a license: require a verified compatible repository/file license before considering code for training.
-8. **Open Library** — useful book and edition metadata. Open Library asks users to register the application use case and says its APIs are not intended as a third-party data backend, so use it conservatively for discovery rather than bulk harvesting.
+1. **CKAN public-data portals** — a common read API used by government and civic open-data catalogues. CKAN is software, not a blanket data license; check each dataset and downloadable resource.
+2. **Hugging Face public dataset viewer** — discover public dataset metadata, license fields, schemas, splits and sample rows without a user token for non-gated datasets. Never treat the declared license field alone as proof that all underlying records are cleared.
+3. **Common Crawl** — free public crawl indexes and WARC/WAT/WET archives, useful for discovering public web pages and building a search index. Archive access is not a license to train on the archived page. Check source-level rights, opt-outs and robots signals before retention or training.
+4. **NCBI PubMed E-utilities** — public bibliographic search and abstracts; no API key is required at ordinary usage rates (NCBI documents a limit of three requests per second without a key). The linked article's rights still apply.
+5. **GitHub public REST API** — public repository metadata, releases, issues and source files can be read without authentication, but the anonymous limit is 60 requests per hour. Public visibility is not a license: require a verified compatible repository/file license before considering code for training.
+6. **Open Library** — useful book and edition metadata. Open Library asks users to register the application use case and says its APIs are not intended as a third-party data backend, so use it conservatively for discovery rather than bulk harvesting.
 
 These should be integrated as independent, fault-tolerant providers with per-source timeouts, backoff, cache/ETag support, retrieval timestamps, canonical source URLs, language and source status. A failed provider must not make DREAM claim that it searched the whole internet.
 
@@ -66,13 +65,21 @@ A safe autonomous loop is:
 
 Automated checks can reduce review work, but cannot honestly certify unclear legal rights, consent or every privacy issue. Candidate discovery can run unattended; disputed or unknown rights must remain quarantined.
 
-## What the current daily workflow actually does
+## What the current training controller actually does
 
-`.github/workflows/dream-ai-autonomous-training.yml` schedules a daily training trigger and calls `scripts/launch_dream_ai_kaggle.py`. The launcher checks for an eligible private Kaggle dataset with the exact reviewed adapter-training files, then submits `training/dream_ai_adapter_self_train_kaggle.ipynb`. The notebook continues a DREAM-specific adapter on its selected foundation model and uploads candidate/progress artifacts; it does not train the foundation model and does not automatically promote a candidate into production.
+`.github/workflows/dream-ai-autotrain.yml` is the single daily **adapter-training controller** (04:17 Kenya time) and supports manual dispatch. The former duplicate trigger has been retired. The controller:
 
-The workflow currently does **not** automatically discover, download, license-screen and prepare new public training data. It also depends on the existing Kaggle credentials and Kaggle-side Hugging Face secret for job execution and candidate uploads. Those are infrastructure credentials, not public-source API keys. Missing credentials or a missing eligible reviewed dataset must stop safely rather than pretend training occurred.
+1. Requires `DREAM_AI_SUPABASE_URL` as a repository variable and `DREAM_AI_SUPABASE_SERVICE_ROLE_KEY` as a repository secret for a dedicated DREAM AI database. If either is absent, it skips database access and training. It has no fallback to Dream Education or Mariona.
+2. Reads only DREAM AI training examples with explicit v3 consent, approved status and human-review fields. It requires at least 32 qualifying examples across at least 8 independent source groups; legacy records and single-session experiments are excluded.
+3. Builds reproducible train/validation splits and audit files, then uploads the inputs to an owner-controlled private Kaggle dataset. The workflow checks Kaggle's dataset metadata and stops if it cannot confirm the dataset is private.
+4. Reuses the existing Kaggle username/key secrets. A GitHub `HF_TOKEN` secret is optional when the private Kaggle notebook already has its own linked `HF_TOKEN` secret.
+5. Launches a bounded, resumable GPU adapter experiment and uploads the result under a candidate path in the private Hugging Face adapter repository.
 
-The separate native model notebook trains DREAM's from-scratch transformer, but it is not the same daily adapter-training job. The native model still requires substantial, high-quality corpus data and much more compute than the tiny CI smoke tests.
+This workflow **does not automatically approve data**, scrape restricted services, train the Qwen foundation model, or promote a candidate into production. Candidate weights remain inactive until a separate evaluation and release decision passes. The dedicated DREAM AI database URL and key are not configured by default, so the workflow safely performs no database reads or GPU training until that independent store is set up.
+
+The workflow also does not yet autonomously discover, license-screen and prepare every new training corpus. The public-source network above improves live retrieval; model training remains a separate process requiring source-level rights, consent, quality, privacy, deduplication and contamination checks.
+
+The from-scratch native DREAM transformer uses separate training notebooks and scripts. The adapter workflow does not train or certify the native model. Tiny CI training tests validate code paths only; they are not evidence of production-level intelligence.
 
 ## References
 

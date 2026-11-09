@@ -206,6 +206,7 @@ test("capabilities disclose general web-index availability truthfully", () => {
   assert.equal(webWithKey.status, "available");
   assert.deepEqual(withKey.application.researchScope, [
     "multi-provider-public-source-discovery",
+    "world-bank-indicators",
     "brave-web-context"
   ]);
 });
