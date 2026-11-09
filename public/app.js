@@ -832,6 +832,25 @@ const pluginsStatus = document.querySelector("#plugins-status");
 const pluginsList = document.querySelector("#plugins-list");
 const pluginsCount = document.querySelector("#plugins-count");
 let pluginCatalog = null;
+let accountStatus = { googleOAuthConfigured: false, persistentStorageReady: false, gmail: { connected: false, email: null } };
+
+async function loadAccountStatus() {
+  try {
+    const response = await fetch("/api/account/status", { headers: { accept: "application/json" }, cache: "no-store" });
+    if (!response.ok) throw new Error("Account status unavailable");
+    const result = await response.json();
+    accountStatus = {
+      googleOAuthConfigured: result.googleOAuthConfigured === true,
+      persistentStorageReady: result.persistentStorageReady === true,
+      gmail: {
+        connected: result.gmail?.connected === true,
+        email: typeof result.gmail?.email === "string" ? result.gmail.email : null
+      }
+    };
+  } catch {
+    accountStatus = { googleOAuthConfigured: false, persistentStorageReady: false, gmail: { connected: false, email: null } };
+  }
+}
 
 function pluginAvailability(status) {
   return ({
@@ -867,6 +886,11 @@ function renderPluginCards() {
     const badge = document.createElement("span");
     badge.className = "plugin-status plugin-status-" + plugin.status;
     badge.textContent = pluginAvailability(plugin.status);
+    if (plugin.id === "gmail") {
+      badge.textContent = accountStatus.gmail.connected
+        ? "Connected · " + (accountStatus.gmail.email || "Google account")
+        : accountStatus.googleOAuthConfigured ? "Secure sign-in available" : "Operator setup required";
+    }
     top.append(name, badge);
     const categoryLabel = document.createElement("p");
     categoryLabel.className = "plugin-category";
@@ -879,7 +903,59 @@ function renderPluginCards() {
     capabilities.textContent = (plugin.capabilities || []).map(value => value.replaceAll("_", " ")).join(" · ");
     const actions = document.createElement("div");
     actions.className = "plugin-actions";
-    if (plugin.status === "connected_read_only") {
+    if (plugin.id === "gmail") {
+      if (accountStatus.gmail.connected) {
+        const ask = document.createElement("button");
+        ask.type = "button";
+        ask.className = "plugin-use";
+        ask.textContent = "Ask my Gmail";
+        ask.addEventListener("click", () => {
+          pluginsDialog.close();
+          setMode("general");
+          input.value = "Search my Gmail for: ";
+          input.focus();
+          input.setSelectionRange(input.value.length, input.value.length);
+          input.style.height = "auto";
+          input.style.height = Math.min(input.scrollHeight, 180) + "px";
+        });
+        const disconnect = document.createElement("button");
+        disconnect.type = "button";
+        disconnect.className = "plugin-use";
+        disconnect.textContent = "Disconnect";
+        disconnect.addEventListener("click", async () => {
+          disconnect.disabled = true;
+          disconnect.textContent = "Disconnecting…";
+          try {
+            const response = await fetch("/api/account/google/disconnect", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: "{}"
+            });
+            if (!response.ok) throw new Error("Could not disconnect Gmail.");
+            await loadAccountStatus();
+            renderPluginCards();
+          } catch {
+            disconnect.disabled = false;
+            disconnect.textContent = "Retry disconnect";
+          }
+        });
+        actions.append(ask, disconnect);
+      } else if (accountStatus.googleOAuthConfigured && accountStatus.persistentStorageReady) {
+        const connect = document.createElement("button");
+        connect.type = "button";
+        connect.className = "plugin-use";
+        connect.textContent = "Connect Gmail";
+        connect.addEventListener("click", () => {
+          window.location.assign("/api/account/google/start");
+        });
+        actions.append(connect);
+      } else {
+        const setup = document.createElement("span");
+        setup.className = "plugin-locked";
+        setup.textContent = "Operator must enable Google OAuth and encrypted persistent storage";
+        actions.append(setup);
+      }
+    } else if (plugin.status === "connected_read_only") {
       const use = document.createElement("button");
       use.type = "button";
       use.className = "plugin-use";
