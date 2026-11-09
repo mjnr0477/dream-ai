@@ -32,8 +32,8 @@ test("application requests add complete-project generation guidance without chan
   const appPrompt = buildSystemPrompt("general", "", "Build a complete web app for booking appointments.");
   assert.match(appPrompt, /APPLICATION BUILD MODE/);
   assert.match(appPrompt, /complete, coherent project/);
-  assert.match(appPrompt, /Downloadable project ZIP/);
-  assert.match(appPrompt, /isolated build sandbox/);
+  assert.match(appPrompt, /downloadable project ZIP/i);
+  assert.match(appPrompt, /isolated execution sandbox/);
   const ordinaryPrompt = buildSystemPrompt("general", "", "What is an application?");
   assert.doesNotMatch(ordinaryPrompt, /APPLICATION BUILD MODE/);
 });
