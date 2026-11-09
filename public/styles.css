@@ -124,3 +124,48 @@
   .learning-consent-note{font-size:9px}
 }
 @media(min-width:681px) and (max-width:900px){.main{padding-inline:18px}.conversation,.composer-wrap,.topbar{max-width:100%}}
+
+/* Plugin directory: searchable, mobile-friendly and honest about connection state. */
+.plugins-button{display:inline-flex;align-items:center;gap:7px;min-height:36px;padding:7px 12px;border:1px solid #514778;border-radius:9px;background:#201d37;color:#d2c7ff;font-size:11px;font-weight:700;cursor:pointer}
+.plugins-button:hover{border-color:#a594ff;background:#2a2547;color:#fff}
+.plugins-dialog{width:min(780px,calc(100vw - 24px));max-width:780px;max-height:min(88dvh,850px);padding:0;border:1px solid #34425d;border-radius:18px;background:#0c1320;color:#e8edf7;box-shadow:0 24px 90px #000b}
+.plugins-dialog::backdrop{background:#02050bd9;backdrop-filter:blur(5px)}
+.plugins-shell{display:flex;flex-direction:column;max-height:min(88dvh,850px)}
+.plugins-header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;padding:22px 22px 15px;border-bottom:1px solid #26344b}
+.plugins-eyebrow{margin:0 0 6px;color:#a99aff;font-size:9px;font-weight:800;letter-spacing:.18em}
+.plugins-header h2{margin:0;font:700 25px "Space Grotesk",sans-serif}
+.plugins-intro{max-width:580px;margin:7px 0 0;color:#9ba9bf;font-size:12px;line-height:1.55}
+.plugins-close{flex:0 0 auto;width:34px;height:34px;border:1px solid #34425d;border-radius:9px;background:#151f30;color:#dce4f2;font-size:23px;cursor:pointer}
+.plugins-toolbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,.7fr) minmax(155px,.7fr);gap:9px;padding:14px 22px 8px}
+.plugins-toolbar input,.plugins-toolbar select{box-sizing:border-box;width:100%;min-width:0;min-height:39px;padding:8px 10px;border:1px solid #34425d;border-radius:9px;background:#111b2b;color:#e6edf8;font:inherit;font-size:11px}
+.plugins-count{margin:0;padding:0 22px 10px;color:#8797af;font-size:10px}
+.plugins-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;overflow:auto;padding:0 22px 16px}
+.plugin-card{min-width:0;padding:13px;border:1px solid #293850;border-radius:12px;background:linear-gradient(145deg,#121d2e,#0e1725)}
+.plugin-card-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+.plugin-card h3{margin:0;color:#f0f3fa;font-size:13px;line-height:1.4}
+.plugin-status{flex:0 0 auto;max-width:48%;padding:4px 6px;border-radius:6px;background:#263247;color:#b6c4d9;font-size:9px;line-height:1.35;text-align:center}
+.plugin-status-connected_read_only{background:#17332e;color:#9ee0c7}
+.plugin-status-requires_user_authorization{background:#332b4a;color:#d5c8ff}
+.plugin-status-requires_provider_access{background:#3b3020;color:#e9ca91}
+.plugin-category{margin:8px 0 0;color:#a99aff;font-size:10px}
+.plugin-note{margin:7px 0 0;color:#aab7ca;font-size:11px;line-height:1.55}
+.plugin-capabilities{margin:8px 0 0;color:#75869f;font-size:9px;line-height:1.5;text-transform:capitalize}
+.plugin-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:11px}
+.plugin-use{min-height:33px;padding:7px 10px;border:1px solid #5a4e85;border-radius:8px;background:#282344;color:#e0d8ff;font-size:10px;font-weight:700;cursor:pointer}
+.plugin-use:hover{border-color:#a594ff;background:#332c54}
+.plugin-locked{color:#8392a9;font-size:9px}
+.plugins-empty{grid-column:1/-1;padding:22px;color:#98a8bf;text-align:center;font-size:12px}
+.plugins-footer{padding:12px 22px 17px;border-top:1px solid #26344b;background:#0b111d}
+.plugins-footer p{margin:0;color:#8292aa;font-size:10px;line-height:1.55}
+.plugins-footer strong{color:#d4dced}
+@media(max-width:620px){
+  .plugins-toolbar{grid-template-columns:1fr 1fr;padding-inline:14px}
+  .plugins-toolbar input{grid-column:1/-1}
+  .plugins-header{padding:17px 14px 12px}
+  .plugins-list{grid-template-columns:1fr;padding-inline:14px}
+  .plugins-count{padding-inline:14px}
+  .plugins-footer{padding-inline:14px}
+  .plugins-dialog{width:calc(100vw - 14px);max-height:92dvh;border-radius:14px}
+  .plugins-shell{max-height:92dvh}
+  .plugins-button{min-height:34px;padding:6px 9px}
+}

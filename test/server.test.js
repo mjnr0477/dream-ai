@@ -637,3 +637,74 @@ test("learning contribution terms page explains the independent review gate", as
   assert.match(html, /services that DREAM AI may operate/);
   assert.match(html, /VERSION 3/);
 });
+
+test("plugin catalog endpoint exposes guest-first plugin metadata and the frontend directory", async () => {
+  const homepage = await fetch(`${base}/`);
+  assert.equal(homepage.status, 200);
+  const html = await homepage.text();
+  assert.match(html, /id="plugins-open"/);
+  assert.match(html, /id="plugins-dialog"/);
+  assert.match(html, /id="plugins-search"/);
+  assert.match(html, /id="plugins-category"/);
+
+  const frontend = await fetch(`${base}/app.js`);
+  assert.equal(frontend.status, 200);
+  const appSource = await frontend.text();
+  assert.match(appSource, /function renderPluginCards/);
+  assert.match(appSource, /Connect Gmail/);
+  assert.match(appSource, /Operator must enable Google OAuth/);
+  assert.match(appSource, /function isPrivateAccountPrompt/);
+  assert.match(appSource, /cleanPrompt && !isPrivateAccountPrompt\(cleanPrompt\)/);
+  assert.match(appSource, /Google did not confirm token revocation/);
+
+  const response = await fetch(`${base}/api/plugins`);
+  assert.equal(response.status, 200);
+  assert.match(response.headers.get("content-type") || "", /application\/json/);
+
+  const catalog = await response.json();
+  assert.equal(catalog.guestAccessSupported, true);
+  assert.equal(catalog.userRegistrationRequired, false);
+  assert.equal(catalog.userSuppliedApiKeysRequired, false);
+  assert.ok(Array.isArray(catalog.categories));
+  assert.ok(Array.isArray(catalog.plugins));
+
+  const byId = new Map(catalog.plugins.map(plugin => [plugin.id, plugin]));
+  assert.equal(byId.get("bluesky").status, "connected_read_only");
+  assert.equal(byId.get("public_github").status, "connected_read_only");
+  assert.equal(byId.get("arxiv").status, "connected_read_only");
+  assert.equal(byId.get("semantic_scholar").status, "connected_read_only");
+  assert.equal(byId.get("facebook_instagram_threads").status, "requires_provider_access");
+  assert.equal(byId.get("gmail").status, "requires_user_authorization");
+  assert.equal(catalog.policy.privateAccountAccessRequiresAuthorization, true);
+  assert.equal(catalog.policy.writeAndFinancialActionsRequireExplicitConfirmation, true);
+});
+
+
+test("Gmail account status is guest-scoped and private Gmail prompts bypass public research", async () => {
+  const statusResponse = await fetch(`${base}/api/account/status`);
+  assert.equal(statusResponse.status, 200);
+  const status = await statusResponse.json();
+  assert.equal(status.googleOAuthConfigured, false);
+  assert.equal(status.gmail.connected, false);
+  assert.match(statusResponse.headers.get("set-cookie") || "", /HttpOnly/);
+  assert.match(statusResponse.headers.get("set-cookie") || "", /SameSite=Lax/);
+
+  const response = await fetch(`${base}/api/chat`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "cf-connecting-ip": "203.0.113.222" },
+    body: JSON.stringify({ messages: [{ role: "user", content: "Search my Gmail for: project meeting" }] })
+  });
+  assert.equal(response.status, 200);
+  const request = modelRequests.at(-1);
+  assert.match(request.body.messages[0].content, /USER-AUTHORIZED PRIVATE ACCOUNT DATA/);
+  assert.match(request.body.messages[0].content, /not configured by the DREAM AI operator/);
+  assert.doesNotMatch(request.body.messages[0].content, /AUTOMATIC PUBLIC RESEARCH/);
+
+  const disconnect = await fetch(`${base}/api/account/google/disconnect`, {
+    method: "POST",
+    headers: { "content-type": "application/json", "cf-connecting-ip": "203.0.113.223" },
+    body: "{}"
+  });
+  assert.equal(disconnect.status, 200);
+  assert.equal((await disconnect.json()).disconnected, false);
+});

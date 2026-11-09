@@ -176,3 +176,62 @@ test("PubMed abstracts are accepted from the official PubMed host and cited as a
   assert.doesNotMatch(prepared.context, /attacker\\.example|Must be excluded/);
 });
 
+
+test("arXiv and Semantic Scholar abstracts enter context only through their trusted source hosts", () => {
+  const prepared = buildResearchContext({
+    scholarlyResearch: { results: [
+      {
+        provider: "arXiv",
+        title: "A preprint about reliable AI",
+        url: "https://arxiv.org/abs/2601.01234v1",
+        publicationDate: "2026-01-12",
+        abstract: "An abstract retrieved from the arXiv API."
+      },
+      {
+        provider: "Semantic Scholar",
+        title: "A peer-reviewed paper about verification",
+        url: "https://www.semanticscholar.org/paper/Verification/0123456789abcdef",
+        publicationDate: "2025",
+        abstract: "An abstract retrieved from Semantic Scholar."
+      },
+      {
+        provider: "arXiv",
+        title: "Untrusted destination",
+        url: "https://attacker.example/abs/2601.99999",
+        abstract: "This must not enter context."
+      }
+    ] }
+  });
+  assert.equal(prepared.sources.length, 2);
+  assert.ok(prepared.sources.some(source => source.provider === "arXiv"));
+  assert.ok(prepared.sources.some(source => source.provider === "Semantic Scholar"));
+  assert.match(prepared.context, /An abstract retrieved from the arXiv API/);
+  assert.match(prepared.context, /An abstract retrieved from Semantic Scholar/);
+  assert.doesNotMatch(prepared.context, /attacker\.example|This must not enter context/);
+});
+
+
+test("GitHub repository metadata enters coding research only from github.com", () => {
+  const prepared = buildResearchContext({
+    query: "Find a Python CSV library",
+    platformResearch: { results: [
+      {
+        provider: "GitHub Public Repositories",
+        title: "example/csv-parser",
+        url: "https://github.com/example/csv-parser",
+        snippet: "A small Python CSV parser.",
+        sourceType: "public-repository-metadata"
+      },
+      {
+        provider: "GitHub Public Repositories",
+        title: "unsafe/repository",
+        url: "https://attacker.example/unsafe",
+        snippet: "Untrusted URL."
+      }
+    ] }
+  });
+  assert.equal(prepared.sources.length, 1);
+  assert.equal(prepared.sources[0].provider, "GitHub Public Repositories");
+  assert.match(prepared.context, /A small Python CSV parser/);
+  assert.doesNotMatch(prepared.context, /attacker\.example|Untrusted URL/);
+});

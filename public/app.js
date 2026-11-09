@@ -376,6 +376,11 @@ function addMessage(role, content, artifacts = null) {
   return body;
 }
 
+function isPrivateAccountPrompt(prompt) {
+  return typeof prompt === "string" &&
+    /\b(?:my gmail|search (?:my )?gmail|check (?:my )?gmail|look in (?:my )?gmail|read (?:my )?gmail|gmail inbox|gmail emails?|gmail messages?|my emails?|my inbox|email(?:s)? from|messages? in my inbox|search my mail)\b/i.test(prompt);
+}
+
 function appendAssistantActions(replyNode, replyText, prompt = "", mode = "general") {
   const host = replyNode?.parentElement;
   if (!host || host.querySelector(".message-tools")) return;
@@ -397,7 +402,7 @@ function appendAssistantActions(replyNode, replyText, prompt = "", mode = "gener
   tools.append(copy);
 
   const cleanPrompt = typeof prompt === "string" ? prompt.trim() : "";
-  if (cleanPrompt) {
+  if (cleanPrompt && !isPrivateAccountPrompt(cleanPrompt)) {
     const share = document.createElement("button");
     share.type = "button";
     share.className = "message-tool-share";
@@ -821,6 +826,216 @@ async function sendMessage(text, isRetry = false, includeHistory = true) {
     input.focus();
   }
 }
+
+
+const pluginsDialog = document.querySelector("#plugins-dialog");
+const pluginsOpen = document.querySelector("#plugins-open");
+const pluginsClose = document.querySelector("#plugins-close");
+const pluginsSearch = document.querySelector("#plugins-search");
+const pluginsCategory = document.querySelector("#plugins-category");
+const pluginsStatus = document.querySelector("#plugins-status");
+const pluginsList = document.querySelector("#plugins-list");
+const pluginsCount = document.querySelector("#plugins-count");
+let pluginCatalog = null;
+let accountStatus = { googleOAuthConfigured: false, persistentStorageReady: false, gmail: { connected: false, email: null } };
+
+async function loadAccountStatus() {
+  try {
+    const response = await fetch("/api/account/status", { headers: { accept: "application/json" }, cache: "no-store" });
+    if (!response.ok) throw new Error("Account status unavailable");
+    const result = await response.json();
+    accountStatus = {
+      googleOAuthConfigured: result.googleOAuthConfigured === true,
+      persistentStorageReady: result.persistentStorageReady === true,
+      gmail: {
+        connected: result.gmail?.connected === true,
+        email: typeof result.gmail?.email === "string" ? result.gmail.email : null
+      }
+    };
+  } catch {
+    accountStatus = { googleOAuthConfigured: false, persistentStorageReady: false, gmail: { connected: false, email: null } };
+  }
+}
+
+function pluginAvailability(status) {
+  return ({
+    connected_read_only: "Public access available",
+    requires_user_authorization: "Account sign-in required",
+    requires_provider_access: "Provider approval required",
+    catalogued: "Listed · not connected",
+    planned: "Planned"
+  })[status] || "Status unknown";
+}
+
+function renderPluginCards() {
+  if (!pluginCatalog || !pluginsList) return;
+  const query = pluginsSearch.value.trim().toLowerCase();
+  const category = pluginsCategory.value;
+  const status = pluginsStatus.value;
+  const matches = pluginCatalog.plugins.filter(plugin => {
+    const categoryName = pluginCatalog.categories.find(item => item.id === plugin.category)?.name || "";
+    const haystack = [plugin.name, plugin.note, categoryName, ...(plugin.capabilities || [])].join(" ").toLowerCase();
+    return (!query || haystack.includes(query)) &&
+      (category === "all" || plugin.category === category) &&
+      (status === "all" || plugin.status === status);
+  });
+  pluginsList.replaceChildren();
+  pluginsCount.textContent = matches.length + " of " + pluginCatalog.plugins.length + " plugins";
+  for (const plugin of matches) {
+    const card = document.createElement("article");
+    card.className = "plugin-card";
+    const top = document.createElement("div");
+    top.className = "plugin-card-top";
+    const name = document.createElement("h3");
+    name.textContent = plugin.name;
+    const badge = document.createElement("span");
+    badge.className = "plugin-status plugin-status-" + plugin.status;
+    badge.textContent = pluginAvailability(plugin.status);
+    if (plugin.id === "gmail") {
+      badge.textContent = accountStatus.gmail.connected
+        ? "Connected · " + (accountStatus.gmail.email || "Google account")
+        : accountStatus.googleOAuthConfigured ? "Secure sign-in available" : "Operator setup required";
+    }
+    top.append(name, badge);
+    const categoryLabel = document.createElement("p");
+    categoryLabel.className = "plugin-category";
+    categoryLabel.textContent = pluginCatalog.categories.find(item => item.id === plugin.category)?.name || "Other";
+    const note = document.createElement("p");
+    note.className = "plugin-note";
+    note.textContent = plugin.note;
+    const capabilities = document.createElement("p");
+    capabilities.className = "plugin-capabilities";
+    capabilities.textContent = (plugin.capabilities || []).map(value => value.replaceAll("_", " ")).join(" · ");
+    const actions = document.createElement("div");
+    actions.className = "plugin-actions";
+    if (plugin.id === "gmail") {
+      if (accountStatus.gmail.connected) {
+        const ask = document.createElement("button");
+        ask.type = "button";
+        ask.className = "plugin-use";
+        ask.textContent = "Ask my Gmail";
+        ask.addEventListener("click", () => {
+          pluginsDialog.close();
+          setMode("general");
+          input.value = "Search my Gmail for: ";
+          input.focus();
+          input.setSelectionRange(input.value.length, input.value.length);
+          input.style.height = "auto";
+          input.style.height = Math.min(input.scrollHeight, 180) + "px";
+        });
+        const disconnect = document.createElement("button");
+        disconnect.type = "button";
+        disconnect.className = "plugin-use";
+        disconnect.textContent = "Disconnect";
+        disconnect.addEventListener("click", async () => {
+          disconnect.disabled = true;
+          disconnect.textContent = "Disconnecting…";
+          try {
+            const response = await fetch("/api/account/google/disconnect", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: "{}"
+            });
+            if (!response.ok) throw new Error("Could not disconnect Gmail.");
+            const result = await response.json();
+            if (result.disconnected !== true) throw new Error("Gmail was not disconnected in this browser.");
+            await loadAccountStatus();
+            renderPluginCards();
+            statusText.textContent = result.providerRevoked === true
+              ? "Gmail disconnected and Google token revocation confirmed."
+              : "Gmail disconnected in DREAM, but Google did not confirm token revocation. Review third-party access in your Google Account security settings.";
+          } catch {
+            disconnect.disabled = false;
+            disconnect.textContent = "Retry disconnect";
+          }
+        });
+        actions.append(ask, disconnect);
+      } else if (accountStatus.googleOAuthConfigured && accountStatus.persistentStorageReady) {
+        const connect = document.createElement("button");
+        connect.type = "button";
+        connect.className = "plugin-use";
+        connect.textContent = "Connect Gmail";
+        connect.addEventListener("click", () => {
+          window.location.assign("/api/account/google/start");
+        });
+        actions.append(connect);
+      } else {
+        const setup = document.createElement("span");
+        setup.className = "plugin-locked";
+        setup.textContent = "Operator must enable Google OAuth and encrypted persistent storage";
+        actions.append(setup);
+      }
+    } else if (plugin.status === "connected_read_only") {
+      const use = document.createElement("button");
+      use.type = "button";
+      use.className = "plugin-use";
+      use.textContent = "Ask DREAM AI";
+      use.addEventListener("click", () => {
+        const prompt = "Research my next question. Use " + plugin.name + " if it is available and relevant. Explicitly tell me whether you actually consulted it; never claim you used it if it was unavailable or not searched.";
+        pluginsDialog.close();
+        setMode("research");
+        input.value = prompt;
+        input.focus();
+        input.style.height = "auto";
+        input.style.height = Math.min(input.scrollHeight, 180) + "px";
+      });
+      actions.append(use);
+    } else {
+      const locked = document.createElement("span");
+      locked.className = "plugin-locked";
+      locked.textContent = plugin.status === "requires_user_authorization"
+        ? "Secure sign-in not enabled yet"
+        : plugin.status === "requires_provider_access"
+          ? "Provider approval not configured"
+          : "Not connected yet";
+      actions.append(locked);
+    }
+    card.append(top, categoryLabel, note, capabilities, actions);
+    pluginsList.append(card);
+  }
+  if (!matches.length) {
+    const empty = document.createElement("p");
+    empty.className = "plugins-empty";
+    empty.textContent = "No plugins match those filters.";
+    pluginsList.append(empty);
+  }
+}
+
+async function loadPluginCatalog() {
+  if (pluginCatalog) return;
+  pluginsCount.textContent = "Loading plugins…";
+  try {
+    const response = await fetch("/api/plugins", { headers: { accept: "application/json" } });
+    if (!response.ok) throw new Error("Plugin directory is unavailable.");
+    const data = await response.json();
+    if (!Array.isArray(data.categories) || !Array.isArray(data.plugins)) throw new Error("Invalid plugin directory response.");
+    pluginCatalog = data;
+    for (const category of data.categories) {
+      const option = document.createElement("option");
+      option.value = category.id;
+      option.textContent = category.name;
+      pluginsCategory.append(option);
+    }
+    renderPluginCards();
+  } catch {
+    pluginsCount.textContent = "Could not load the plugin directory. Please try again later.";
+    pluginsList.replaceChildren();
+  }
+}
+
+pluginsOpen?.addEventListener("click", async () => {
+  if (!pluginsDialog.open) pluginsDialog.showModal();
+  await loadPluginCatalog();
+  pluginsSearch?.focus();
+});
+pluginsClose?.addEventListener("click", () => pluginsDialog.close());
+pluginsDialog?.addEventListener("click", event => {
+  if (event.target === pluginsDialog) pluginsDialog.close();
+});
+pluginsSearch?.addEventListener("input", renderPluginCards);
+pluginsCategory?.addEventListener("change", renderPluginCards);
+pluginsStatus?.addEventListener("change", renderPluginCards);
+
 
 function closeMobileHistory() {
   document.body.classList.remove("sidebar-open");
