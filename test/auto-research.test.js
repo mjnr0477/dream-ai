@@ -15,6 +15,13 @@ test("routes current and time-sensitive questions to fresh public-source researc
   assert.equal(shouldAutoResearch("Who is leading the league right now?"), true);
 });
 
+test("recognizes conversational news and transfer questions as current research requests", () => {
+  assert.equal(shouldAutoResearch("I am hearing a lot of news around man city."), true);
+  assert.equal(shouldAutoResearch("What is happening with Manchester City?"), true);
+  assert.equal(shouldAutoResearch("Any transfer rumours around City?"), true);
+  assert.equal(shouldAutoResearch("What's new around the club?"), true);
+});
+
 test("researches factual questions in general, coding and learning modes", () => {
   for (const mode of ["general", "coding", "learning"]) {
     assert.equal(shouldAutoResearch("Who is Ada Lovelace?", mode), true, mode);
@@ -113,6 +120,26 @@ test("time-sensitive research context balances providers instead of letting Wiki
   assert.ok(providers.has("GDELT"));
   assert.ok(providers.has("Wikipedia"));
   assert.ok(prepared.sources.length <= 14);
+});
+
+test("Google News publisher excerpts are preserved in automatic answer context", () => {
+  const prepared = buildResearchContext({
+    query: "news around Manchester City",
+    platformResearch: {
+      results: [{
+        provider: "Google News RSS",
+        title: "Manchester City update",
+        url: "https://www.bbc.com/sport/football/example",
+        snippet: "Publisher: BBC Sport — The report describes a squad update.",
+        publisher: "BBC Sport",
+        publishedAt: "2026-11-09T12:00:00Z"
+      }]
+    }
+  });
+  assert.equal(prepared.sources.length, 1);
+  assert.match(prepared.context, /Publisher: BBC Sport/);
+  assert.match(prepared.context, /report describes a squad update/);
+  assert.match(prepared.context, /PUBLISHED AT: 2026-11-09T12:00:00Z/);
 });
 
 test("research context enforces a strict evidence size limit", () => {
