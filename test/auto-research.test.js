@@ -354,7 +354,7 @@ test("automatic research status tells the model what sources actually returned",
   assert.match(context, /GDELT: unavailable/);
   assert.match(context, /Google News RSS: no-results/);
   assert.match(context, /No usable source records were returned for this query/);
-  assert.match(context, /do not claim that DREAM has no real-time news access/);
+  assert.match(context, /Do not claim that DREAM has no real-time news access/);
   assert.match(context, /do not send the user away to check BBC, Reuters/);
 });
 
