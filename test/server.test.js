@@ -638,7 +638,21 @@ test("learning contribution terms page explains the independent review gate", as
   assert.match(html, /VERSION 3/);
 });
 
-test("plugin catalog endpoint exposes guest-first plugin metadata without enabling account actions", async () => {
+test("plugin catalog endpoint exposes guest-first plugin metadata and the frontend directory", async () => {
+  const homepage = await fetch(`${base}/`);
+  assert.equal(homepage.status, 200);
+  const html = await homepage.text();
+  assert.match(html, /id="plugins-open"/);
+  assert.match(html, /id="plugins-dialog"/);
+  assert.match(html, /id="plugins-search"/);
+  assert.match(html, /id="plugins-category"/);
+
+  const frontend = await fetch(`${base}/app.js`);
+  assert.equal(frontend.status, 200);
+  const appSource = await frontend.text();
+  assert.match(appSource, /function renderPluginCards/);
+  assert.match(appSource, /Secure sign-in not enabled yet/);
+
   const response = await fetch(`${base}/api/plugins`);
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") || "", /application\/json/);
