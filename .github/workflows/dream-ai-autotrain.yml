@@ -152,14 +152,34 @@ jobs:
           }, indent=2) + "\n", encoding="utf-8")
           PY
           DATASET_REF="$KAGGLE_USERNAME/dream-ai-auto-training-input"
+          VERIFY_DIR="$RUNNER_TEMP/dream-ai-kaggle-private-check"
+          mkdir -p "$VERIFY_DIR"
+          verify_private_dataset() {
+            kaggle datasets metadata "$DATASET_REF" --path "$VERIFY_DIR" >/dev/null
+            python - "$VERIFY_DIR/dataset-metadata.json" <<'PY'
+          import json, sys
+          from pathlib import Path
+          metadata = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          info = metadata.get("info", metadata)
+          private = info.get("isPrivate") if isinstance(info, dict) else None
+          if private is not True and str(private).strip().lower() not in ("true", "1", "yes"):
+              raise SystemExit(
+                  "Kaggle did not confirm that the DREAM training input dataset is private; refusing to upload or use training data."
+              )
+          PY
+          }
           if kaggle datasets status "$DATASET_REF" >/dev/null 2>&1; then
+            verify_private_dataset
             kaggle datasets version -p "$DATASET_DIR" \
               -m "Reviewed DREAM AI data ${{ steps.prepare.outputs.dataset_sha256 }}" \
               -q -t -r skip
           else
+            # Kaggle dataset creation is private by default; this command deliberately
+            # omits --public, then the metadata check must confirm privacy.
             kaggle datasets create -p "$DATASET_DIR" -q -t -r skip
+            verify_private_dataset
           fi
-          echo "Private Kaggle input dataset updated."
+          echo "Kaggle input dataset privacy verified and files updated."
 
       - name: Register training run
         if: steps.prepare.outputs.eligible == 'true'
