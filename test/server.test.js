@@ -653,6 +653,7 @@ test("plugin catalog endpoint exposes guest-first plugin metadata without enabli
   const byId = new Map(catalog.plugins.map(plugin => [plugin.id, plugin]));
   assert.equal(byId.get("bluesky").status, "connected_read_only");
   assert.equal(byId.get("arxiv").status, "connected_read_only");
+  assert.equal(byId.get("semantic_scholar").status, "connected_read_only");
   assert.equal(byId.get("facebook_instagram_threads").status, "requires_provider_access");
   assert.equal(byId.get("gmail").status, "requires_user_authorization");
   assert.equal(catalog.policy.privateAccountAccessRequiresAuthorization, true);
