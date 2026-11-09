@@ -18,6 +18,25 @@ Gmail is the first account connector. It deliberately does not send, delete, lab
 - The Plugins dialog offers account status, Connect Gmail, Ask my Gmail and Disconnect. Disconnect deletes the stored token record and asks Google to revoke the token; the UI reports only the local connection status.
 - No provider password, OAuth secret, access token or API key is requested in chat.
 
+## Meta account connections: Facebook, Instagram and Threads
+
+The Meta connector uses separate, official sign-in flows for Facebook/Instagram and Threads. DREAM does not ask users for Meta passwords or tokens.
+
+- Configure `META_APP_ID` and `META_APP_SECRET` privately in Render. Register these exact HTTPS callback URLs in the Meta developer app:
+  - `https://YOUR-DREAM-HOST/api/account/meta/facebook/callback`
+  - `https://YOUR-DREAM-HOST/api/account/meta/threads/callback`
+- Set `META_FACEBOOK_REDIRECT_URI` and `META_THREADS_REDIRECT_URI` to the matching URLs. Facebook Login uses `META_APP_ID` and `META_APP_SECRET` and requests `public_profile`, `pages_show_list`, `pages_read_engagement` and `instagram_basic`. Threads uses its own Threads Login credentials (`THREADS_APP_ID` and `THREADS_APP_SECRET`); when those are not supplied it falls back to the Meta app credentials. Threads requests `threads_basic`. Configure the Threads use case and its own callback in Meta's app dashboard.
+- Each user's Facebook/Instagram and Threads authorizations are separate. The returned tokens are encrypted with AES-256-GCM and kept in Secure, HttpOnly, SameSite=Lax cookies for that browser; tokens are never returned to frontend JavaScript.
+- A connected browser can ask DREAM to read the authorized Facebook profile and accessible Pages, discover Instagram professional accounts linked to those Pages, or read the connected Threads profile. Instagram consumer accounts are not supported by the Facebook Login route.
+- This first Meta release is read-only. It does not publish posts, send messages, reply to comments, edit Pages, read a personal Facebook feed or perform financial actions. Do not claim those actions are available.
+- Private account details are retrieved only when the same browser explicitly asks a Meta-account question. They are kept out of public research, shared memory, training submissions and other users' sessions. Because DREAM is guest-first, these connections belong to the browser rather than a DREAM user account; disconnect before another person uses a shared device. Disconnect clears DREAM's local cookie; revoke the app separately in Meta's account settings to remove the provider grant.
+- `META_ACCESS_TOKEN` is optional and is checked only as an operator-side diagnostic. It is never treated as an end-user account and is never shared between visitors. It does not replace `META_APP_ID` or `META_APP_SECRET`.
+
+### Meta approval and production gate
+
+Meta's permission screen is user consent, not proof of general public approval. The app must be configured with the Facebook Login, Instagram Platform and Threads products, exact redirect URIs, privacy/data-deletion information and applicable review submissions. Advanced access, business verification or App Review may be required before accounts outside app roles can grant the requested permissions. Keep the directory honest about any permission Meta has not approved. Read the [Meta developer documentation](https://developers.meta.com/) and [Meta Permissions Reference](https://developers.facebook.com/docs/permissions/).
+
+
 ### Required operator setup
 
 Gmail stays unavailable until all settings below are supplied server-side and the account store is confirmed to be on durable persistent storage.
