@@ -128,6 +128,24 @@ async function postChat(payload, rawBody) {
 }
 
 
+test("learning contribution refuses private account prompts even when called directly", async () => {
+  for (const prompt of [
+    "Check my Gmail inbox.",
+    "Show my Facebook Pages.",
+    "Review my Instagram account.",
+    "Check my Threads profile."
+  ]) {
+    const response = await postLearning({
+      mode: "general",
+      prompt,
+      response: "Private account data must never be collected for training.",
+      consentVersion: "dream-learning-opt-in-v1"
+    });
+    assert.equal(response.status, 403);
+    assert.match((await response.json()).error, /Private account questions cannot be submitted/);
+  }
+});
+
 test("learning contribution requires a valid temporary source group for v2 consent", async () => {
   const missing = await postLearning({
     mode: "general",
