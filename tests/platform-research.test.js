@@ -185,6 +185,45 @@ test("World Bank Indicators returns country statistics without an API key and pr
   assert.equal(observation.url, "https://api.worldbank.org/v2/country/KEN/indicator/SP.POP.TOTL?format=json&mrnev=5");
 });
 
+test("World Bank statistics honour an explicitly requested historical year", async () => {
+  const { fetchImpl, requests } = captureFetch(request => {
+    if (request.url.hostname === "api.worldbank.org") {
+      if (request.url.pathname === "/v2/country") {
+        return jsonResponse([{}, [
+          { id: "KEN", name: "Kenya", region: { value: "Sub-Saharan Africa" } }
+        ]]);
+      }
+      if (request.url.pathname === "/v2/country/KEN/indicator/NY.GDP.PCAP.CD") {
+        return jsonResponse([{}, [{
+          country: { id: "KEN", value: "Kenya" },
+          countryiso3code: "KEN",
+          indicator: { id: "NY.GDP.PCAP.CD", value: "GDP per capita (current US$)" },
+          date: "2020",
+          value: 1966.2,
+          unit: ""
+        }]]);
+      }
+    }
+    if (request.url.hostname === "public.api.bsky.app") return jsonResponse({ posts: [] });
+    if (request.url.hostname === "news.google.com") return textResponse("<rss></rss>");
+    if (request.url.hostname === "api.stackexchange.com") return jsonResponse({ items: [], quota_remaining: 9000 });
+    if (request.url.hostname === "www.ebi.ac.uk") return jsonResponse({ resultList: { result: [] } });
+    throw new Error("unexpected provider request");
+  });
+
+  const result = await searchPlatformSources("What was GDP per capita in Kenya in 2020?", fetchImpl, {});
+  const call = requests.find(item =>
+    item.url.hostname === "api.worldbank.org" && item.url.pathname.includes("/indicator/")
+  );
+  assert.ok(call);
+  assert.equal(call.url.searchParams.get("date"), "2020");
+  assert.equal(call.url.searchParams.has("mrnev"), false);
+  const value = result.results.find(item => item.provider === "World Bank Indicators");
+  assert.equal(value.indicatorCode, "NY.GDP.PCAP.CD");
+  assert.equal(value.observationYear, "2020");
+  assert.equal(new URL(value.url).searchParams.get("date"), "2020");
+});
+
 test("Google News RSS returns headline metadata with publisher links", async () => {
   const xml = '<rss><channel><item><title>Kenya technology update</title><link>https://publisher.example/news/1</link><pubDate>Sun, 08 Nov 2026 10:00:00 GMT</pubDate></item></channel></rss>';
   const { fetchImpl, requests } = captureFetch(() => textResponse(xml));
