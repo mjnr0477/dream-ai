@@ -2,6 +2,10 @@
 
 DREAM AI is an independent AI research and application project, separate from Dream Education, Dream Wi-Fi and VYBORA.
 
+## Development priority
+
+DREAM AI is AI-core-first and guest-first. New DREAM user registration, sign-in, profiles, account memory, subscriptions and billing are deferred until the core capability and reliability gates are demonstrated. See [AI_CORE_FIRST_ROADMAP.md](docs/AI_CORE_FIRST_ROADMAP.md). This does not remove the existing Plugins catalogue or its separately permissioned integrations.
+
 ## Project status
 
 DREAM has its own decoder-only transformer architecture, byte-tokenizer default, optional byte-fallback BPE tokenizer, random initialization, training script, inference script and native model-serving API in `model/`. This is the beginning of a from-scratch model, not a borrowed foundation-model checkpoint.
