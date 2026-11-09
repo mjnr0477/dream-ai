@@ -27,6 +27,17 @@ test("system prompt guides structured reasoning, calibration and evidence checks
   assert.match(prompt, /User prefers concise explanations/);
 });
 
+test("application requests add complete-project generation guidance without changing ordinary questions", async () => {
+  const { buildSystemPrompt } = await import("../lib/dream-engine.js");
+  const appPrompt = buildSystemPrompt("general", "", "Build a complete web app for booking appointments.");
+  assert.match(appPrompt, /APPLICATION BUILD MODE/);
+  assert.match(appPrompt, /complete, coherent project/);
+  assert.match(appPrompt, /Downloadable project ZIP/);
+  assert.match(appPrompt, /isolated build sandbox/);
+  const ordinaryPrompt = buildSystemPrompt("general", "", "What is an application?");
+  assert.doesNotMatch(ordinaryPrompt, /APPLICATION BUILD MODE/);
+});
+
 const messages = [{ role: "user", content: "Hello DREAM AI" }];
 
 test("remote native model runtimes must use HTTPS", async () => {
