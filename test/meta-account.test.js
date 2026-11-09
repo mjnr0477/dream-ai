@@ -21,10 +21,14 @@ function responseRecorder() {
   };
 }
 
-function cookieValue(setCookie, name) {
+function cookieLine(setCookie, name) {
   const values = Array.isArray(setCookie) ? setCookie : [setCookie];
-  const line = values.find(value => String(value).startsWith(name + "="));
-  return line ? String(line).split(";")[0] : "";
+  return String(values.find(value => String(value).startsWith(name + "=")) || "");
+}
+
+function cookieValue(setCookie, name) {
+  const line = cookieLine(setCookie, name);
+  return line ? line.split(";")[0] : "";
 }
 
 function jsonResponse(value, status = 200) {
@@ -120,8 +124,10 @@ test("Facebook OAuth validates state, exchanges tokens, encrypts the session and
   assert.equal(callbackResponse.getHeader("location"), "/?meta=connected");
   const sessionCookie = cookieValue(callbackResponse.getHeader("set-cookie"), "dream_meta_facebook");
   assert.ok(sessionCookie.startsWith("dream_meta_facebook="));
-  assert.match(sessionCookie, /HttpOnly/);
-  assert.match(sessionCookie, /Secure/);
+  const fullSessionCookie = cookieLine(callbackResponse.getHeader("set-cookie"), "dream_meta_facebook");
+  assert.match(fullSessionCookie, /HttpOnly/);
+  assert.match(fullSessionCookie, /Secure/);
+  assert.match(fullSessionCookie, /SameSite=Lax/);
   assert.doesNotMatch(sessionCookie, /LONG_LIVED_FACEBOOK_TOKEN|SHORT_LIVED_FACEBOOK_TOKEN/);
 
   req.headers.cookie = sessionCookie;
