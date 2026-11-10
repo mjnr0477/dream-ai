@@ -59,6 +59,7 @@ class CandidateReviewerConversationTests(unittest.TestCase):
             {"role": "user", "content": "Explain fractions."},
             {"role": "user", "content": "Also explain decimals."},
             {"role": "assistant", "content": "A fraction is part of a whole."},
+            {"role": "assistant", "content": "A decimal uses a base-ten place system."},
         ])
         self.assertEqual(candidate_problem(record), "invalid_message_order")
 
