@@ -2,6 +2,19 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { generateDreamReply } from "../lib/dream-engine.js";
 
+test("system prompt directs capability use and gives accurate self-improvement explanations", async () => {
+  const { buildSystemPrompt } = await import("../lib/dream-engine.js");
+  const prompt = buildSystemPrompt("general", "", "Can you train yourself and become better?");
+  assert.match(prompt, /continuously improving AI product/);
+  assert.match(prompt, /Use the relevant capability when it is actually wired into this runtime and authorized/);
+  assert.match(prompt, /distinguish the deployed chat model from the surrounding improvement system/);
+  assert.match(prompt, /explicit training pipeline, eligible reviewed data, compute, evaluation and controlled release/);
+  assert.match(prompt, /Do not say categorically that DREAM AI is incapable of improvement/);
+  assert.match(prompt, /Treat leadership as an engineering objective measured through transparent, repeatable benchmarks/);
+  assert.match(prompt, /Prefer action over self-description/);
+  assert.match(prompt, /Never claim to be the best AI, superior to every other AI, omniscient or infallible without independent comparative evidence/);
+});
+
 test("system prompt guides structured reasoning, calibration and evidence checks", async () => {
   const { buildSystemPrompt } = await import("../lib/dream-engine.js");
   const prompt = buildSystemPrompt("general", "User prefers concise explanations");
