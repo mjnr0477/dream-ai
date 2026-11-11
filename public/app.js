@@ -7,6 +7,34 @@ const conversation = document.querySelector("#conversation");
 const welcome = document.querySelector("#welcome");
 const statusText = document.querySelector("#service-status");
 const statusDot = document.querySelector(".status-dot");
+const shareAppButton = document.querySelector("#share-app");
+
+async function shareDreamAI() {
+  const shareData = {
+    title: "DREAM AI",
+    text: "Try DREAM AI — an AI workspace for chat, coding, learning and research.",
+    url: window.location.origin + "/"
+  };
+  if (navigator.share) {
+    try {
+      await navigator.share(shareData);
+      statusText.textContent = "DREAM AI share sheet opened";
+      return;
+    } catch (error) {
+      if (error?.name === "AbortError") return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(`${shareData.text} ${shareData.url}`);
+    statusText.textContent = "DREAM AI link copied — share it with someone";
+    shareAppButton.textContent = "✓ Copied";
+    window.setTimeout(() => { shareAppButton.innerHTML = "↗ <span>Share</span>"; }, 2200);
+  } catch {
+    window.prompt("Copy this DREAM AI link and share it:", shareData.url);
+  }
+}
+
+shareAppButton?.addEventListener("click", shareDreamAI);
 const historyList = document.querySelector("#history-list");
 const mobileHistoryButton = document.querySelector("#mobile-history");
 const sidebarBackdrop = document.querySelector("#sidebar-backdrop");
