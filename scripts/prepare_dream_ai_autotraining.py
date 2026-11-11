@@ -154,7 +154,6 @@ def eligible_rows(rows: list[dict]) -> tuple[list[dict], dict]:
         "not_explicit_v3_approved": 0,
         "missing_review_metadata": 0,
         "missing_source_group": 0,
-        "missing_human_review_timestamp": 0,
         "invalid_consent_timestamp": 0,
         "invalid_human_review_timestamp": 0,
         "review_precedes_consent": 0,
