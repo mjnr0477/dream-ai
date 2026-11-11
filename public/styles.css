@@ -182,3 +182,9 @@
 .share-app-button{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:36px;padding:7px 12px;border:1px solid #35435d;border-radius:9px;background:#121b2b;color:#dce5f5;font-size:11px;font-weight:700;white-space:nowrap;cursor:pointer;transition:border-color .16s ease,background .16s ease}
 .share-app-button:hover{border-color:#9584e8;background:#1c2740}
 @media(max-width:680px){.share-app-button{min-height:34px;padding:6px 9px;font-size:10px}}
+
+
+/* Direct Appteka download action */
+.appteka-button{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:7px 12px;border:1px solid #4a8290;border-radius:9px;background:linear-gradient(110deg,#17313c,#172b3a);color:#a9edf2;text-decoration:none;font-size:11px;font-weight:700;white-space:nowrap;transition:border-color .16s ease,transform .16s ease,background .16s ease}
+.appteka-button:hover{border-color:#83dce6;background:#1c414b;transform:translateY(-1px)}
+@media(max-width:680px){.appteka-button{min-height:34px;padding:6px 8px;font-size:10px}.topbar-right{gap:6px}}
