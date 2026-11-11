@@ -631,8 +631,29 @@ const server = http.createServer(async (req, res) => {
   res.writeHead(405, { ...SECURITY_HEADERS, allow: "GET, POST" }).end("Method not allowed");
 });
 
+async function runStartupModelSmokeTest() {
+  try {
+    const result = await generateDreamReply(
+      [{ role: "user", content: "Reply with exactly: DREAM AI MODEL CONNECTION OK" }],
+      "general"
+    );
+    const reply = String(result?.reply || "").replace(/[\\r\\n\\t]+/g, " ").trim();
+    console.info("DREAM_MODEL_STARTUP_SMOKE_TEST completed:", JSON.stringify({
+      source: result?.source || "unknown",
+      replyLength: reply.length,
+      replyPreview: reply.slice(0, 120)
+    }));
+  } catch (error) {
+    console.error("DREAM_MODEL_STARTUP_SMOKE_TEST failed:", error?.message || "unknown model error");
+  }
+}
+
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`DREAM AI listening on port ${PORT}`);
+  if (process.env.DREAM_MODEL_STARTUP_SMOKE_TEST === "true") {
+    console.log("DREAM_MODEL_STARTUP_SMOKE_TEST starting one controlled inference check.");
+    setTimeout(() => { void runStartupModelSmokeTest(); }, 1500);
+  }
 });
 
 function shutdown() {
