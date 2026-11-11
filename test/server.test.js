@@ -451,7 +451,7 @@ test("chat endpoint rejects invalid or oversized memory context", async () => {
   assert.equal(invalid.status, 400);
 });
 
-test("chat endpoint bounds concurrent model requests and tells clients when to retry", async () => {
+test("chat endpoint queues one model request and tells excess clients when to retry", async () => {
   const beforeCount = modelRequests.length;
   holdModelResponses = true;
   const first = postChat({
@@ -460,11 +460,18 @@ test("chat endpoint bounds concurrent model requests and tells clients when to r
   const second = postChat({
     messages: [{ role: "user", content: "Second concurrent request" }]
   });
+  let firstResponse;
+  let secondResponse;
   try {
-    for (let attempt = 0; attempt < 50 && modelRequests.length < beforeCount + 2; attempt++) {
+    // The single-generation model should receive only the first request while
+    // the second chat waits in the bounded application-side queue.
+    for (let attempt = 0; attempt < 50 && modelRequests.length < beforeCount + 1; attempt++) {
       await new Promise(resolve => setTimeout(resolve, 20));
     }
-    assert.equal(modelRequests.length, beforeCount + 2);
+    assert.equal(modelRequests.length, beforeCount + 1);
+    // Allow the second chat handler to enter its queued state before testing
+    // the existing two-active-chat admission limit.
+    await new Promise(resolve => setTimeout(resolve, 20));
     const rejected = await postChat({
       messages: [{ role: "user", content: "Third concurrent request" }]
     });
@@ -475,10 +482,13 @@ test("chat endpoint bounds concurrent model requests and tells clients when to r
   } finally {
     holdModelResponses = false;
     for (const respond of heldModelResponses.splice(0)) respond();
+    // Always drain both chat requests so a failed assertion cannot leak a
+    // queued model call into the following test.
+    [firstResponse, secondResponse] = await Promise.all([first, second]);
   }
-  const [firstResponse, secondResponse] = await Promise.all([first, second]);
   assert.equal(firstResponse.status, 200);
   assert.equal(secondResponse.status, 200);
+  assert.equal(modelRequests.length, beforeCount + 2);
 });
 
 test("chat endpoint refuses a non-native OpenAI-compatible model service", async () => {
