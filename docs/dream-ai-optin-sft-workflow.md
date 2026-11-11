@@ -16,6 +16,7 @@ The exporter will accept only rows with:
 - `review_status = pending` and `status = pending`
 - a valid `metadata.source_group_sha256` produced by the trusted Edge Function
 - valid prompt/response text and a valid creation timestamp
+- timezone-qualified ISO-8601 consent and human-review timestamps, with review not earlier than consent
 
 Legacy v1 and v2 contributions remain stored and pending, but are intentionally excluded from the commercial-ready exporter: v1 lacks session grouping and v2 terms did not explicitly disclose commercial use. Invalid rows are skipped with reason counts; the report does not print prompts, answers, database row IDs or raw session UUIDs.
 
