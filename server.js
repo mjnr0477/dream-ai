@@ -13,6 +13,7 @@ import { createMetaAccountService, isMetaRequest } from "./lib/meta-account.js";
 import { runPublicResearch } from "./lib/dream-tools.js";
 import { shouldAutoResearch, buildResearchContext, buildResearchAttemptContext } from "./lib/auto-research.js";
 import { ClientConcurrencyLimiter } from "./lib/client-limiter.js";
+import { resolveModelConfig } from "./lib/model-provider.js";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC_DIR = join(ROOT, "public");
@@ -650,6 +651,17 @@ async function runStartupModelSmokeTest() {
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`DREAM AI listening on port ${PORT}`);
+  try {
+    const modelConfig = resolveModelConfig();
+    console.info("DREAM_MODEL_CONFIGURATION", JSON.stringify({
+      provider: modelConfig.provider,
+      model: modelConfig.modelName,
+      endpointHost: new URL(modelConfig.url).host,
+      tokenConfigured: Boolean(modelConfig.token)
+    }));
+  } catch (error) {
+    console.error("DREAM_MODEL_CONFIGURATION invalid:", error?.message || "unknown configuration error");
+  }
   if (process.env.DREAM_MODEL_STARTUP_SMOKE_TEST === "true") {
     console.log("DREAM_MODEL_STARTUP_SMOKE_TEST starting one controlled inference check.");
     setTimeout(() => { void runStartupModelSmokeTest(); }, 1500);
