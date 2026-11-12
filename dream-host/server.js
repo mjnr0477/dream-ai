@@ -14,6 +14,7 @@ console.log("DREAM_HOST_WORKER_AUTH_DIAGNOSTIC", JSON.stringify({configured: Boo
 
 const CLIENT_TOKEN = process.env.DREAM_HOST_CLIENT_TOKEN || "";
 const NOTEBOOK_TOKEN = normalizeToken(process.env.DREAM_HOST_NOTEBOOK_TOKEN);
+const NOTEBOOK_TOKEN_CONFIGURED = NOTEBOOK_TOKEN.length >= 32 && NOTEBOOK_TOKEN !== WORKER_TOKEN && NOTEBOOK_TOKEN !== normalizeToken(CLIENT_TOKEN);
 const NOTEBOOK_QUEUE = new NotebookQueue({
   maxQueue: process.env.DREAM_HOST_NOTEBOOK_MAX_QUEUE,
   maxCodeChars: process.env.DREAM_HOST_NOTEBOOK_MAX_CODE_CHARS,
@@ -93,10 +94,10 @@ function requireToken(req, res, expected) {
 }
 
 function requireNotebookToken(req, res) {
-  if (NOTEBOOK_TOKEN.length < 32) {
+  if (!NOTEBOOK_TOKEN_CONFIGURED) {
     sendJson(res, 503, {
       error: {
-        message: "DREAM NOTEBOOK is not configured. Set DREAM_HOST_NOTEBOOK_TOKEN to a private value of at least 32 characters.",
+        message: "DREAM NOTEBOOK is not configured. Set DREAM_HOST_NOTEBOOK_TOKEN to a distinct private value of at least 32 characters.",
         type: "configuration_error"
       }
     });
