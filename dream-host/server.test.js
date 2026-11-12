@@ -86,6 +86,41 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   assert.equal(notebookStyle.status, 200);
   assert.match(notebookStyle.headers.get("content-type"), /css/);
 
+  const trainingTemplate = await fetch(baseUrl + "/notebook/training-template.ipynb");
+  assert.equal(trainingTemplate.status, 200);
+  const trainingNotebook = await trainingTemplate.json();
+  assert.equal(trainingNotebook.nbformat, 4);
+  assert.ok(trainingNotebook.cells.length >= 10);
+
+  const connectResponse = await fetch(baseUrl + "/api/v1/notebook/session", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: "Bearer " + notebookToken
+    },
+    body: JSON.stringify({ remember: true })
+  });
+  assert.equal(connectResponse.status, 200);
+  const cookie = connectResponse.headers.get("set-cookie");
+  assert.match(cookie, /dream_notebook_session=/);
+  assert.match(cookie, /HttpOnly/i);
+  assert.match(cookie, /Secure/i);
+  assert.match(cookie, /SameSite=Strict/i);
+  assert.match(cookie, /Max-Age=2592000/i);
+
+  const cookieAuthorizedStatus = await fetch(baseUrl + "/api/v1/notebook/status", {
+    headers: { cookie: cookie.split(";")[0] }
+  });
+  assert.equal(cookieAuthorizedStatus.status, 200);
+
+  const disconnected = await fetch(baseUrl + "/api/v1/notebook/session", { method: "DELETE" });
+  assert.equal(disconnected.status, 200);
+  assert.match(disconnected.headers.get("set-cookie"), /Max-Age=0/i);
+  const cookieAfterDisconnect = await fetch(baseUrl + "/api/v1/notebook/status", {
+    headers: { cookie: cookie.split(";")[0] }
+  });
+  assert.equal(cookieAfterDisconnect.status, 401);
+
   const notebookUnauthorized = await fetch(baseUrl + "/api/v1/notebook/status");
   assert.equal(notebookUnauthorized.status, 401);
 
