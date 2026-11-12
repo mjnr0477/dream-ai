@@ -91,6 +91,7 @@ export class NotebookQueue {
   }
 
   registerWorker(input = {}) {
+    this.sweep();
     const workerId = validId(input.workerId, "workerId");
     const metadata = cleanMetadata(input.metadata);
     const now = this.now();
