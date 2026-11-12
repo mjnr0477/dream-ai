@@ -83,7 +83,7 @@ Add this private environment variable to the DREAM HOST Render service:
 
 - `DREAM_HOST_NOTEBOOK_TOKEN`: a new random secret containing at least 32 characters. Do not reuse the worker or chat client token.
 
-The existing `DREAM_HOST_WORKER_TOKEN` is reused only by the notebook worker. Do not place either token in the frontend source, a notebook cell, a public repository, or a notebook export.
+Configure two new private secrets: `DREAM_HOST_NOTEBOOK_TOKEN` for the browser owner and `DREAM_HOST_NOTEBOOK_WORKER_TOKEN` for the Python executor. Both must be at least 32 characters and distinct from each other and from the existing chat `DREAM_HOST_WORKER_TOKEN` and `DREAM_HOST_CLIENT_TOKEN`. Do not place any token in the frontend source, a notebook cell, a public repository, or a notebook export.
 
 ### Start an operator-owned notebook worker
 
@@ -92,7 +92,7 @@ On a machine dedicated to the notebook owner, install `requests` and a compatibl
 Set these environment variables privately:
 
 - `DREAM_HOST_URL=https://dream-host-live.onrender.com`
-- `DREAM_HOST_WORKER_TOKEN=<the existing DREAM HOST worker token>`
+- `DREAM_HOST_NOTEBOOK_WORKER_TOKEN=<the dedicated notebook worker token>`
 - `DREAM_HOST_NOTEBOOK_TRUSTED_MODE=1`
 
 Then run:
