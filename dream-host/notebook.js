@@ -462,8 +462,9 @@
     showToast("Notebook exported.");
   }
 
-  async function importNotebook(file) {
+  async function importNotebook(file, preserveWorkspace = false) {
     if (!file) return;
+    const workspaceNotebookId = preserveWorkspace ? notebook?.id : null;
     if (file.size > 5 * 1024 * 1024) throw new Error("Notebook files must be 5 MB or smaller.");
     const data = JSON.parse(await file.text());
     if (data.nbformat !== 4 || !Array.isArray(data.cells)) throw new Error("Choose a valid Jupyter Notebook (nbformat 4).");
@@ -498,6 +499,7 @@
       };
     }).filter(Boolean);
     notebook = makeNotebook(String(file.name).replace(/\.ipynb$/i, "").slice(0, 120) || "Imported notebook");
+    if (workspaceNotebookId) notebook.id = workspaceNotebookId;
     notebook.cells = cells.length ? cells : [makeCell()];
     await storeNotebook();
     render();
@@ -676,7 +678,7 @@
       if (!response.ok) throw new Error("The DREAM training workflow could not be loaded.");
       const blob = await response.blob();
       const file = new File([blob], "dream-ai-reviewed-adapter-training.ipynb", { type: "application/json" });
-      await importNotebook(file);
+      await importNotebook(file, true);
       el("dataset-status").textContent = "Training workflow loaded. Review its dataset and approval gates before running any training cell.";
     } catch (error) {
       showToast(error.message);
