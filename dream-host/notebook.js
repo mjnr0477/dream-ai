@@ -464,9 +464,30 @@
     const cells = data.cells.map(item => {
       if (!["code", "markdown"].includes(item.cell_type)) return null;
       const source = Array.isArray(item.source) ? item.source.join("") : String(item.source || "");
+      const output = { stdout: "", stderr: "", display: "" };
+      let error = "";
+      for (const itemOutput of Array.isArray(item.outputs) ? item.outputs : []) {
+        if (itemOutput.output_type === "stream") {
+          const name = itemOutput.name === "stderr" ? "stderr" : "stdout";
+          const text = Array.isArray(itemOutput.text) ? itemOutput.text.join("") : String(itemOutput.text || "");
+          output[name] = (output[name] + text).slice(0, 120000);
+        } else if (itemOutput.output_type === "execute_result" || itemOutput.output_type === "display_data") {
+          const plain = itemOutput.data?.["text/plain"];
+          if (plain !== undefined) {
+            output.display = (Array.isArray(plain) ? plain.join("") : String(plain)).slice(0, 120000);
+          }
+        } else if (itemOutput.output_type === "error") {
+          error = Array.isArray(itemOutput.traceback)
+            ? itemOutput.traceback.join("\n").slice(0, 120000)
+            : String(itemOutput.evalue || "Imported notebook cell failed.");
+        }
+      }
       return {
         ...makeCell(item.cell_type, source.slice(0, MAX_CELL_CHARS)),
-        executionCount: Number.isInteger(item.execution_count) ? item.execution_count : null
+        executionCount: Number.isInteger(item.execution_count) ? item.execution_count : null,
+        output,
+        error,
+        status: error ? "failed" : "idle"
       };
     }).filter(Boolean);
     notebook = makeNotebook(String(file.name).replace(/\.ipynb$/i, "").slice(0, 120) || "Imported notebook");
