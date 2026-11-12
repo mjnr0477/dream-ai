@@ -158,6 +158,7 @@ export class NotebookQueue {
         notebookId: job.notebookId,
         cellId: job.cellId,
         code: job.code,
+        status: "running",
         attempts: job.attempts,
         timeoutMs: this.jobLeaseMs
       };
