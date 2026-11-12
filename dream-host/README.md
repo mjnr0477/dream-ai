@@ -79,11 +79,12 @@ Open `https://dream-host-live.onrender.com/notebook` after the 0.3.0 host releas
 
 ### One-time HOST configuration
 
-Add this private environment variable to the DREAM HOST Render service:
+Add both of these private environment variables to the DREAM HOST Render service:
 
-- `DREAM_HOST_NOTEBOOK_TOKEN`: a new random secret containing at least 32 characters. Do not reuse the worker or chat client token.
+- `DREAM_HOST_NOTEBOOK_TOKEN`: a new random secret used by the notebook owner in the browser.
+- `DREAM_HOST_NOTEBOOK_WORKER_TOKEN`: a separate random secret used only by the notebook Python worker.
 
-Configure two new private secrets: `DREAM_HOST_NOTEBOOK_TOKEN` for the browser owner and `DREAM_HOST_NOTEBOOK_WORKER_TOKEN` for the Python executor. Both must be at least 32 characters and distinct from each other and from the existing chat `DREAM_HOST_WORKER_TOKEN` and `DREAM_HOST_CLIENT_TOKEN`. Do not place any token in the frontend source, a notebook cell, a public repository, or a notebook export.
+Each value must be at least 32 characters and distinct from the other and from the existing chat `DREAM_HOST_WORKER_TOKEN` and `DREAM_HOST_CLIENT_TOKEN`. Do not place any token in the frontend source, a notebook cell, a public repository, or a notebook export.
 
 ### Start an operator-owned notebook worker
 
