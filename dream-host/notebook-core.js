@@ -168,6 +168,7 @@ export class NotebookQueue {
     }
 
     worker.status = "idle";
+    worker.lastSeen = this.now();
     return null;
   }
 
