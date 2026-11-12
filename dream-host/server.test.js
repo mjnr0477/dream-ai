@@ -113,6 +113,19 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   const notebookJob = (await notebookJobResponse.json()).job;
   assert.equal(notebookJob.status, "queued");
 
+  const chatWorkerTokenRejected = await fetch(baseUrl + "/api/v1/notebook/workers/register", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: "Bearer " + workerToken
+    },
+    body: JSON.stringify({
+      workerId: "notebook-worker-unauthorized",
+      metadata: { role: "notebook", deviceType: "cpu" }
+    })
+  });
+  assert.equal(chatWorkerTokenRejected.status, 401);
+
   const notebookWorkerRegistration = await fetch(baseUrl + "/api/v1/notebook/workers/register", {
     method: "POST",
     headers: {
