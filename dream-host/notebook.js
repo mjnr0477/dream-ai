@@ -256,7 +256,7 @@
   }
 
   async function refreshStatus() {
-    if (!token) return;
+    if (!token) return false;
     try {
       const data = await api("/api/v1/notebook/status");
       connectPanel.hidden = true;
@@ -275,6 +275,7 @@
       el("add-markdown").disabled = false;
       el("add-code-bottom").disabled = false;
       el("run-all").disabled = running;
+      return true;
     } catch (error) {
       if (error.status === 401) {
         sessionStorage.removeItem(TOKEN_KEY);
@@ -289,6 +290,7 @@
         statusLabel("Connection unavailable", "warning");
         el("worker-detail").textContent = error.message;
       }
+      return false;
     }
   }
 
@@ -429,8 +431,10 @@
     token = candidate;
     sessionStorage.setItem(TOKEN_KEY, candidate);
     connectMessage.textContent = "Checking the private notebook connection…";
-    await refreshStatus();
-    if (token) connectMessage.textContent = "Connected for this browser session.";
+    const connected = await refreshStatus();
+    connectMessage.textContent = connected
+      ? "Connected for this browser session."
+      : "Connection is not ready. Check the key and DREAM HOST notebook configuration.";
   }
 
   async function init() {
