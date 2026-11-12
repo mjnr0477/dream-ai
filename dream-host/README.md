@@ -6,7 +6,10 @@ DREAM HOST is a lightweight Render-hosted control plane for GPU workers. It does
 
 - OpenAI-compatible POST /v1/chat/completions and GET /v1/models.
 - Authenticated worker registration, heartbeat, job claiming, result and failure reporting.
-- Strict worker readiness: the connected worker must report the exact configured model and adapter.\n- Separate liveness (`/health/live`) and readiness (`/health/ready`) endpoints.\n- Queue depth, uptime, connected/ready/idle/busy worker counts, and an explicit in-memory persistence indicator.\n- An integration test covering worker registration, mismatch rejection, job claim, result delivery and client completion.
+- Strict worker readiness: the connected worker must report the exact configured model and adapter.
+- Separate liveness (`/health/live`) and readiness (`/health/ready`) endpoints.
+- Queue depth, uptime, connected/ready/idle/busy worker counts, and an explicit in-memory persistence indicator.
+- An integration test covering worker registration, mismatch rejection, job claim, result delivery and client completion.
 - Bounded in-memory queue, request sizes and timeouts.
 - No inbound tunnel, public Kaggle port, or Cloudflare Quick Tunnel required.
 
