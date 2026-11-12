@@ -23,7 +23,7 @@ from pathlib import Path
 import requests
 
 HOST = os.environ.get("DREAM_HOST_URL", "https://dream-host-live.onrender.com").rstrip("/")
-TOKEN = os.environ.get("DREAM_HOST_WORKER_TOKEN", "").strip()
+TOKEN = os.environ.get("DREAM_HOST_NOTEBOOK_WORKER_TOKEN", "").strip()
 WORKER_ID = os.environ.get("DREAM_HOST_NOTEBOOK_WORKER_ID", "notebook-" + uuid.uuid4().hex[:16])
 WORKER_NAME = os.environ.get("DREAM_HOST_NOTEBOOK_WORKER_NAME", "DREAM NOTEBOOK compute worker")
 TRUSTED_MODE = os.environ.get("DREAM_HOST_NOTEBOOK_TRUSTED_MODE", "").strip() == "1"
@@ -37,7 +37,7 @@ KERNEL_LOCK = threading.Lock()
 if not HOST.startswith("https://") and not HOST.startswith("http://127.0.0.1"):
     raise RuntimeError("DREAM_HOST_URL must use HTTPS (loopback HTTP is allowed for local tests).")
 if len(TOKEN) < 32:
-    raise RuntimeError("Set DREAM_HOST_WORKER_TOKEN to the private worker token configured on DREAM HOST.")
+    raise RuntimeError("Set DREAM_HOST_NOTEBOOK_WORKER_TOKEN to the private notebook worker token configured on DREAM HOST.")
 if not TRUSTED_MODE:
     raise RuntimeError(
         "Notebook cells execute trusted Python code. Set DREAM_HOST_NOTEBOOK_TRUSTED_MODE=1 "
