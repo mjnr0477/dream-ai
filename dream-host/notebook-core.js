@@ -47,6 +47,7 @@ export class NotebookQueue {
     this.jobLeaseMs = boundedInteger(options.jobLeaseMs, 180000, 5000, 1800000);
     this.maxExecutionMs = boundedInteger(options.maxExecutionMs, 1800000, 30000, 1800000);
     this.maxAttempts = boundedInteger(options.maxAttempts, 2, 1, 5);
+    this.queueTtlMs = boundedInteger(options.queueTtlMs, 30 * 60 * 1000, 1000, 24 * 60 * 60 * 1000);
     this.jobTtlMs = boundedInteger(options.jobTtlMs, 15 * 60 * 1000, 60000, 24 * 60 * 60 * 1000);
     this.workers = new Map();
     this.jobs = new Map();
@@ -283,6 +284,12 @@ export class NotebookQueue {
       }
     }
     for (const [jobId, job] of this.jobs) {
+      const createdAge = now - Date.parse(job.createdAt);
+      if (job.status === "queued" && createdAge > this.queueTtlMs) {
+        job.status = "failed";
+        job.error = "Notebook job expired while waiting for a connected worker.";
+        job.updatedAt = new Date(now).toISOString();
+      }
       const terminal = job.status === "completed" || job.status === "failed";
       const age = now - Date.parse(job.updatedAt || job.createdAt);
       if (terminal && age > this.jobTtlMs) this.jobs.delete(jobId);
