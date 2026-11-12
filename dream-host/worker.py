@@ -23,6 +23,33 @@ WORKER_NAME = "Kaggle GPU worker"
 STOP = threading.Event()
 STATE = {"busy": False}
 
+def refresh_worker_secret():
+    global WORKER_TOKEN
+    try:
+        from kaggle_secrets import UserSecretsClient
+        candidate = str(UserSecretsClient().get_secret("DREAM_HOST_WORKER_TOKEN") or "").strip()
+        if candidate.lower().startswith("bearer "):
+            candidate = candidate[7:].strip()
+        if len(candidate) < 32:
+            print("Kaggle worker secret reload skipped: secret is missing or too short.", flush=True)
+            return False
+        if candidate == WORKER_TOKEN:
+            return False
+        WORKER_TOKEN = candidate
+        os.environ["DREAM_HOST_WORKER_TOKEN"] = candidate
+        print(
+            "Kaggle worker secret reloaded:",
+            {"length": len(candidate), "fingerprint": hashlib.sha256(candidate.encode()).hexdigest()[:12]},
+            flush=True
+        )
+        return True
+    except Exception as exc:
+        print("Kaggle worker secret reload unavailable:", str(exc)[:200], flush=True)
+        return False
+
+# Load the current Kaggle secret even when an older token was already copied into the environment.
+refresh_worker_secret()
+
 if not HOST.startswith("https://"):
     raise RuntimeError("DREAM_HOST_URL must be the HTTPS URL of your Render DREAM HOST service.")
 if len(WORKER_TOKEN) < 32:
@@ -36,7 +63,11 @@ def auth_headers():
     return {"Authorization": "Bearer " + WORKER_TOKEN, "Content-Type": "application/json"}
 
 def post(path, payload, timeout=30):
-    return requests.post(HOST + path, json=payload, headers=auth_headers(), timeout=timeout)
+    response = requests.post(HOST + path, json=payload, headers=auth_headers(), timeout=timeout)
+    if response.status_code == 401 and refresh_worker_secret():
+        print("DREAM HOST rejected the previous worker token; retrying with the refreshed Kaggle secret.", flush=True)
+        response = requests.post(HOST + path, json=payload, headers=auth_headers(), timeout=timeout)
+    return response
 
 print("Loading DREAM AI model on", torch.cuda.get_device_name(0), flush=True)
 tokenizer = AutoTokenizer.from_pretrained(ADAPTER, token=HF_TOKEN)
