@@ -1,0 +1,39 @@
+name: DREAM HOST integration checks
+
+on:
+  pull_request:
+    branches:
+      - dream-host-runtime
+    paths:
+      - "dream-host/**"
+      - "package.json"
+      - "lib/**"
+      - "scripts/**"
+  push:
+    branches:
+      - dream-host-runtime
+    paths:
+      - "dream-host/**"
+      - "package.json"
+      - "lib/**"
+      - "scripts/**"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Node 20 validation and integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Install dependencies without running lifecycle scripts
+        run: npm install --ignore-scripts
+      - name: Run syntax, evaluation and integration tests
+        run: npm test
