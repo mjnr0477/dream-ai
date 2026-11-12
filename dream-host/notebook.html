@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b1118">
+  <meta name="description" content="DREAM NOTEBOOK — a first-party Python workspace for DREAM AI.">
+  <title>DREAM NOTEBOOK</title>
+  <link rel="stylesheet" href="/notebook.css">
+  <script src="/notebook.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="/notebook" aria-label="DREAM NOTEBOOK home">
+        <span class="brand-mark">D</span>
+        <span><strong>DREAM</strong><small>NOTEBOOK</small></span>
+      </a>
+      <div class="topbar-status">
+        <span id="connection-dot" class="status-dot" aria-hidden="true"></span>
+        <span id="connection-label">Not connected</span>
+      </div>
+      <div class="top-actions">
+        <button id="new-notebook" class="button quiet" type="button">New</button>
+        <button id="import-notebook" class="button quiet" type="button">Import</button>
+        <button id="export-notebook" class="button quiet" type="button">Export .ipynb</button>
+      </div>
+    </header>
+
+    <section id="connect-panel" class="connect-panel" aria-labelledby="connect-title">
+      <div class="connect-copy">
+        <p class="eyebrow">PRIVATE WORKSPACE</p>
+        <h1 id="connect-title">Your notebook. Your compute.</h1>
+        <p>Connect with the private notebook key configured for DREAM HOST. Notebook files stay in this browser and can be exported as standard Jupyter files.</p>
+      </div>
+      <form id="connect-form" class="connect-form">
+        <label for="access-token">Notebook access key</label>
+        <div class="token-row">
+          <input id="access-token" name="access-token" type="password" autocomplete="off" required minlength="32" placeholder="Paste your private notebook key">
+          <button class="button primary" type="submit">Connect</button>
+        </div>
+        <p id="connect-message" class="helper" role="status">The key is kept only for this browser session.</p>
+      </form>
+    </section>
+
+    <main class="workspace">
+      <div class="workspace-heading">
+        <div class="title-wrap">
+          <label class="sr-only" for="notebook-title">Notebook title</label>
+          <input id="notebook-title" class="notebook-title" value="Untitled notebook" maxlength="120">
+          <p id="save-state" class="save-state">Saved in this browser</p>
+        </div>
+        <div class="toolbar">
+          <button id="add-code" class="button primary" type="button">＋ Python cell</button>
+          <button id="add-markdown" class="button quiet" type="button">＋ Markdown</button>
+          <button id="run-all" class="button run-all" type="button">Run all</button>
+        </div>
+      </div>
+
+      <section class="worker-strip" aria-live="polite">
+        <div class="worker-label">
+          <span class="worker-icon">⌘</span>
+          <div><strong>Execution engine</strong><small id="worker-detail">Connect to check worker availability</small></div>
+        </div>
+        <div class="worker-metrics">
+          <span><b id="worker-count">—</b><small>workers</small></span>
+          <span><b id="queue-count">—</b><small>queued</small></span>
+        </div>
+      </section>
+
+      <section id="cells" class="cells" aria-label="Notebook cells"></section>
+
+      <div class="add-cell-footer">
+        <button id="add-code-bottom" class="button quiet" type="button">＋ Add Python cell</button>
+      </div>
+    </main>
+
+    <footer class="footer">
+      <span>DREAM NOTEBOOK</span>
+      <span>Notebook files are saved locally in this browser. Export important work regularly.</span>
+    </footer>
+  </div>
+
+  <input id="file-input" type="file" accept=".ipynb,application/json" hidden>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
