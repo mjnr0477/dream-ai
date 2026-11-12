@@ -1,7 +1,7 @@
 import http from "node:http";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { NotebookQueue, NotebookQueueError } from "./notebook-core.js";
+import { NotebookQueue } from "./notebook-core.js";
 
 const PORT = Number(process.env.PORT || 10000);
 function normalizeToken(value) {
@@ -72,7 +72,8 @@ async function sendStaticFile(res, fileName, contentType) {
   res.writeHead(200, {
     ...securityHeaders,
     "content-type": contentType,
-    "cache-control": "no-cache"
+    "cache-control": "no-cache",
+    "content-security-policy": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:"
   });
   res.end(content);
 }
