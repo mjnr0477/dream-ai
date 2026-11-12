@@ -120,6 +120,25 @@ python dream-host/notebook_worker.py
 
 The worker registers as a notebook executor, maintains a separate Python kernel for each notebook, heartbeats while cells run, and returns stdout, stderr, expression results and tracebacks. It allows up to four active kernels by default and cleans kernels that have been idle for 30 minutes. The worker's Python environment is the environment available to notebook cells; packages installed there are available to subsequent cells.
 
+### Persistent artifact vault (Cloudflare R2)
+
+The production artifact vault stores candidate checkpoints and training reports in a private Cloudflare R2 bucket. It uses the R2 S3-compatible API; local filesystem storage is only a development fallback and is not durable on a free Render service.
+
+Configure these variables on the `dream-host-live` Render service:
+
+- `DREAM_R2_ACCOUNT_ID`: the Cloudflare Account ID.
+- `DREAM_R2_ACCESS_KEY_ID`: the R2 S3 Access Key ID.
+- `DREAM_R2_SECRET_ACCESS_KEY`: the matching R2 Secret Access Key.
+- `DREAM_R2_BUCKET`: `dream-ai-model-vault`.
+- `DREAM_HOST_ARTIFACT_TOKEN`: a new random private token of at least 32 characters, distinct from the chat and notebook tokens.
+- Optional `DREAM_HOST_ARTIFACT_MAX_BYTES`: maximum artifact size in bytes; defaults to 536870912 (512 MiB).
+
+Create the R2 API token with **Object Read & Write** permission and restrict it to the `dream-ai-model-vault` bucket. Keep that bucket private. The Access Key ID and Secret Access Key belong only in Render's encrypted environment settings; never put them in GitHub, a notebook cell, the Kaggle worker, frontend code, or chat.
+
+For the optional Kaggle publish cell, create a Kaggle Secret named `DREAM_NOTEBOOK_ARTIFACT_TOKEN` with the same dedicated artifact token value as `DREAM_HOST_ARTIFACT_TOKEN`. The publisher talks only to the authenticated DREAM HOST API. R2 credentials never leave Render. The API stores each artifact under its SHA-256 digest, verifies integrity on download, and lists only validated metadata.
+
+When configured, `/health` reports `artifactStorage: "r2"`. A missing or invalid R2 configuration does not silently claim persistent storage; the artifact API stays disabled unless R2 or an explicitly configured local development directory is available.
+
 ### Storage and security boundaries
 
 - Notebook documents are saved in the current browser's IndexedDB. Export important work as `.ipynb`; imported Jupyter Notebook version 4 files are supported.

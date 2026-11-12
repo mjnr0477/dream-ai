@@ -1,7 +1,18 @@
 import http from "node:http";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import path from "node:path";
+import {
+  CopyObjectCommand,
+  DeleteObjectCommand,
+  GetObjectCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+  S3Client
+} from "@aws-sdk/client-s3";
 import { NotebookQueue } from "./notebook-core.js";
+import { getArtifact, listArtifacts, putArtifact } from "./artifact-store.js";
+import { createR2ArtifactStore } from "./r2-artifact-store.js";
 
 const PORT = Number(process.env.PORT || 10000);
 function normalizeToken(value) {
@@ -15,6 +26,17 @@ console.log("DREAM_HOST_WORKER_AUTH_DIAGNOSTIC", JSON.stringify({configured: Boo
 const CLIENT_TOKEN = process.env.DREAM_HOST_CLIENT_TOKEN || "";
 const NOTEBOOK_TOKEN = normalizeToken(process.env.DREAM_HOST_NOTEBOOK_TOKEN);
 const NOTEBOOK_WORKER_TOKEN = normalizeToken(process.env.DREAM_HOST_NOTEBOOK_WORKER_TOKEN);
+const ARTIFACT_TOKEN = normalizeToken(process.env.DREAM_HOST_ARTIFACT_TOKEN);
+const ARTIFACTS_DIR = String(process.env.DREAM_HOST_ARTIFACTS_DIR || "").trim();
+const R2_ACCOUNT_ID = String(process.env.DREAM_R2_ACCOUNT_ID || "").trim();
+const R2_ACCESS_KEY_ID = String(process.env.DREAM_R2_ACCESS_KEY_ID || "").trim();
+const R2_SECRET_ACCESS_KEY = String(process.env.DREAM_R2_SECRET_ACCESS_KEY || "").trim();
+const R2_BUCKET = String(process.env.DREAM_R2_BUCKET || "").trim();
+const R2_CONFIGURED = /^[a-f0-9]{32}$/i.test(R2_ACCOUNT_ID)
+  && R2_ACCESS_KEY_ID.length > 0
+  && R2_SECRET_ACCESS_KEY.length > 0
+  && /^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(R2_BUCKET);
+const ARTIFACT_MAX_BYTES = finiteNumber(process.env.DREAM_HOST_ARTIFACT_MAX_BYTES, 512 * 1024 * 1024, 1024, 1024 * 1024 * 1024);
 const NOTEBOOK_TOKEN_CONFIGURED = NOTEBOOK_TOKEN.length >= 32
   && NOTEBOOK_TOKEN !== WORKER_TOKEN
   && NOTEBOOK_TOKEN !== normalizeToken(CLIENT_TOKEN);
@@ -22,6 +44,41 @@ const NOTEBOOK_WORKER_TOKEN_CONFIGURED = NOTEBOOK_WORKER_TOKEN.length >= 32
   && NOTEBOOK_WORKER_TOKEN !== WORKER_TOKEN
   && NOTEBOOK_WORKER_TOKEN !== normalizeToken(CLIENT_TOKEN)
   && NOTEBOOK_WORKER_TOKEN !== NOTEBOOK_TOKEN;
+const ARTIFACT_R2_CLIENT = R2_CONFIGURED
+  ? new S3Client({
+      region: "auto",
+      endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+      credentials: {
+        accessKeyId: R2_ACCESS_KEY_ID,
+        secretAccessKey: R2_SECRET_ACCESS_KEY
+      },
+      maxAttempts: 3,
+      requestChecksumCalculation: "WHEN_REQUIRED",
+      responseChecksumValidation: "WHEN_REQUIRED"
+    })
+  : null;
+const ARTIFACT_STORE = R2_CONFIGURED
+  ? createR2ArtifactStore({
+      client: ARTIFACT_R2_CLIENT,
+      bucket: R2_BUCKET,
+      commands: {
+        CopyObjectCommand,
+        DeleteObjectCommand,
+        GetObjectCommand,
+        ListObjectsV2Command,
+        PutObjectCommand
+      }
+    })
+  : (ARTIFACTS_DIR && path.isAbsolute(ARTIFACTS_DIR)
+      ? {
+          putArtifact: ({ name, source, maxBytes }) => putArtifact({ root: ARTIFACTS_DIR, name, source, maxBytes }),
+          listArtifacts: () => listArtifacts(ARTIFACTS_DIR),
+          getArtifact: sha256 => getArtifact(ARTIFACTS_DIR, sha256)
+        }
+      : null);
+const ARTIFACT_STORAGE_CONFIGURED = Boolean(ARTIFACT_STORE)
+  && ARTIFACT_TOKEN.length >= 32
+  && ![WORKER_TOKEN, normalizeToken(CLIENT_TOKEN), NOTEBOOK_TOKEN, NOTEBOOK_WORKER_TOKEN].includes(ARTIFACT_TOKEN);
 const NOTEBOOK_QUEUE = new NotebookQueue({
   maxQueue: process.env.DREAM_HOST_NOTEBOOK_MAX_QUEUE,
   maxCodeChars: process.env.DREAM_HOST_NOTEBOOK_MAX_CODE_CHARS,
@@ -257,6 +314,7 @@ function statusSnapshot() {
     device: activeWorker?.metadata?.device || null,
     uptimeSeconds: Math.max(0, Math.floor((Date.now() - STARTED_AT) / 1000)),
     persistence: "in-memory",
+    artifactStorage: ARTIFACT_STORAGE_CONFIGURED ? (R2_CONFIGURED ? "r2" : "filesystem") : "disabled",
     queue: {
       pending: pending.filter(id => jobs.get(id)?.status === "queued").length,
       running: [...jobs.values()].filter(job => job.status === "running").length,
@@ -483,6 +541,49 @@ async function handleWorkerRoute(req, res, url) {
   return sendJson(res, 404, { error: "Worker endpoint not found." });
 }
 
+async function handleArtifactRoute(req, res, url) {
+  if (!ARTIFACT_STORAGE_CONFIGURED) {
+    return sendJson(res, 503, { error: { message: "DREAM artifact vault is disabled. Configure its dedicated token and either Cloudflare R2 credentials or an absolute local storage directory.", type: "configuration_error" } });
+  }
+  if (!tokenMatches(req, ARTIFACT_TOKEN)) {
+    return sendJson(res, 401, { error: { message: "Unauthorized", type: "authentication_error" } });
+  }
+  try {
+    if (req.method === "GET" && url.pathname === "/api/v1/notebook/artifacts") {
+      return sendJson(res, 200, { ok: true, artifacts: await ARTIFACT_STORE.listArtifacts() });
+    }
+    const downloadMatch = url.pathname.match(/^\/api\/v1\/notebook\/artifacts\/([a-f0-9]{64})$/);
+    if (req.method === "GET" && downloadMatch) {
+      const { metadata, stream } = await ARTIFACT_STORE.getArtifact(downloadMatch[1]);
+      res.writeHead(200, {
+        "content-type": "application/octet-stream",
+        "content-length": String(metadata.size_bytes),
+        "content-disposition": `attachment; filename="dream-artifact-${metadata.sha256}.bin"`,
+        "cache-control": "no-store",
+        "x-content-type-options": "nosniff",
+        "x-artifact-sha256": metadata.sha256
+      });
+      stream.on("error", () => res.destroy());
+      stream.pipe(res);
+      return;
+    }
+    const uploadMatch = url.pathname.match(/^\/api\/v1\/notebook\/artifacts\/([A-Za-z0-9._-]{1,120})$/);
+    if ((req.method === "PUT" || req.method === "POST") && uploadMatch) {
+      const metadata = await ARTIFACT_STORE.putArtifact({
+        name: uploadMatch[1],
+        source: req,
+        contentLength: req.headers["content-length"],
+        maxBytes: ARTIFACT_MAX_BYTES
+      });
+      return sendJson(res, 201, { ok: true, artifact: metadata });
+    }
+    return sendJson(res, 404, { error: { message: "Artifact endpoint not found.", type: "not_found" } });
+  } catch (error) {
+    const status = Number.isInteger(error.status) ? error.status : 500;
+    return sendJson(res, status, { error: { message: status >= 500 ? "DREAM artifact vault request failed." : error.message, type: "artifact_error" } });
+  }
+}
+
 async function handleNotebookClientRoute(req, res, url) {
   if (url.pathname === "/api/v1/notebook/session" && req.method === "POST") {
     if (!NOTEBOOK_TOKEN_CONFIGURED || !NOTEBOOK_WORKER_TOKEN_CONFIGURED) {
@@ -613,6 +714,9 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === "POST" && url.pathname === "/v1/chat/completions") {
       return await handleChat(req, res);
+    }
+    if (url.pathname.startsWith("/api/v1/notebook/artifacts")) {
+      return await handleArtifactRoute(req, res, url);
     }
     if (url.pathname.startsWith("/api/v1/notebook/workers/")) {
       return await handleNotebookWorkerRoute(req, res, url);
