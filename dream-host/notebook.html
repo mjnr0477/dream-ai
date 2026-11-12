@@ -27,6 +27,7 @@
         <button id="new-notebook" class="button quiet" type="button">New</button>
         <button id="import-notebook" class="button quiet" type="button">Import</button>
         <button id="export-notebook" class="button quiet" type="button">Export .ipynb</button>
+        <button id="forget-key" class="button quiet" type="button">Forget access</button>
       </div>
     </header>
 
@@ -42,7 +43,8 @@
           <input id="access-token" name="access-token" type="password" autocomplete="off" required minlength="32" placeholder="Paste your private notebook key">
           <button class="button primary" type="submit">Connect</button>
         </div>
-        <p id="connect-message" class="helper" role="status">The key is kept only for this browser session.</p>
+        <label class="remember-row"><input id="remember-key" type="checkbox" checked> Remember this device for 30 days</label>
+        <p id="connect-message" class="helper" role="status">The key is saved in a secure, HTTP-only browser cookie. It is not added to notebook files.</p>
       </form>
     </section>
 
@@ -69,6 +71,37 @@
           <span><b id="worker-count">—</b><small>workers</small></span>
           <span><b id="queue-count">—</b><small>queued</small></span>
         </div>
+      </section>
+
+      <section class="studio-panel" aria-labelledby="studio-title">
+        <div class="studio-heading">
+          <p class="eyebrow">DATA + TRAINING</p>
+          <h2 id="studio-title">Dataset manager &amp; training studio</h2>
+          <p>Download datasets directly to the connected Kaggle worker, inspect attached Kaggle datasets, and load DREAM's reviewed adapter-training workflow.</p>
+        </div>
+        <div class="dataset-grid">
+          <div class="dataset-field">
+            <label for="dataset-url">Dataset HTTPS download URL</label>
+            <input id="dataset-url" type="url" inputmode="url" placeholder="https://example.org/train.jsonl">
+          </div>
+          <div class="dataset-field">
+            <label for="dataset-filename">Save filename</label>
+            <input id="dataset-filename" type="text" maxlength="120" value="train.jsonl" placeholder="train.jsonl">
+          </div>
+          <div class="dataset-actions">
+            <button id="download-dataset" class="button primary" type="button" disabled>Download dataset</button>
+            <button id="scan-datasets" class="button quiet" type="button" disabled>Scan datasets</button>
+          </div>
+          <div class="dataset-field">
+            <label for="dataset-delete-name">Downloaded file to delete</label>
+            <input id="dataset-delete-name" type="text" maxlength="120" placeholder="filename.jsonl">
+          </div>
+          <div class="dataset-actions">
+            <button id="delete-dataset" class="button quiet" type="button" disabled>Delete downloaded file</button>
+            <button id="import-training" class="button run-all" type="button" disabled>Load DREAM training workflow</button>
+          </div>
+        </div>
+        <p id="dataset-status" class="helper" role="status">Files downloaded here stay in the worker's temporary notebook workspace. Large or private training data can be attached to Kaggle as a private Dataset and found under /kaggle/input.</p>
       </section>
 
       <section id="cells" class="cells" aria-label="Notebook cells"></section>

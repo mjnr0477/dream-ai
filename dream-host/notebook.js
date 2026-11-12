@@ -16,7 +16,8 @@
   const connectPanel = el("connect-panel");
   const connectMessage = el("connect-message");
   const toast = el("toast");
-  let token = sessionStorage.getItem(TOKEN_KEY) || "";
+  let token = "";
+  let authorized = false;
   let notebook = null;
   let dbPromise = null;
   let refreshHandle = null;
@@ -180,10 +181,15 @@
     el("new-notebook").disabled = running;
     el("import-notebook").disabled = running;
     el("notebook-list").disabled = running;
-    el("add-code").disabled = running || !token;
-    el("add-markdown").disabled = running || !token;
-    el("add-code-bottom").disabled = running || !token;
-    el("run-all").disabled = running || !token;
+    const locked = running || (!authorized && !token);
+    el("add-code").disabled = locked;
+    el("add-markdown").disabled = locked;
+    el("add-code-bottom").disabled = locked;
+    el("run-all").disabled = locked;
+    el("download-dataset").disabled = locked;
+    el("scan-datasets").disabled = locked;
+    el("delete-dataset").disabled = locked;
+    el("import-training").disabled = locked;
   }
 
   function showOutput(container, output, errorText = "") {
@@ -292,9 +298,10 @@
   async function api(path, options = {}) {
     const response = await fetch(path, {
       ...options,
+      credentials: "same-origin",
       headers: {
         ...(options.headers || {}),
-        authorization: "Bearer " + token,
+        ...(token ? { authorization: "Bearer " + token } : {}),
         ...(options.body ? { "content-type": "application/json" } : {})
       },
       cache: "no-store"
@@ -311,9 +318,9 @@
   }
 
   async function refreshStatus() {
-    if (!token) return false;
     try {
       const data = await api("/api/v1/notebook/status");
+      authorized = true;
       connectPanel.hidden = true;
       const count = Number(data.workers?.connected || 0);
       el("worker-count").textContent = String(count);
@@ -330,10 +337,10 @@
       return true;
     } catch (error) {
       if (error.status === 401) {
-        sessionStorage.removeItem(TOKEN_KEY);
+        authorized = false;
         token = "";
         updateControls();
-        statusLabel("Access key rejected", "warning");
+        statusLabel("Access key required", "warning");
         connectPanel.hidden = false;
       } else if (error.status === 503) {
         statusLabel("Notebook not configured", "warning");
@@ -350,7 +357,7 @@
   }
 
   async function runCell(cellId) {
-    if (!token || running) return;
+    if ((!authorized && !token) || running) return;
     const cell = notebook.cells.find(item => item.id === cellId);
     if (!cell || cell.type !== "code") return;
     if (!cell.source.trim()) {
@@ -401,7 +408,7 @@
   }
 
   async function runAll() {
-    if (!token || running) return;
+    if ((!authorized && !token) || running) return;
     for (const cell of notebook.cells) {
       if (cell.type === "code") {
         await runCell(cell.id);
@@ -455,8 +462,9 @@
     showToast("Notebook exported.");
   }
 
-  async function importNotebook(file) {
+  async function importNotebook(file, preserveWorkspace = false) {
     if (!file) return;
+    const workspaceNotebookId = preserveWorkspace ? notebook?.id : null;
     if (file.size > 5 * 1024 * 1024) throw new Error("Notebook files must be 5 MB or smaller.");
     const data = JSON.parse(await file.text());
     if (data.nbformat !== 4 || !Array.isArray(data.cells)) throw new Error("Choose a valid Jupyter Notebook (nbformat 4).");
@@ -491,10 +499,29 @@
       };
     }).filter(Boolean);
     notebook = makeNotebook(String(file.name).replace(/\.ipynb$/i, "").slice(0, 120) || "Imported notebook");
+    if (workspaceNotebookId) notebook.id = workspaceNotebookId;
     notebook.cells = cells.length ? cells : [makeCell()];
     await storeNotebook();
     render();
     showToast("Notebook imported.");
+  }
+
+  async function createRememberedSession(candidate, remember) {
+    const response = await fetch("/api/v1/notebook/session", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        authorization: "Bearer " + candidate,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({ remember: Boolean(remember) }),
+      cache: "no-store"
+    });
+    let body = {};
+    try { body = await response.json(); } catch {}
+    if (!response.ok) {
+      throw new Error(body.error?.message || "DREAM HOST could not save this browser session.");
+    }
   }
 
   async function connect(event) {
@@ -504,13 +531,158 @@
       connectMessage.textContent = "The notebook key must contain at least 32 characters.";
       return;
     }
-    token = candidate;
-    sessionStorage.setItem(TOKEN_KEY, candidate);
-    connectMessage.textContent = "Checking the private notebook connection…";
-    const connected = await refreshStatus();
-    connectMessage.textContent = connected
-      ? "Connected for this browser session."
-      : "Connection is not ready. Check the key and DREAM HOST notebook configuration.";
+    connectMessage.textContent = "Verifying the private notebook key…";
+    try {
+      await createRememberedSession(candidate, el("remember-key").checked);
+      token = "";
+      tokenInput.value = "";
+      const connected = await refreshStatus();
+      connectMessage.textContent = connected
+        ? (el("remember-key").checked ? "Connected. This device will stay signed in for 30 days." : "Connected for this browser session.")
+        : "The key was accepted, but the notebook service is not responding yet.";
+    } catch (error) {
+      token = "";
+      connectMessage.textContent = error.message;
+    }
+  }
+
+  async function forgetAccess() {
+    try {
+      await fetch("/api/v1/notebook/session", {
+        method: "DELETE",
+        credentials: "same-origin",
+        cache: "no-store"
+      });
+    } finally {
+      token = "";
+      authorized = false;
+      sessionStorage.removeItem(TOKEN_KEY);
+      connectPanel.hidden = false;
+      statusLabel("Access forgotten", "warning");
+      updateControls();
+      tokenInput.value = "";
+      showToast("This browser has been disconnected from DREAM NOTEBOOK.");
+    }
+  }
+
+  async function addGeneratedCodeCell(source) {
+    if (!authorized || running) return;
+    if (notebook.cells.length >= MAX_CELLS) {
+      showToast("This notebook has reached the " + MAX_CELLS + " cell limit.");
+      return;
+    }
+    const cell = makeCell("code", source);
+    notebook.cells.push(cell);
+    await storeNotebook();
+    render();
+    await runCell(cell.id);
+  }
+
+  function validDatasetFilename(value) {
+    const name = String(value || "").trim();
+    return /^[A-Za-z0-9][A-Za-z0-9._ -]{0,119}$/.test(name)
+      && name !== "." && name !== ".." && !name.includes("..");
+  }
+
+  function downloadDataset() {
+    const source = el("dataset-url").value.trim();
+    const filename = el("dataset-filename").value.trim();
+    let parsed;
+    try { parsed = new URL(source); } catch {}
+    if (!parsed || parsed.protocol !== "https:") {
+      showToast("Enter a valid HTTPS dataset URL.");
+      return;
+    }
+    if (!validDatasetFilename(filename)) {
+      showToast("Use a simple filename without folders or path traversal.");
+      return;
+    }
+    const code = [
+      "from pathlib import Path",
+      "from urllib.parse import urlparse",
+      "from urllib.request import urlopen",
+      "source = " + JSON.stringify(source),
+      "filename = " + JSON.stringify(filename),
+      "if urlparse(source).scheme != 'https': raise ValueError('Only HTTPS dataset downloads are allowed.')",
+      "target = Path('datasets') / filename",
+      "target.parent.mkdir(parents=True, exist_ok=True)",
+      "downloaded = 0",
+      "try:",
+      "    with urlopen(source, timeout=60) as response, target.open('wb') as output:",
+      "        while True:",
+      "            chunk = response.read(1024 * 1024)",
+      "            if not chunk: break",
+      "            downloaded += len(chunk)",
+      "            if downloaded > 2 * 1024 * 1024 * 1024: raise ValueError('Dataset exceeds the 2 GiB per-file limit.')",
+      "            output.write(chunk)",
+      "except Exception:",
+      "    target.unlink(missing_ok=True)",
+      "    raise",
+      "print('Dataset saved:', target.resolve())",
+      "print('Bytes:', downloaded)"
+    ].join("\n");
+    el("dataset-status").textContent = "Downloading " + filename + " to the connected worker…";
+    addGeneratedCodeCell(code).catch(error => showToast(error.message));
+  }
+
+  function scanDatasets() {
+    const code = [
+      "from pathlib import Path",
+      "import itertools",
+      "roots = [('Notebook datasets', Path('datasets')), ('Attached Kaggle datasets', Path('/kaggle/input'))]",
+      "for label, root in roots:",
+      "    print('\\n' + label + ':')",
+      "    if not root.exists():",
+      "        print('  (not available)')",
+      "        continue",
+      "    count = 0",
+      "    for path in itertools.islice(sorted(root.rglob('*')), 500):",
+      "        if path.is_file():",
+      "            print(f'  {path}  |  {path.stat().st_size:,} bytes')",
+      "            count += 1",
+      "    if count == 0: print('  (no files found)')",
+      "    if count == 500: print('  Showing the first 500 files only.')"
+    ].join("\n");
+    el("dataset-status").textContent = "Scanning the worker's dataset folders…";
+    addGeneratedCodeCell(code).catch(error => showToast(error.message));
+  }
+
+  function deleteDataset() {
+    const filename = el("dataset-delete-name").value.trim();
+    if (!validDatasetFilename(filename)) {
+      showToast("Enter the exact downloaded filename to delete.");
+      return;
+    }
+    const code = [
+      "from pathlib import Path",
+      "filename = " + JSON.stringify(filename),
+      "target = Path('datasets') / filename",
+      "if target.is_file():",
+      "    target.unlink()",
+      "    print('Deleted:', target)",
+      "else:",
+      "    print('No downloaded file found with that name:', filename)"
+    ].join("\n");
+    el("dataset-status").textContent = "Deleting " + filename + " from the notebook workspace…";
+    addGeneratedCodeCell(code).catch(error => showToast(error.message));
+  }
+
+  async function importTrainingWorkflow() {
+    if (!authorized || running) return;
+    if (!window.confirm("Load the reviewed DREAM AI adapter-training notebook? This replaces the currently open notebook, so export any unsaved work first.")) return;
+    try {
+      const response = await fetch("/notebook/training-template.ipynb", {
+        credentials: "same-origin",
+        cache: "no-store"
+      });
+      if (!response.ok) throw new Error("The DREAM training workflow could not be loaded.");
+      const blob = await response.blob();
+      const file = new File([blob], "dream-ai-reviewed-adapter-training.ipynb", { type: "application/json" });
+      await importNotebook(file, true);
+      el("dataset-status").textContent = "Training workflow loaded. Review its dataset and approval gates before running any training cell.";
+    } catch (error) {
+      showToast(error.message);
+    }
   }
 
   async function init() {
@@ -524,6 +696,11 @@
     }
 
     el("connect-form").addEventListener("submit", connect);
+    el("forget-key").addEventListener("click", forgetAccess);
+    el("download-dataset").addEventListener("click", downloadDataset);
+    el("scan-datasets").addEventListener("click", scanDatasets);
+    el("delete-dataset").addEventListener("click", deleteDataset);
+    el("import-training").addEventListener("click", importTrainingWorkflow);
     el("notebook-list").addEventListener("change", event => {
       switchNotebook(event.target.value).catch(error => showToast(error.message));
     });
@@ -550,9 +727,14 @@
       scheduleSave();
     });
 
-    connectPanel.hidden = Boolean(token);
+    connectPanel.hidden = false;
     updateControls();
-    if (token) await refreshStatus();
+    const legacyToken = sessionStorage.getItem(TOKEN_KEY) || "";
+    if (legacyToken) {
+      try { await createRememberedSession(legacyToken, true); } catch {}
+      sessionStorage.removeItem(TOKEN_KEY);
+    }
+    await refreshStatus();
     refreshHandle = setInterval(refreshStatus, 10000);
   }
 

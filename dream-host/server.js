@@ -94,6 +94,17 @@ function tokenMatches(req, expected) {
   return supplied.length === wanted.length && timingSafeEqual(supplied, wanted);
 }
 
+function notebookCookieMatches(req) {
+  const cookies = String(req.headers.cookie || "").split(";");
+  const entry = cookies.map(value => value.trim()).find(value => value.startsWith("dream_notebook_session="));
+  if (!entry) return false;
+  let value = "";
+  try { value = decodeURIComponent(entry.slice("dream_notebook_session=".length)); } catch { return false; }
+  const supplied = Buffer.from(value);
+  const wanted = Buffer.from(NOTEBOOK_TOKEN);
+  return supplied.length === wanted.length && timingSafeEqual(supplied, wanted);
+}
+
 function requireToken(req, res, expected) {
   if (tokenMatches(req, expected)) return true;
   sendJson(res, 401, { error: { message: "Unauthorized", type: "authentication_error" } });
@@ -110,7 +121,9 @@ function requireNotebookToken(req, res) {
     });
     return false;
   }
-  return requireToken(req, res, NOTEBOOK_TOKEN);
+  if (tokenMatches(req, NOTEBOOK_TOKEN) || notebookCookieMatches(req)) return true;
+  sendJson(res, 401, { error: { message: "Unauthorized", type: "authentication_error" } });
+  return false;
 }
 
 function requireNotebookWorkerToken(req, res) {
@@ -471,6 +484,27 @@ async function handleWorkerRoute(req, res, url) {
 }
 
 async function handleNotebookClientRoute(req, res, url) {
+  if (url.pathname === "/api/v1/notebook/session" && req.method === "POST") {
+    if (!NOTEBOOK_TOKEN_CONFIGURED || !NOTEBOOK_WORKER_TOKEN_CONFIGURED) {
+      return sendJson(res, 503, { error: { message: "DREAM NOTEBOOK is not configured.", type: "configuration_error" } });
+    }
+    if (!requireToken(req, res, NOTEBOOK_TOKEN)) return;
+    try {
+      const body = await readJson(req);
+      const remember = body.remember !== false;
+      const persistent = remember ? "; Max-Age=2592000" : "";
+      const cookie = "dream_notebook_session=" + encodeURIComponent(NOTEBOOK_TOKEN)
+        + "; Path=/api/v1/notebook; HttpOnly; Secure; SameSite=Strict" + persistent;
+      return sendJson(res, 200, { ok: true, remembered: remember }, { "set-cookie": cookie });
+    } catch (error) {
+      const status = Number.isInteger(error.status) ? error.status : 400;
+      return sendJson(res, status, { error: { message: error.message, type: "session_error" } });
+    }
+  }
+  if (url.pathname === "/api/v1/notebook/session" && req.method === "DELETE") {
+    const cookie = "dream_notebook_session=; Path=/api/v1/notebook; HttpOnly; Secure; SameSite=Strict; Max-Age=0";
+    return sendJson(res, 200, { ok: true, cleared: true }, { "set-cookie": cookie });
+  }
   if (!requireNotebookToken(req, res)) return;
   try {
     if (req.method === "GET" && url.pathname === "/api/v1/notebook/status") {
@@ -542,6 +576,16 @@ const server = http.createServer(async (req, res) => {
     const url = new URL(req.url || "/", "http://localhost");
     if (req.method === "GET" && url.pathname === "/notebook") {
       return await sendStaticFile(res, "./notebook.html", "text/html; charset=utf-8");
+    }
+    if (req.method === "GET" && url.pathname === "/notebook/training-template.ipynb") {
+      const content = await readFile(new URL("../training/dream_ai_adapter_self_train_kaggle.ipynb", import.meta.url));
+      res.writeHead(200, {
+        ...securityHeaders,
+        "content-type": "application/x-ipynb+json; charset=utf-8",
+        "cache-control": "no-store"
+      });
+      res.end(content);
+      return;
     }
     if (req.method === "GET" && url.pathname === "/notebook.js") {
       return await sendStaticFile(res, "./notebook.js", "text/javascript; charset=utf-8");
