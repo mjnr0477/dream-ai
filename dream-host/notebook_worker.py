@@ -149,6 +149,11 @@ def child_environment(workspace: Path) -> dict[str, str]:
     # operator environment variables into notebook code.
     allowed = ("PATH", "LANG", "LC_ALL", "CUDA_VISIBLE_DEVICES", "LD_LIBRARY_PATH")
     environment = {key: os.environ[key] for key in allowed if key in os.environ}
+    # Pass only an explicitly configured model-training secret to trusted
+    # notebook kernels. The DREAM HOST worker token remains excluded.
+    training_token = os.environ.get("DREAM_NOTEBOOK_HF_TOKEN", "").strip()
+    if training_token:
+        environment["DREAM_NOTEBOOK_HF_TOKEN"] = training_token
     environment["HOME"] = str(workspace)
     environment["TMPDIR"] = str(workspace)
     environment["PYTHONUNBUFFERED"] = "1"
