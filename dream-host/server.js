@@ -3,6 +3,8 @@ import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import {
+  CopyObjectCommand,
+  DeleteObjectCommand,
   GetObjectCommand,
   ListObjectsV2Command,
   PutObjectCommand,
@@ -59,7 +61,13 @@ const ARTIFACT_STORE = R2_CONFIGURED
   ? createR2ArtifactStore({
       client: ARTIFACT_R2_CLIENT,
       bucket: R2_BUCKET,
-      commands: { GetObjectCommand, ListObjectsV2Command, PutObjectCommand }
+      commands: {
+        CopyObjectCommand,
+        DeleteObjectCommand,
+        GetObjectCommand,
+        ListObjectsV2Command,
+        PutObjectCommand
+      }
     })
   : (ARTIFACTS_DIR && path.isAbsolute(ARTIFACTS_DIR)
       ? {
