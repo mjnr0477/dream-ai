@@ -44,5 +44,6 @@ jobs:
           npm test
           node --check dream-host/server.js
           node --check dream-host/notebook-core.js
+          node --check dream-host/notebook.js
           node --test dream-host/*.test.js
           python -m py_compile dream-host/notebook_worker.py
