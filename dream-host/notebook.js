@@ -138,7 +138,9 @@
         stdout: String(cell.output?.stdout || "").slice(0, 120000),
         stderr: String(cell.output?.stderr || "").slice(0, 120000),
         display: String(cell.output?.display || "").slice(0, 120000)
-      }
+      },
+      status: "idle",
+      error: ""
     }));
     if (!notebook.cells.length) notebook.cells = [makeCell()];
     await updateNotebookList();
@@ -174,6 +176,16 @@
     el("connection-dot").className = "status-dot" + (state ? " " + state : "");
   }
 
+  function updateControls() {
+    el("new-notebook").disabled = running;
+    el("import-notebook").disabled = running;
+    el("notebook-list").disabled = running;
+    el("add-code").disabled = running || !token;
+    el("add-markdown").disabled = running || !token;
+    el("add-code-bottom").disabled = running || !token;
+    el("run-all").disabled = running || !token;
+  }
+
   function showOutput(container, output, errorText = "") {
     container.replaceChildren();
     const values = [
@@ -201,6 +213,7 @@
     if (!notebook) return;
     el("notebook-title").value = notebook.title;
     cellsRoot.replaceChildren();
+    updateControls();
 
     notebook.cells.forEach((cell, index) => {
       const article = document.createElement("article");
@@ -313,25 +326,25 @@
         el("worker-detail").textContent = "No notebook worker is connected yet. Start an operator-owned worker.";
         statusLabel("Connected · waiting for compute", "warning");
       }
-      el("add-code").disabled = false;
-      el("add-markdown").disabled = false;
-      el("add-code-bottom").disabled = false;
-      el("run-all").disabled = running;
+      updateControls();
       return true;
     } catch (error) {
       if (error.status === 401) {
         sessionStorage.removeItem(TOKEN_KEY);
         token = "";
+        updateControls();
         statusLabel("Access key rejected", "warning");
         connectPanel.hidden = false;
       } else if (error.status === 503) {
         statusLabel("Notebook not configured", "warning");
         connectPanel.hidden = false;
+        updateControls();
         connectMessage.textContent = error.message;
       } else {
         statusLabel("Connection unavailable", "warning");
         el("worker-detail").textContent = error.message;
       }
+      updateControls();
       return false;
     }
   }
@@ -382,7 +395,7 @@
       running = false;
       scheduleSave();
       render();
-      el("run-all").disabled = !token;
+      updateControls();
       await refreshStatus();
     }
   }
@@ -517,6 +530,7 @@
     });
 
     connectPanel.hidden = Boolean(token);
+    updateControls();
     if (token) await refreshStatus();
     refreshHandle = setInterval(refreshStatus, 10000);
   }
