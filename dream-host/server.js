@@ -214,6 +214,7 @@ async function handleChat(req, res) {
 
   const result = await new Promise(resolve => {
     const timer = setTimeout(() => {
+      waiters.delete(job.id);
       job.status = "timed_out";
       job.updatedAt = new Date().toISOString();
       removePending(job.id);
