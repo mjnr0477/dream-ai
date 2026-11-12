@@ -1,6 +1,7 @@
 import http from "node:http";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { NotebookQueue } from "./notebook-core.js";
 import { getArtifact, listArtifacts, putArtifact } from "./artifact-store.js";
 
@@ -27,6 +28,7 @@ const NOTEBOOK_WORKER_TOKEN_CONFIGURED = NOTEBOOK_WORKER_TOKEN.length >= 32
   && NOTEBOOK_WORKER_TOKEN !== normalizeToken(CLIENT_TOKEN)
   && NOTEBOOK_WORKER_TOKEN !== NOTEBOOK_TOKEN;
 const ARTIFACT_STORAGE_CONFIGURED = Boolean(ARTIFACTS_DIR)
+  && path.isAbsolute(ARTIFACTS_DIR)
   && ARTIFACT_TOKEN.length >= 32
   && ![WORKER_TOKEN, normalizeToken(CLIENT_TOKEN), NOTEBOOK_TOKEN, NOTEBOOK_WORKER_TOKEN].includes(ARTIFACT_TOKEN);
 const NOTEBOOK_QUEUE = new NotebookQueue({
