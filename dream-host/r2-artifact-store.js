@@ -1,9 +1,9 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { createReadStream, createWriteStream } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { Readable, Transform } from "node:stream";
+import { Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 
 const SHA256_RE = /^[a-f0-9]{64}$/;
@@ -32,8 +32,8 @@ function assertHash(value) {
   return hash;
 }
 
-async function bodyToBuffer(body, maxBytes = 1024 * 1024) {
-  if (!body) throw new R2ArtifactStoreError("R2 returned an empty object body.", 502);
+async function bodyToBuffer(body, maxBytes = 64 * 1024) {
+  if (!body) throw new R2ArtifactStoreError("R2 returned an empty metadata body.", 502);
   const chunks = [];
   let size = 0;
   for await (const chunk of body) {
@@ -56,8 +56,9 @@ function metadataIsValid(value, sha256) {
 }
 
 /**
- * Content-addressed R2 object store. The client and command constructors are
- * injected so the storage behavior can be tested without live R2 credentials.
+ * Content-addressed R2 object store. Uploads use a bounded temporary file only
+ * while hashing; the durable copy is written to the private R2 bucket.
+ * The client and command constructors are injected for credential-free tests.
  */
 export function createR2ArtifactStore({ client, bucket, commands }) {
   if (!client || typeof client.send !== "function") {
@@ -66,10 +67,10 @@ export function createR2ArtifactStore({ client, bucket, commands }) {
   if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(String(bucket || ""))) {
     throw new TypeError("A valid R2 bucket name is required.");
   }
-  for (const name of ["PutObjectCommand", "GetObjectCommand", "ListObjectsV2Command", "DeleteObjectCommand"]) {
+  for (const name of ["PutObjectCommand", "GetObjectCommand", "ListObjectsV2Command"]) {
     if (typeof commands?.[name] !== "function") throw new TypeError(`Missing S3 command: ${name}`);
   }
-  const { PutObjectCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectCommand } = commands;
+  const { PutObjectCommand, GetObjectCommand, ListObjectsV2Command } = commands;
 
   async function putArtifact({ name, source, contentLength, maxBytes = 512 * 1024 * 1024 }) {
     const safe = safeName(name);
@@ -85,58 +86,36 @@ export function createR2ArtifactStore({ client, bucket, commands }) {
       throw new R2ArtifactStoreError("Artifact upload stream is invalid.", 400);
     }
 
+    const directory = await mkdtemp(path.join(os.tmpdir(), "dream-r2-upload-"));
+    const temporaryPath = path.join(directory, randomUUID() + ".part");
     const digest = createHash("sha256");
     let size = 0;
-    let streamFailure = null;
     const meter = new Transform({
       transform(chunk, encoding, callback) {
         const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
         size += bytes.length;
         if (size > maxBytes || size > expectedBytes) {
-          streamFailure = new R2ArtifactStoreError("Artifact exceeds its declared or configured upload size.", 413);
-          callback(streamFailure);
+          callback(new R2ArtifactStoreError("Artifact exceeds its declared or configured upload size.", 413));
           return;
         }
         digest.update(bytes);
         callback(null, bytes);
       }
     });
-    source.on("error", error => meter.destroy(error));
-    const shaKey = () => digest.digest("hex");
-    const objectKey = "objects/" + "pending";
 
-    // The key is content-addressed, so stream to a temporary R2 key first.
-    // Once hashing completes, copy-free R2 writes are avoided by buffering only
-    // the metadata; the content itself is uploaded under its final hash key.
-    const temporaryKey = "uploads/" + cryptoRandomKey();
     try {
-      const uploadPromise = client.send(new PutObjectCommand({
-        Bucket: bucket,
-        Key: temporaryKey,
-        Body: meter,
-        ContentLength: expectedBytes,
-        ContentType: "application/octet-stream"
-      }));
-      source.pipe(meter);
-      await uploadPromise;
-      if (size !== expectedBytes) {
-        throw new R2ArtifactStoreError("Artifact byte count did not match Content-Length.", 400);
-      }
-      const sha256 = shaKey();
-      const finalKey = "objects/" + sha256 + ".bin";
-      // A temporary object avoids needing to know the SHA-256 before streaming.
-      // R2 CopyObject is not required: read the temporary upload once and write
-      // the final key through a server-side stream.
-      const temporary = await client.send(new GetObjectCommand({ Bucket: bucket, Key: temporaryKey }));
-      if (!temporary?.Body) throw new R2ArtifactStoreError("R2 did not return the completed temporary upload.", 502);
+      await pipeline(source, meter, createWriteStream(temporaryPath, { flags: "wx", mode: 0o600 }));
+      if (size < 1) throw new R2ArtifactStoreError("Artifact upload is empty.", 400);
+      if (size !== expectedBytes) throw new R2ArtifactStoreError("Artifact byte count did not match Content-Length.", 400);
+      const sha256 = digest.digest("hex");
+      const objectKey = "objects/" + sha256 + ".bin";
       await client.send(new PutObjectCommand({
         Bucket: bucket,
-        Key: finalKey,
-        Body: temporary.Body,
-        ContentLength: expectedBytes,
+        Key: objectKey,
+        Body: createReadStream(temporaryPath),
+        ContentLength: size,
         ContentType: "application/octet-stream"
       }));
-      await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: temporaryKey }));
 
       const metadata = {
         schema: METADATA_SCHEMA,
@@ -155,12 +134,12 @@ export function createR2ArtifactStore({ client, bucket, commands }) {
       }));
       return metadata;
     } catch (error) {
-      await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: temporaryKey })).catch(() => {});
-      if (streamFailure) throw streamFailure;
       if (error instanceof R2ArtifactStoreError) throw error;
       const failure = new R2ArtifactStoreError("R2 could not store the artifact.", 502);
       failure.cause = error;
       throw failure;
+    } finally {
+      await rm(directory, { recursive: true, force: true }).catch(() => {});
     }
   }
 
@@ -171,7 +150,7 @@ export function createR2ArtifactStore({ client, bucket, commands }) {
         Bucket: bucket,
         Key: "metadata/" + hash + ".json"
       }));
-      const bytes = await bodyToBuffer(result.Body, 64 * 1024);
+      const bytes = await bodyToBuffer(result.Body);
       const metadata = JSON.parse(bytes.toString("utf8"));
       if (!metadataIsValid(metadata, hash)) {
         throw new R2ArtifactStoreError("Artifact metadata failed validation.", 409);
@@ -249,15 +228,13 @@ export function createR2ArtifactStore({ client, bucket, commands }) {
       if (error instanceof R2ArtifactStoreError) throw error;
       throw new R2ArtifactStoreError("R2 artifact download failed.", 502);
     }
+
     const stream = createReadStream(temporaryPath);
-    stream.once("close", () => { rm(directory, { recursive: true, force: true }).catch(() => {}); });
-    stream.once("error", () => { rm(directory, { recursive: true, force: true }).catch(() => {}); });
+    const cleanup = () => { rm(directory, { recursive: true, force: true }).catch(() => {}); };
+    stream.once("close", cleanup);
+    stream.once("error", cleanup);
     return { metadata, stream };
   }
 
   return { putArtifact, listArtifacts, getArtifact };
-}
-
-function cryptoRandomKey() {
-  return globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
