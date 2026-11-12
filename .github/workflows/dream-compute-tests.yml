@@ -7,6 +7,9 @@ on:
       - "dream-compute-source.part*"
       - "dream-compute/worker.py"
       - "dream-compute/README.md"
+      - "model/**"
+      - "training/dream_ai_adapter_self_train_kaggle.ipynb"
+      - "training/dream_train_colab.ipynb"
       - ".github/workflows/dream-compute-tests.yml"
   pull_request:
     branches: [dream-compute-platform]
@@ -16,7 +19,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  worker-syntax:
+  worker-and-training-guards:
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
@@ -27,6 +30,8 @@ jobs:
           python-version: "3.11"
       - name: Compile the provider-independent worker
         run: python -m py_compile dream-compute/worker.py
+      - name: Validate self-training notebook and checkpoint safety
+        run: python -m unittest model.test_adapter_self_train_notebook model.test_training_notebook
 
   control-plane:
     runs-on: ubuntu-latest
