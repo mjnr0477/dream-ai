@@ -100,6 +100,17 @@ test("R2 artifact vault streams to content-addressed objects, lists metadata and
         objects.delete(input.Key);
         return {};
       }
+      if (command instanceof CopyObjectCommand) {
+        const sourceKey = input.CopySource.slice(input.CopySource.indexOf("/") + 1);
+        const sourceBytes = objects.get(sourceKey);
+        if (!sourceBytes) throw new Error("Copy source missing");
+        objects.set(input.Key, Buffer.from(sourceBytes));
+        return {};
+      }
+      if (command instanceof DeleteObjectCommand) {
+        objects.delete(input.Key);
+        return {};
+      }
       if (command instanceof GetObjectCommand) {
         const value = objects.get(input.Key);
         if (!value) {
