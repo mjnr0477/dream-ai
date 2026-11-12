@@ -12,9 +12,9 @@ from peft import PeftModel
 
 HOST = os.environ.get("DREAM_HOST_URL", "").rstrip("/")
 WORKER_TOKEN = os.environ.get("DREAM_HOST_WORKER_TOKEN", "").strip()
-print("KAGGLE_WORKER_AUTH_DIAGNOSTIC", {"configured": bool(WORKER_TOKEN), "length": len(WORKER_TOKEN), "fingerprint": hashlib.sha256(WORKER_TOKEN.encode()).hexdigest()[:12]}, flush=True)
 if WORKER_TOKEN.lower().startswith("bearer "):
     WORKER_TOKEN = WORKER_TOKEN[7:].strip()
+print("KAGGLE_WORKER_AUTH_DIAGNOSTIC", {"configured": bool(WORKER_TOKEN), "length": len(WORKER_TOKEN), "fingerprint": hashlib.sha256(WORKER_TOKEN.encode()).hexdigest()[:12]}, flush=True)
 HF_TOKEN = os.environ.get("HF_TOKEN", "")
 BASE_MODEL = os.environ.get("DREAM_MODEL_BASE", "Qwen/Qwen3-1.7B")
 ADAPTER = os.environ.get("DREAM_MODEL_ADAPTER", "msjnr0477/dream-ai-adapter")
