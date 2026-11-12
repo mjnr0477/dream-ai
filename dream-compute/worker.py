@@ -24,6 +24,7 @@ ADAPTER = os.environ.get("DREAM_COMPUTE_ADAPTER", "msjnr0477/dream-ai-adapter")
 WORKER_ID = os.environ.get("DREAM_COMPUTE_WORKER_ID", "dc-" + uuid.uuid4().hex[:18])
 WORKER_NAME = os.environ.get("DREAM_COMPUTE_WORKER_NAME", "DREAM COMPUTE worker")
 STOP = threading.Event()
+REGISTRATION_LOCK = threading.Lock()
 STATE = {"busy": False}
 
 if not HOST.startswith("https://") and not HOST.startswith("http://127.0.0.1"):
@@ -35,19 +36,23 @@ DEVICE = "cuda" if torch.cuda.is_available() else ("mps" if hasattr(torch.backen
 GPU_NAME = torch.cuda.get_device_name(0) if DEVICE == "cuda" else ("Apple Metal" if DEVICE == "mps" else "CPU")
 DTYPE = torch.float16 if DEVICE == "cuda" else torch.float32
 
+
 def headers():
     return {"Authorization": "Bearer " + TOKEN, "Content-Type": "application/json"}
+
 
 def post(path, payload, timeout=30):
     response = requests.post(HOST + path, json=payload, headers=headers(), timeout=timeout)
     response.raise_for_status()
     return response
 
+
 print("DREAM COMPUTE worker starting:", WORKER_ID, "device:", GPU_NAME, flush=True)
 print("Loading model:", BASE_MODEL, "adapter:", ADAPTER, flush=True)
 load_options = {"torch_dtype": DTYPE, "low_cpu_mem_usage": True}
 if HF_TOKEN:
     load_options["token"] = HF_TOKEN
+
 tokenizer_source = ADAPTER if ADAPTER and ADAPTER.lower() != "none" else BASE_MODEL
 tokenizer = AutoTokenizer.from_pretrained(tokenizer_source, token=HF_TOKEN or None)
 model = AutoModelForCausalLM.from_pretrained(BASE_MODEL, **load_options)
@@ -67,14 +72,18 @@ METADATA = {
     "torchVersion": torch.__version__
 }
 
+
 def generate(job):
     messages = job.get("messages")
     if not isinstance(messages, list) or not messages:
         raise ValueError("Job messages are missing or invalid.")
     try:
-        prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True, enable_thinking=False)
+        prompt = tokenizer.apply_chat_template(
+            messages, tokenize=False, add_generation_prompt=True, enable_thinking=False
+        )
     except TypeError:
         prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+
     inputs = tokenizer(prompt, return_tensors="pt", truncation=True, max_length=6144)
     inputs = {key: value.to(DEVICE) for key, value in inputs.items()}
     max_tokens = max(1, min(int(job.get("max_tokens", 512)), 1024))
@@ -89,6 +98,7 @@ def generate(job):
         options["do_sample"] = False
     else:
         options.update({"do_sample": True, "temperature": temperature, "top_p": top_p})
+
     with torch.inference_mode():
         output = model.generate(**inputs, **options)
     prompt_count = int(inputs["input_ids"].shape[-1])
@@ -98,17 +108,27 @@ def generate(job):
         raise RuntimeError("The model returned an empty response.")
     return content, prompt_count, int(generated.shape[-1])
 
+
 def register_until_ready():
-    payload = {"workerId": WORKER_ID, "name": WORKER_NAME, "metadata": METADATA}
-    while not STOP.is_set():
-        try:
-            response = post("/api/v1/workers/register", payload, timeout=60)
-            print("Registered with DREAM COMPUTE:", WORKER_ID, flush=True)
-            return
-        except requests.RequestException as exc:
-            print("Control plane unavailable; retrying registration:", str(exc)[:250], flush=True)
-            STOP.wait(5)
-    raise RuntimeError("Worker stopped before it registered.")
+    # Serialize recovery attempts from the heartbeat and job-polling threads.
+    with REGISTRATION_LOCK:
+        payload = {"workerId": WORKER_ID, "name": WORKER_NAME, "metadata": METADATA}
+        while not STOP.is_set():
+            try:
+                post("/api/v1/workers/register", payload, timeout=60)
+                print("Registered with DREAM COMPUTE:", WORKER_ID, flush=True)
+                return
+            except requests.HTTPError as exc:
+                status = exc.response.status_code if exc.response is not None else None
+                if status in (401, 403):
+                    raise RuntimeError("DREAM COMPUTE rejected the worker token. Check the Render and Kaggle worker secrets.") from exc
+                print("Worker registration rejected; retrying:", str(exc)[:250], flush=True)
+                STOP.wait(5)
+            except requests.RequestException as exc:
+                print("Control plane unavailable; retrying registration:", str(exc)[:250], flush=True)
+                STOP.wait(5)
+        raise RuntimeError("Worker stopped before it registered.")
+
 
 def heartbeat_loop():
     while not STOP.wait(15):
@@ -116,8 +136,19 @@ def heartbeat_loop():
             post("/api/v1/workers/heartbeat", {
                 "workerId": WORKER_ID, "busy": STATE["busy"], "metadata": METADATA
             }, timeout=20)
+        except requests.HTTPError as exc:
+            status = exc.response.status_code if exc.response is not None else None
+            if status == 409:
+                print("Worker registration was lost; registering again.", flush=True)
+                try:
+                    register_until_ready()
+                except Exception as recovery_error:
+                    print("Worker re-registration failed:", str(recovery_error)[:250], flush=True)
+            else:
+                print("Heartbeat rejected:", str(exc)[:200], flush=True)
         except requests.RequestException as exc:
-            print("Heartbeat reconnect:", str(exc)[:200], flush=True)
+            print("Heartbeat connection lost; will retry:", str(exc)[:200], flush=True)
+
 
 def main():
     register_until_ready()
@@ -129,8 +160,17 @@ def main():
                 time.sleep(1.5)
                 continue
             if response.status_code == 409:
-                time.sleep(2)
+                try:
+                    detail = str(response.json().get("error", ""))
+                except (ValueError, AttributeError):
+                    detail = ""
+                if "not registered" in detail.lower():
+                    print("Control plane no longer knows this worker; registering again.", flush=True)
+                    register_until_ready()
+                else:
+                    time.sleep(2)
                 continue
+
             response.raise_for_status()
             job = response.json()["job"]
             STATE["busy"] = True
@@ -160,6 +200,7 @@ def main():
         except Exception as exc:
             print("Worker loop failed:", str(exc)[:250], flush=True)
             time.sleep(5)
+
 
 try:
     main()
