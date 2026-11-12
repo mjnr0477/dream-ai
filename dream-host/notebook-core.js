@@ -45,6 +45,7 @@ export class NotebookQueue {
     this.maxOutputChars = boundedInteger(options.maxOutputChars, 120000, 1, 200000);
     this.workerStaleMs = boundedInteger(options.workerStaleMs, 60000, 1, 300000);
     this.jobLeaseMs = boundedInteger(options.jobLeaseMs, 180000, 5000, 1800000);
+    this.maxExecutionMs = boundedInteger(options.maxExecutionMs, 1800000, 30000, 1800000);
     this.maxAttempts = boundedInteger(options.maxAttempts, 2, 1, 5);
     this.jobTtlMs = boundedInteger(options.jobTtlMs, 15 * 60 * 1000, 60000, 24 * 60 * 60 * 1000);
     this.workers = new Map();
@@ -160,7 +161,7 @@ export class NotebookQueue {
         code: job.code,
         status: "running",
         attempts: job.attempts,
-        timeoutMs: this.jobLeaseMs
+        timeoutMs: this.maxExecutionMs
       };
     }
 
