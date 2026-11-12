@@ -10,7 +10,7 @@ DREAM HOST is the first-party control plane for DREAM AI. It hosts the AI infere
 - Browser IndexedDB notebook storage; the free Render service's temporary filesystem is not used as permanent notebook storage.
 - Separate authenticated notebook job queue and a standalone Python notebook worker. It does not load the chat model into GPU memory.
 - Notebook code and output sizes, pending queue, worker heartbeats, retries and execution windows are bounded.
-- Notebook execution is owner-only and fails closed unless `DREAM_HOST_NOTEBOOK_TOKEN` is configured.
+- Notebook execution is owner-only and fails closed unless both distinct notebook owner and notebook worker tokens are configured.
 
 DREAM HOST does not create GPU capacity. Notebook cells execute on an operator-owned worker connected to HOST. A CPU worker can run ordinary Python; GPU training requires compatible hardware and packages on that worker. The existing chat inference worker remains a separate compatibility path.
 
@@ -108,7 +108,7 @@ The worker registers as a notebook executor, maintains a separate Python kernel 
 - Notebook documents are saved in the current browser's IndexedDB. Export important work as `.ipynb`; imported Jupyter Notebook version 4 files are supported.
 - HOST worker registrations, queues and active jobs are in memory and are cleared by a HOST restart. The browser keeps the notebook document, but kernel variables and worker-local files are temporary.
 - Notebook cell execution runs trusted Python code. The worker is **not** a hardened multi-tenant sandbox. Start it only on a machine you control, do not expose its worker token, and do not use it for untrusted public notebooks.
-- The notebook API requires `DREAM_HOST_NOTEBOOK_TOKEN`; if it is absent, the notebook UI is still served but execution/status endpoints return 503. Existing chat service startup does not depend on this variable.
+- The notebook API requires both `DREAM_HOST_NOTEBOOK_TOKEN` and `DREAM_HOST_NOTEBOOK_WORKER_TOKEN`; if either is absent or reused, the notebook UI is still served but execution/status endpoints return 503. Existing chat service startup does not depend on these variables.
 - A connected CPU can execute ordinary code. Long or large model-training runs require enough RAM/VRAM, disk, and a compatible accelerator. HOST itself does not supply those resources.
 
 ### DREAM AI training
