@@ -563,6 +563,126 @@
     }
   }
 
+  async function addGeneratedCodeCell(source) {
+    if (!authorized || running) return;
+    if (notebook.cells.length >= MAX_CELLS) {
+      showToast("This notebook has reached the " + MAX_CELLS + " cell limit.");
+      return;
+    }
+    const cell = makeCell("code", source);
+    notebook.cells.push(cell);
+    await storeNotebook();
+    render();
+    await runCell(cell.id);
+  }
+
+  function validDatasetFilename(value) {
+    const name = String(value || "").trim();
+    return /^[A-Za-z0-9][A-Za-z0-9._ -]{0,119}$/.test(name)
+      && name !== "." && name !== ".." && !name.includes("..");
+  }
+
+  function downloadDataset() {
+    const source = el("dataset-url").value.trim();
+    const filename = el("dataset-filename").value.trim();
+    let parsed;
+    try { parsed = new URL(source); } catch {}
+    if (!parsed || parsed.protocol !== "https:") {
+      showToast("Enter a valid HTTPS dataset URL.");
+      return;
+    }
+    if (!validDatasetFilename(filename)) {
+      showToast("Use a simple filename without folders or path traversal.");
+      return;
+    }
+    const code = [
+      "from pathlib import Path",
+      "from urllib.parse import urlparse",
+      "from urllib.request import urlopen",
+      "source = " + JSON.stringify(source),
+      "filename = " + JSON.stringify(filename),
+      "if urlparse(source).scheme != 'https': raise ValueError('Only HTTPS dataset downloads are allowed.')",
+      "target = Path('datasets') / filename",
+      "target.parent.mkdir(parents=True, exist_ok=True)",
+      "downloaded = 0",
+      "try:",
+      "    with urlopen(source, timeout=60) as response, target.open('wb') as output:",
+      "        while True:",
+      "            chunk = response.read(1024 * 1024)",
+      "            if not chunk: break",
+      "            downloaded += len(chunk)",
+      "            if downloaded > 2 * 1024 * 1024 * 1024: raise ValueError('Dataset exceeds the 2 GiB per-file limit.')",
+      "            output.write(chunk)",
+      "except Exception:",
+      "    target.unlink(missing_ok=True)",
+      "    raise",
+      "print('Dataset saved:', target.resolve())",
+      "print('Bytes:', downloaded)"
+    ].join("\n");
+    el("dataset-status").textContent = "Downloading " + filename + " to the connected worker…";
+    addGeneratedCodeCell(code).catch(error => showToast(error.message));
+  }
+
+  function scanDatasets() {
+    const code = [
+      "from pathlib import Path",
+      "import itertools",
+      "roots = [('Notebook datasets', Path('datasets')), ('Attached Kaggle datasets', Path('/kaggle/input'))]",
+      "for label, root in roots:",
+      "    print('\\n' + label + ':')",
+      "    if not root.exists():",
+      "        print('  (not available)')",
+      "        continue",
+      "    count = 0",
+      "    for path in itertools.islice(sorted(root.rglob('*')), 500):",
+      "        if path.is_file():",
+      "            print(f'  {path}  |  {path.stat().st_size:,} bytes')",
+      "            count += 1",
+      "    if count == 0: print('  (no files found)')",
+      "    if count == 500: print('  Showing the first 500 files only.')"
+    ].join("\n");
+    el("dataset-status").textContent = "Scanning the worker's dataset folders…";
+    addGeneratedCodeCell(code).catch(error => showToast(error.message));
+  }
+
+  function deleteDataset() {
+    const filename = el("dataset-delete-name").value.trim();
+    if (!validDatasetFilename(filename)) {
+      showToast("Enter the exact downloaded filename to delete.");
+      return;
+    }
+    const code = [
+      "from pathlib import Path",
+      "filename = " + JSON.stringify(filename),
+      "target = Path('datasets') / filename",
+      "if target.is_file():",
+      "    target.unlink()",
+      "    print('Deleted:', target)",
+      "else:",
+      "    print('No downloaded file found with that name:', filename)"
+    ].join("\n");
+    el("dataset-status").textContent = "Deleting " + filename + " from the notebook workspace…";
+    addGeneratedCodeCell(code).catch(error => showToast(error.message));
+  }
+
+  async function importTrainingWorkflow() {
+    if (!authorized || running) return;
+    if (!window.confirm("Load the reviewed DREAM AI adapter-training notebook? This replaces the currently open notebook, so export any unsaved work first.")) return;
+    try {
+      const response = await fetch("/notebook/training-template.ipynb", {
+        credentials: "same-origin",
+        cache: "no-store"
+      });
+      if (!response.ok) throw new Error("The DREAM training workflow could not be loaded.");
+      const blob = await response.blob();
+      const file = new File([blob], "dream-ai-reviewed-adapter-training.ipynb", { type: "application/json" });
+      await importNotebook(file);
+      el("dataset-status").textContent = "Training workflow loaded. Review its dataset and approval gates before running any training cell.";
+    } catch (error) {
+      showToast(error.message);
+    }
+  }
+
   async function init() {
     try {
       await loadNotebook();
@@ -575,6 +695,10 @@
 
     el("connect-form").addEventListener("submit", connect);
     el("forget-key").addEventListener("click", forgetAccess);
+    el("download-dataset").addEventListener("click", downloadDataset);
+    el("scan-datasets").addEventListener("click", scanDatasets);
+    el("delete-dataset").addEventListener("click", deleteDataset);
+    el("import-training").addEventListener("click", importTrainingWorkflow);
     el("notebook-list").addEventListener("change", event => {
       switchNotebook(event.target.value).catch(error => showToast(error.message));
     });
