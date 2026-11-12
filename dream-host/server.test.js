@@ -73,6 +73,7 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   const notebookPage = await fetch(baseUrl + "/notebook");
   assert.equal(notebookPage.status, 200);
   assert.match(await notebookPage.text(), /DREAM NOTEBOOK/);
+  assert.match(notebookPage.headers.get("content-security-policy"), /script-src 'self'/);
 
   const notebookScript = await fetch(baseUrl + "/notebook.js");
   assert.equal(notebookScript.status, 200);
@@ -286,3 +287,42 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
     "Hello from the DREAM HOST integration test."
   );
 });
+
+test("DREAM NOTEBOOK fails closed without a distinct access token while HOST still starts", { timeout: 15000 }, async t => {
+  const port = await getFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const workerToken = "test-worker-token-0123456789-abcdefghijklmnopqrstuvwxyz";
+  const clientToken = "test-client-token-0123456789-abcdefghijklmnopqrstuvwxyz";
+  const child = spawn(process.execPath, [SERVER_PATH], {
+    env: {
+      ...process.env,
+      PORT: String(port),
+      DREAM_HOST_WORKER_TOKEN: workerToken,
+      DREAM_HOST_CLIENT_TOKEN: clientToken,
+      DREAM_HOST_NOTEBOOK_TOKEN: workerToken,
+      DREAM_HOST_MODEL_NAME: MODEL,
+      DREAM_HOST_ADAPTER_NAME: ADAPTER
+    },
+    stdio: "ignore"
+  });
+
+  t.after(async () => {
+    if (child.exitCode === null) {
+      child.kill("SIGTERM");
+      await Promise.race([once(child, "exit"), delay(2000)]);
+      if (child.exitCode === null) child.kill("SIGKILL");
+    }
+  });
+
+  await waitForHost(baseUrl, child);
+  const health = await fetch(baseUrl + "/health");
+  assert.equal(health.status, 200);
+
+  const disabled = await fetch(baseUrl + "/api/v1/notebook/status", {
+    headers: { authorization: "Bearer " + workerToken }
+  });
+  assert.equal(disabled.status, 503);
+  const body = await disabled.json();
+  assert.match(body.error.message, /distinct private value/);
+});
+
