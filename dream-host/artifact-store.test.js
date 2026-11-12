@@ -65,3 +65,84 @@ test("artifact vault detects stored-byte tampering", async t => {
   await writeFile(path.join(root, "objects", stored.sha256 + ".bin"), Buffer.from("tampered"));
   await assert.rejects(getArtifact(root, stored.sha256), /SHA-256 integrity/);
 });
+
+
+test("R2 artifact vault streams to content-addressed objects, lists metadata and verifies downloads", async () => {
+  const { createR2ArtifactStore } = await import("./r2-artifact-store.js");
+  const objects = new Map();
+  class PutObjectCommand { constructor(input) { this.input = input; } }
+  class GetObjectCommand { constructor(input) { this.input = input; } }
+  class ListObjectsV2Command { constructor(input) { this.input = input; } }
+  const commands = { PutObjectCommand, GetObjectCommand, ListObjectsV2Command };
+  const client = {
+    async send(command) {
+      const input = command.input;
+      if (command instanceof PutObjectCommand) {
+        const chunks = [];
+        for await (const chunk of input.Body) chunks.push(Buffer.from(chunk));
+        objects.set(input.Key, Buffer.concat(chunks));
+        return {};
+      }
+      if (command instanceof GetObjectCommand) {
+        const value = objects.get(input.Key);
+        if (!value) {
+          const error = new Error("Not found");
+          error.name = "NoSuchKey";
+          throw error;
+        }
+        return { Body: Readable.from([value]), ContentLength: value.length };
+      }
+      if (command instanceof ListObjectsV2Command) {
+        return {
+          Contents: [...objects.keys()]
+            .filter(key => key.startsWith(input.Prefix))
+            .map(Key => ({ Key })),
+          IsTruncated: false
+        };
+      }
+      throw new Error("Unexpected R2 command");
+    }
+  };
+  const store = createR2ArtifactStore({ client, bucket: "dream-ai-model-vault", commands });
+  const payload = Buffer.from("DREAM candidate checkpoint stored in private R2");
+  const expected = createHash("sha256").update(payload).digest("hex");
+  const stored = await store.putArtifact({
+    name: "dream-candidate.zip",
+    source: Readable.from([payload]),
+    contentLength: payload.length,
+    maxBytes: 1024
+  });
+  assert.equal(stored.sha256, expected);
+  assert.equal(objects.has("objects/" + expected + ".bin"), true);
+  const listed = await store.listArtifacts();
+  assert.equal(listed.length, 1);
+  assert.equal(listed[0].name, "dream-candidate.zip");
+
+  const downloaded = await store.getArtifact(expected);
+  const chunks = [];
+  for await (const chunk of downloaded.stream) chunks.push(chunk);
+  assert.deepEqual(Buffer.concat(chunks), payload);
+
+  objects.set("objects/" + expected + ".bin", Buffer.from("tampered"));
+  await assert.rejects(store.getArtifact(expected), /SHA-256 integrity/);
+});
+
+test("R2 artifact vault rejects missing lengths and unsafe artifact names", async () => {
+  const { createR2ArtifactStore } = await import("./r2-artifact-store.js");
+  class PutObjectCommand { constructor(input) { this.input = input; } }
+  class GetObjectCommand { constructor(input) { this.input = input; } }
+  class ListObjectsV2Command { constructor(input) { this.input = input; } }
+  const store = createR2ArtifactStore({
+    bucket: "dream-ai-model-vault",
+    commands: { PutObjectCommand, GetObjectCommand, ListObjectsV2Command },
+    client: { async send() { throw new Error("Should not reach R2"); } }
+  });
+  await assert.rejects(
+    store.putArtifact({ name: "bad/name", source: Readable.from(["x"]), contentLength: 1 }),
+    /Artifact name/
+  );
+  await assert.rejects(
+    store.putArtifact({ name: "checkpoint.bin", source: Readable.from(["x"]) }),
+    /Content-Length/
+  );
+});
