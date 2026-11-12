@@ -54,12 +54,11 @@ os.environ["HF_TOKEN"] = secrets_client.get_secret("HF_TOKEN")
 os.environ["DREAM_HOST_WORKER_TOKEN"] = secrets_client.get_secret("DREAM_HOST_WORKER_TOKEN")
 os.environ["DREAM_HOST_URL"] = "https://dream-host-live.onrender.com"
 
-!pip -q install requests transformers peft accelerate
 !curl -fsSL https://raw.githubusercontent.com/mjnr0477/dream-ai/dream-host-runtime/dream-host/worker.py -o /kaggle/working/dream_host_worker.py
 !python /kaggle/working/dream_host_worker.py
 \`\`\`
 
-If the model libraries are already installed in the notebook, the pip line can be omitted. Keep the notebook session running while the worker is needed.
+The earlier DREAM AI Kaggle notebook already used torch, transformers and peft. Avoid reinstalling or upgrading torch unnecessarily; install only a package that is actually missing. If the previous tunnel-based inference server is still running, restart the Kaggle session first because this worker loads its own model copy. Keep the notebook session running while the worker is needed.
 
 ## API
 
