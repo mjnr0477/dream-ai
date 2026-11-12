@@ -10,7 +10,7 @@ import torch
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import PeftModel
 
-HOST = os.environ.get("DREAM_HOST_URL", "").rstrip("/")
+HOST = os.environ.get("DREAM_HOST_URL", "https://dream-host-live.onrender.com").rstrip("/")
 WORKER_TOKEN = os.environ.get("DREAM_HOST_WORKER_TOKEN", "").strip()
 if WORKER_TOKEN.lower().startswith("bearer "):
     WORKER_TOKEN = WORKER_TOKEN[7:].strip()
@@ -24,10 +24,15 @@ STOP = threading.Event()
 STATE = {"busy": False}
 
 def refresh_worker_secret():
-    global WORKER_TOKEN
+    global WORKER_TOKEN, HF_TOKEN
     try:
         from kaggle_secrets import UserSecretsClient
-        candidate = str(UserSecretsClient().get_secret("DREAM_HOST_WORKER_TOKEN") or "").strip()
+        secrets_client = UserSecretsClient()
+        hf_candidate = str(secrets_client.get_secret("HF_TOKEN") or "").strip()
+        if hf_candidate:
+            HF_TOKEN = hf_candidate
+            os.environ["HF_TOKEN"] = hf_candidate
+        candidate = str(secrets_client.get_secret("DREAM_HOST_WORKER_TOKEN") or "").strip()
         if candidate.lower().startswith("bearer "):
             candidate = candidate[7:].strip()
         if len(candidate) < 32:
