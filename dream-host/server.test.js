@@ -74,6 +74,15 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   assert.equal(notebookPage.status, 200);
   assert.match(await notebookPage.text(), /DREAM NOTEBOOK/);
 
+  const notebookScript = await fetch(baseUrl + "/notebook.js");
+  assert.equal(notebookScript.status, 200);
+  assert.match(notebookScript.headers.get("content-type"), /javascript/);
+  assert.match(await notebookScript.text(), /indexedDB/);
+
+  const notebookStyle = await fetch(baseUrl + "/notebook.css");
+  assert.equal(notebookStyle.status, 200);
+  assert.match(notebookStyle.headers.get("content-type"), /css/);
+
   const notebookUnauthorized = await fetch(baseUrl + "/api/v1/notebook/status");
   assert.equal(notebookUnauthorized.status, 401);
 
