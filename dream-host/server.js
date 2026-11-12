@@ -208,6 +208,9 @@ async function handleChat(req, res) {
   if (!Array.isArray(body.messages) || body.messages.length < 1 || body.messages.length > 64) {
     return sendJson(res, 400, openAiError("messages must be an array containing 1 to 64 entries.", "invalid_request_error"));
   }
+  if (body.model !== undefined && body.model !== MODEL_NAME) {
+    return sendJson(res, 400, openAiError("Requested model does not match DREAM HOST configuration.", "invalid_request_error"));
+  }
   const messages = body.messages.map(message => {
     if (!message || typeof message !== "object" || !["system", "user", "assistant"].includes(message.role) ||
         typeof message.content !== "string" || message.content.length > 12000) return null;
