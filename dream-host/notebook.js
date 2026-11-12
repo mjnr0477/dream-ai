@@ -16,7 +16,8 @@
   const connectPanel = el("connect-panel");
   const connectMessage = el("connect-message");
   const toast = el("toast");
-  let token = sessionStorage.getItem(TOKEN_KEY) || "";
+  let token = "";
+  let authorized = false;
   let notebook = null;
   let dbPromise = null;
   let refreshHandle = null;
@@ -180,10 +181,15 @@
     el("new-notebook").disabled = running;
     el("import-notebook").disabled = running;
     el("notebook-list").disabled = running;
-    el("add-code").disabled = running || !token;
-    el("add-markdown").disabled = running || !token;
-    el("add-code-bottom").disabled = running || !token;
-    el("run-all").disabled = running || !token;
+    const locked = running || (!authorized && !token);
+    el("add-code").disabled = locked;
+    el("add-markdown").disabled = locked;
+    el("add-code-bottom").disabled = locked;
+    el("run-all").disabled = locked;
+    el("download-dataset").disabled = locked;
+    el("scan-datasets").disabled = locked;
+    el("delete-dataset").disabled = locked;
+    el("import-training").disabled = locked;
   }
 
   function showOutput(container, output, errorText = "") {
@@ -292,9 +298,10 @@
   async function api(path, options = {}) {
     const response = await fetch(path, {
       ...options,
+      credentials: "same-origin",
       headers: {
         ...(options.headers || {}),
-        authorization: "Bearer " + token,
+        ...(token ? { authorization: "Bearer " + token } : {}),
         ...(options.body ? { "content-type": "application/json" } : {})
       },
       cache: "no-store"
@@ -311,9 +318,9 @@
   }
 
   async function refreshStatus() {
-    if (!token) return false;
     try {
       const data = await api("/api/v1/notebook/status");
+      authorized = true;
       connectPanel.hidden = true;
       const count = Number(data.workers?.connected || 0);
       el("worker-count").textContent = String(count);
@@ -330,10 +337,10 @@
       return true;
     } catch (error) {
       if (error.status === 401) {
-        sessionStorage.removeItem(TOKEN_KEY);
+        authorized = false;
         token = "";
         updateControls();
-        statusLabel("Access key rejected", "warning");
+        statusLabel("Access key required", "warning");
         connectPanel.hidden = false;
       } else if (error.status === 503) {
         statusLabel("Notebook not configured", "warning");
@@ -350,7 +357,7 @@
   }
 
   async function runCell(cellId) {
-    if (!token || running) return;
+    if ((!authorized && !token) || running) return;
     const cell = notebook.cells.find(item => item.id === cellId);
     if (!cell || cell.type !== "code") return;
     if (!cell.source.trim()) {
@@ -401,7 +408,7 @@
   }
 
   async function runAll() {
-    if (!token || running) return;
+    if ((!authorized && !token) || running) return;
     for (const cell of notebook.cells) {
       if (cell.type === "code") {
         await runCell(cell.id);
