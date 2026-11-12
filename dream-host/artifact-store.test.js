@@ -100,17 +100,6 @@ test("R2 artifact vault streams to content-addressed objects, lists metadata and
         objects.delete(input.Key);
         return {};
       }
-      if (command instanceof CopyObjectCommand) {
-        const sourceKey = input.CopySource.slice(input.CopySource.indexOf("/") + 1);
-        const sourceBytes = objects.get(sourceKey);
-        if (!sourceBytes) throw new Error("Copy source missing");
-        objects.set(input.Key, Buffer.from(sourceBytes));
-        return {};
-      }
-      if (command instanceof DeleteObjectCommand) {
-        objects.delete(input.Key);
-        return {};
-      }
       if (command instanceof GetObjectCommand) {
         const value = objects.get(input.Key);
         if (!value) {
@@ -160,6 +149,8 @@ test("R2 artifact vault rejects missing lengths and unsafe artifact names", asyn
   class PutObjectCommand { constructor(input) { this.input = input; } }
   class GetObjectCommand { constructor(input) { this.input = input; } }
   class ListObjectsV2Command { constructor(input) { this.input = input; } }
+  class CopyObjectCommand { constructor(input) { this.input = input; } }
+  class DeleteObjectCommand { constructor(input) { this.input = input; } }
   const store = createR2ArtifactStore({
     bucket: "dream-ai-model-vault",
     commands: { PutObjectCommand, GetObjectCommand, ListObjectsV2Command, CopyObjectCommand, DeleteObjectCommand },
