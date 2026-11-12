@@ -2,7 +2,13 @@ import http from "node:http";
 import { randomUUID, timingSafeEqual } from "node:crypto";
 
 const PORT = Number(process.env.PORT || 10000);
-const WORKER_TOKEN = process.env.DREAM_HOST_WORKER_TOKEN || "";
+function normalizeToken(value) {
+  const token = String(value || "").trim();
+  return token.replace(/^Bearer\\s+/i, "").trim();
+}
+
+const WORKER_TOKEN = normalizeToken(process.env.DREAM_HOST_WORKER_TOKEN);
+
 const CLIENT_TOKEN = process.env.DREAM_HOST_CLIENT_TOKEN || "";
 const MAX_BODY_BYTES = 1024 * 1024;
 const rawQueueLimit = Number(process.env.DREAM_HOST_MAX_QUEUE || 30);
@@ -50,9 +56,10 @@ function sendEmpty(res, status = 204) {
 }
 
 function tokenMatches(req, expected) {
-  const header = req.headers.authorization || "";
-  if (!header.startsWith("Bearer ")) return false;
-  const supplied = Buffer.from(header.slice(7));
+  const header = String(req.headers.authorization || "").trim();
+  const match = header.match(/^Bearer\\s+(.+)$/i);
+  if (!match) return false;
+  const supplied = Buffer.from(normalizeToken(match[1]));
   const wanted = Buffer.from(expected);
   return supplied.length === wanted.length && timingSafeEqual(supplied, wanted);
 }
