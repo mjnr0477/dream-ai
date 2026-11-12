@@ -286,7 +286,21 @@ async function handleChat(req, res) {
 }
 
 async function handleWorkerRoute(req, res, url) {
-  if (!requireToken(req, res, WORKER_TOKEN)) return;
+  if (!tokenMatches(req, WORKER_TOKEN)) {
+    const authorization = String(req.headers.authorization || "");
+    const hasBearerScheme = authorization.slice(0, 7).toLowerCase() === "bearer ";
+    const supplied = hasBearerScheme ? normalizeToken(authorization.slice(7)) : "";
+    console.warn("DREAM_HOST_WORKER_AUTH_REJECTED", JSON.stringify({
+      path: url.pathname,
+      authorizationPresent: Boolean(authorization),
+      bearerScheme: hasBearerScheme,
+      suppliedLength: supplied.length,
+      suppliedFingerprint: createHash("sha256").update(supplied).digest("hex").slice(0, 12),
+      expectedLength: WORKER_TOKEN.length,
+      expectedFingerprint: createHash("sha256").update(WORKER_TOKEN).digest("hex").slice(0, 12)
+    }));
+    return sendJson(res, 401, { error: { message: "Unauthorized", type: "authentication_error" } });
+  }
   sweep();
 
   if (req.method === "POST" && url.pathname === "/api/v1/workers/register") {
