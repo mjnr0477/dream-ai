@@ -29,6 +29,8 @@ WORKER_NAME = os.environ.get("DREAM_HOST_NOTEBOOK_WORKER_NAME", "DREAM NOTEBOOK 
 TRUSTED_MODE = os.environ.get("DREAM_HOST_NOTEBOOK_TRUSTED_MODE", "").strip() == "1"
 POLL_SECONDS = max(0.5, min(float(os.environ.get("DREAM_HOST_NOTEBOOK_POLL_SECONDS", "1.5")), 10.0))
 MAX_EXECUTION_SECONDS = max(30, min(int(os.environ.get("DREAM_HOST_NOTEBOOK_MAX_EXECUTION_SECONDS", "1800")), 1800))
+MAX_NOTEBOOK_KERNELS = max(1, min(int(os.environ.get("DREAM_HOST_NOTEBOOK_MAX_KERNELS", "4")), 16))
+KERNEL_IDLE_SECONDS = max(60, min(int(os.environ.get("DREAM_HOST_NOTEBOOK_KERNEL_IDLE_SECONDS", "1800")), 86400))
 OUTPUT_LIMIT = 120_000
 STOP = threading.Event()
 KERNELS: dict[str, dict] = {}
@@ -171,7 +173,21 @@ def start_kernel(notebook_id: str) -> dict:
     return {"process": process, "workspace": workspace, "last_used": time.time(), "execution_count": 0}
 
 
+def cleanup_idle_kernels() -> None:
+    now = time.time()
+    with KERNEL_LOCK:
+        expired = [
+            (notebook_id, kernel)
+            for notebook_id, kernel in KERNELS.items()
+            if now - kernel["last_used"] > KERNEL_IDLE_SECONDS
+        ]
+        for notebook_id, kernel in expired:
+            KERNELS.pop(notebook_id, None)
+            stop_kernel(kernel)
+
+
 def get_kernel(notebook_id: str) -> dict:
+    cleanup_idle_kernels()
     with KERNEL_LOCK:
         kernel = KERNELS.get(notebook_id)
         if kernel and kernel["process"].poll() is None:
@@ -179,6 +195,11 @@ def get_kernel(notebook_id: str) -> dict:
             return kernel
         if kernel:
             stop_kernel(kernel)
+        if len(KERNELS) >= MAX_NOTEBOOK_KERNELS:
+            raise RuntimeError(
+                f"This worker already has {MAX_NOTEBOOK_KERNELS} active notebook kernels. "
+                "Wait for an idle kernel to expire or restart the worker."
+            )
         kernel = start_kernel(notebook_id)
         KERNELS[notebook_id] = kernel
         return kernel
@@ -293,6 +314,7 @@ def main() -> None:
     threading.Thread(target=heartbeat_loop, daemon=True).start()
     print("DREAM NOTEBOOK worker ready. Keep this process running while notebooks execute.", flush=True)
     while not STOP.is_set():
+        cleanup_idle_kernels()
         try:
             response = post("/api/v1/notebook/workers/jobs/claim", {"workerId": WORKER_ID}, timeout=25)
             if response.status_code == 204:
