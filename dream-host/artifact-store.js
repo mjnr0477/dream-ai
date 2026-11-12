@@ -126,7 +126,7 @@ export async function getArtifact(root, sha256) {
   try {
     metadata = JSON.parse(await readFile(metadataPath, "utf8"));
     const info = await stat(objectPath);
-    if (metadata?.schema !== "dream-artifact-v1" || metadata.sha256 !== sha256 || info.size !== metadata.size_bytes) {
+    if (metadata?.schema !== "dream-artifact-v1" || metadata.sha256 !== sha256) {
       throw new Error("Artifact metadata mismatch");
     }
   } catch {
