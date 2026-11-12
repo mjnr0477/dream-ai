@@ -48,6 +48,11 @@ button:disabled { opacity: .45; cursor: not-allowed; }
 .status-dot.online { background: var(--accent); box-shadow: 0 0 12px rgba(142, 227, 179, .5); }
 .status-dot.warning { background: var(--warning); }
 .top-actions, .toolbar, .token-row { display: flex; align-items: center; gap: 8px; }
+.notebook-select {
+  max-width: 190px; min-width: 118px; padding: 9px 10px;
+  border: 1px solid var(--line); border-radius: 10px;
+  color: var(--text); background: #13202b; font-size: 11px;
+}
 .button {
   border: 1px solid var(--line); border-radius: 10px; padding: 9px 13px;
   color: var(--text); background: #13202b; font-size: 12px; font-weight: 650;
