@@ -33,7 +33,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
       - name: Install dependencies without running lifecycle scripts
         run: npm install --ignore-scripts
-      - name: Run syntax, evaluation and integration tests
-        run: npm test
+      - name: Run repository and DREAM HOST checks
+        run: |
+          npm test
+          node --check dream-host/server.js
+          node --check dream-host/notebook-core.js
+          node --test dream-host/*.test.js
+          python -m py_compile dream-host/notebook_worker.py
