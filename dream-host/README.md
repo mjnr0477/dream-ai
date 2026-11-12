@@ -45,7 +45,7 @@ The worker loads Qwen/Qwen3-1.7B and msjnr0477/dream-ai-adapter onto the availab
 
 From a Kaggle notebook cell, after the Render service is deployed:
 
-\`\`\`python
+```python
 from kaggle_secrets import UserSecretsClient
 import os
 
@@ -56,7 +56,7 @@ os.environ["DREAM_HOST_URL"] = "https://dream-host-live.onrender.com"
 
 !curl -fsSL https://raw.githubusercontent.com/mjnr0477/dream-ai/dream-host-runtime/dream-host/worker.py -o /kaggle/working/dream_host_worker.py
 !python /kaggle/working/dream_host_worker.py
-\`\`\`
+```
 
 The earlier DREAM AI Kaggle notebook already used torch, transformers and peft. Avoid reinstalling or upgrading torch unnecessarily; install only a package that is actually missing. If the previous tunnel-based inference server is still running, restart the Kaggle session first because this worker loads its own model copy. Keep the notebook session running while the worker is needed.
 
