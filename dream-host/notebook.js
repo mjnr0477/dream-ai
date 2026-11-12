@@ -504,6 +504,24 @@
     showToast("Notebook imported.");
   }
 
+  async function createRememberedSession(candidate, remember) {
+    const response = await fetch("/api/v1/notebook/session", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        authorization: "Bearer " + candidate,
+        "content-type": "application/json"
+      },
+      body: JSON.stringify({ remember: Boolean(remember) }),
+      cache: "no-store"
+    });
+    let body = {};
+    try { body = await response.json(); } catch {}
+    if (!response.ok) {
+      throw new Error(body.error?.message || "DREAM HOST could not save this browser session.");
+    }
+  }
+
   async function connect(event) {
     event.preventDefault();
     const candidate = tokenInput.value.trim();
@@ -511,13 +529,38 @@
       connectMessage.textContent = "The notebook key must contain at least 32 characters.";
       return;
     }
-    token = candidate;
-    sessionStorage.setItem(TOKEN_KEY, candidate);
-    connectMessage.textContent = "Checking the private notebook connection…";
-    const connected = await refreshStatus();
-    connectMessage.textContent = connected
-      ? "Connected for this browser session."
-      : "Connection is not ready. Check the key and DREAM HOST notebook configuration.";
+    connectMessage.textContent = "Verifying the private notebook key…";
+    try {
+      await createRememberedSession(candidate, el("remember-key").checked);
+      token = "";
+      tokenInput.value = "";
+      const connected = await refreshStatus();
+      connectMessage.textContent = connected
+        ? (el("remember-key").checked ? "Connected. This device will stay signed in for 30 days." : "Connected for this browser session.")
+        : "The key was accepted, but the notebook service is not responding yet.";
+    } catch (error) {
+      token = "";
+      connectMessage.textContent = error.message;
+    }
+  }
+
+  async function forgetAccess() {
+    try {
+      await fetch("/api/v1/notebook/session", {
+        method: "DELETE",
+        credentials: "same-origin",
+        cache: "no-store"
+      });
+    } finally {
+      token = "";
+      authorized = false;
+      sessionStorage.removeItem(TOKEN_KEY);
+      connectPanel.hidden = false;
+      statusLabel("Access forgotten", "warning");
+      updateControls();
+      tokenInput.value = "";
+      showToast("This browser has been disconnected from DREAM NOTEBOOK.");
+    }
   }
 
   async function init() {
@@ -531,6 +574,7 @@
     }
 
     el("connect-form").addEventListener("submit", connect);
+    el("forget-key").addEventListener("click", forgetAccess);
     el("notebook-list").addEventListener("change", event => {
       switchNotebook(event.target.value).catch(error => showToast(error.message));
     });
@@ -557,9 +601,14 @@
       scheduleSave();
     });
 
-    connectPanel.hidden = Boolean(token);
+    connectPanel.hidden = false;
     updateControls();
-    if (token) await refreshStatus();
+    const legacyToken = sessionStorage.getItem(TOKEN_KEY) || "";
+    if (legacyToken) {
+      try { await createRememberedSession(legacyToken, true); } catch {}
+      sessionStorage.removeItem(TOKEN_KEY);
+    }
+    await refreshStatus();
     refreshHandle = setInterval(refreshStatus, 10000);
   }
 
