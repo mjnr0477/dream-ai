@@ -213,7 +213,7 @@ async function handleChat(req, res) {
   }
   const messages = body.messages.map(message => {
     if (!message || typeof message !== "object" || !["system", "user", "assistant"].includes(message.role) ||
-        typeof message.content !== "string" || message.content.length > 12000) return null;
+        typeof message.content !== "string" || message.content.length > 24000) return null;
     return { role: message.role, content: message.content };
   });
   if (messages.some(message => message === null)) {
