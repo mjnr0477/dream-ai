@@ -66,9 +66,9 @@ def candidate_problem(record):
         return "invalid_source_date"
     messages = record.get("messages")
     if messages is not None:
-        if not isinstance(messages, list) or not messages:
+        if not isinstance(messages, list) or len(messages) < 2:
             return "invalid_messages"
-        roles = set()
+        roles = []
         for item in messages:
             if (
                 not isinstance(item, dict)
@@ -77,9 +77,22 @@ def candidate_problem(record):
                 or not item["content"].strip()
             ):
                 return "invalid_messages"
-            roles.add(item["role"])
-        if not {"user", "assistant"}.issubset(roles):
+            roles.append(item["role"])
+
+        # Match the SFT trainer before asking a human to review a dialogue:
+        # one optional system message may appear first, then complete
+        # user/assistant pairs, ending with an assistant response.
+        dialogue_roles = roles[1:] if roles[0] == "system" else roles
+        if "system" in dialogue_roles:
+            return "invalid_messages"
+        if len(dialogue_roles) < 2 or len(dialogue_roles) % 2:
             return "incomplete_messages"
+        expected_roles = [
+            "user" if index % 2 == 0 else "assistant"
+            for index in range(len(dialogue_roles))
+        ]
+        if dialogue_roles != expected_roles:
+            return "invalid_message_order"
     elif not isinstance(record.get("text"), str) or not record["text"].strip():
         return "missing_or_invalid_content"
     if len(record_content(record)) < 40:
