@@ -132,5 +132,10 @@ export async function getArtifact(root, sha256) {
   } catch {
     throw new ArtifactStoreError("Artifact not found or failed integrity metadata checks.", 404);
   }
+  const digest = createHash("sha256");
+  for await (const chunk of createReadStream(objectPath)) digest.update(chunk);
+  if (digest.digest("hex") !== sha256) {
+    throw new ArtifactStoreError("Artifact content failed SHA-256 integrity verification.", 409);
+  }
   return { metadata, stream: createReadStream(objectPath) };
 }
