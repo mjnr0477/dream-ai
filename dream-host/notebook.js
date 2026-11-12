@@ -283,6 +283,7 @@
         connectPanel.hidden = false;
       } else if (error.status === 503) {
         statusLabel("Notebook not configured", "warning");
+        connectPanel.hidden = false;
         connectMessage.textContent = error.message;
       } else {
         statusLabel("Connection unavailable", "warning");
@@ -365,7 +366,7 @@
   }
 
   function exportNotebook() {
-    const document = {
+    const notebookFile = {
       nbformat: 4,
       nbformat_minor: 5,
       metadata: {
@@ -387,9 +388,9 @@
         return { ...base, execution_count: cell.executionCount, outputs };
       })
     };
-    const blob = new Blob([JSON.stringify(document, null, 2)], { type: "application/x-ipynb+json" });
+    const blob = new Blob([JSON.stringify(notebookFile, null, 2)], { type: "application/x-ipynb+json" });
     const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
+    const anchor = window.document.createElement("a");
     anchor.href = url;
     anchor.download = (notebook.title || "dream-notebook").replace(/[^A-Za-z0-9_-]+/g, "-") + ".ipynb";
     anchor.click();
