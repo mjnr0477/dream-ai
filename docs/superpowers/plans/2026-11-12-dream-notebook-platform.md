@@ -6,7 +6,7 @@
 
 **Architecture:** Extend the existing DREAM HOST Node control plane with a separate notebook job queue and token-protected routes. Serve static notebook assets from HOST. The notebook worker is a separate Python process and does not load the chat model. Browser IndexedDB stores notebook documents; the HOST's in-memory state stores only active jobs and workers.
 
-**Constraints:** Preserve all existing chat behavior. Notebook API must fail closed when `DREAM_HOST_NOTEBOOK_TOKEN` is not configured. The worker is for a single trusted operator, not public multi-tenant execution. Worker files and kernels are temporary. GPU training depends on the hardware attached to the worker.
+**Constraints:** Preserve all existing chat behavior. Notebook API and worker routes must fail closed unless `DREAM_HOST_NOTEBOOK_TOKEN` and `DREAM_HOST_NOTEBOOK_WORKER_TOKEN` are configured as distinct private keys. The worker is for a single trusted operator, not public multi-tenant execution. Worker files and kernels are temporary. GPU training depends on the hardware attached to the worker.
 
 ## Task 1 — Queue behavior tests
 
@@ -35,7 +35,7 @@
 - Preserve current health, readiness, OpenAI-compatible chat and chat worker routes.
 - Serve `/notebook`, `/notebook.js` and `/notebook.css` with correct MIME and no-cache headers.
 - Add notebook client routes guarded by `DREAM_HOST_NOTEBOOK_TOKEN`.
-- Add notebook worker routes guarded by the existing worker token.
+- Add notebook worker routes guarded by a dedicated notebook worker token.
 - When notebook token is missing, return a clear 503 configuration response instead of starting an unauthenticated executor.
 
 ## Task 4 — Operator-owned Python kernel worker
@@ -63,7 +63,7 @@
 
 **Files:** `dream-host/README.md`, `.github/workflows/dream-host-tests.yml`
 
-- Document the one-time notebook token, worker startup, compatible dependencies, CPU/GPU limits, trusted-code boundary, local persistence and export workflow.
+- Document both private notebook tokens, worker startup, compatible dependencies, CPU/GPU limits, trusted-code boundary, local persistence and export workflow.
 - Add Python syntax validation for the notebook worker and keep the existing HOST integration test active.
 
 ## Task 7 — Verification and handoff
