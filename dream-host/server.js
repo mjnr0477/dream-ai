@@ -1,5 +1,5 @@
 import http from "node:http";
-import { randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 
 const PORT = Number(process.env.PORT || 10000);
 function normalizeToken(value) {
@@ -8,6 +8,7 @@ function normalizeToken(value) {
 }
 
 const WORKER_TOKEN = normalizeToken(process.env.DREAM_HOST_WORKER_TOKEN);
+console.log("DREAM_HOST_WORKER_AUTH_DIAGNOSTIC", JSON.stringify({configured: Boolean(WORKER_TOKEN), length: WORKER_TOKEN.length, fingerprint: createHash("sha256").update(WORKER_TOKEN).digest("hex").slice(0, 12)}));
 
 const CLIENT_TOKEN = process.env.DREAM_HOST_CLIENT_TOKEN || "";
 const MAX_BODY_BYTES = 1024 * 1024;
