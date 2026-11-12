@@ -125,3 +125,16 @@ test("queued jobs expire when no notebook worker connects", () => {
   assert.equal(expired.status, "failed");
   assert.match(expired.error, /waiting for a connected worker/);
 });
+
+test("a returning worker can reclaim a stale assignment after registering again", () => {
+  let now = 1000;
+  const queue = new NotebookQueue({ now: () => now, workerStaleMs: 10, maxAttempts: 2 });
+  worker(queue);
+  const submitted = queue.submit({ notebookId: "notebook-1", cellId: "cell-reconnect", code: "value = 42" });
+  queue.claim("notebook-worker-01");
+  now = 1011;
+  worker(queue);
+  const reclaimed = queue.claim("notebook-worker-01");
+  assert.equal(reclaimed.id, submitted.id);
+  assert.equal(reclaimed.attempts, 2);
+});
