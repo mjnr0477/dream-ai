@@ -154,9 +154,6 @@ def child_environment(workspace: Path) -> dict[str, str]:
     training_token = os.environ.get("DREAM_NOTEBOOK_HF_TOKEN", "").strip()
     if training_token:
         environment["DREAM_NOTEBOOK_HF_TOKEN"] = training_token
-    artifact_token = os.environ.get("DREAM_NOTEBOOK_ARTIFACT_TOKEN", "").strip()
-    if artifact_token:
-        environment["DREAM_NOTEBOOK_ARTIFACT_TOKEN"] = artifact_token
     environment["HOME"] = str(workspace)
     environment["TMPDIR"] = str(workspace)
     environment["PYTHONUNBUFFERED"] = "1"
