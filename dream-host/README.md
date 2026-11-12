@@ -9,7 +9,7 @@ DREAM HOST is the first-party control plane for DREAM AI. It hosts the AI infere
 - Python and Markdown cells, run-one/run-all, execution output, worker status, and standard Jupyter `.ipynb` import/export.
 - Browser IndexedDB notebook storage; the free Render service's temporary filesystem is not used as permanent notebook storage.
 - Separate authenticated notebook job queue and a standalone Python notebook worker. It does not load the chat model into GPU memory.
-- Notebook code and output sizes, pending queue, worker heartbeats, retries and execution windows are bounded.
+- Notebook code and output sizes, pending queue, queued-job wait time, worker heartbeats, retries and execution windows are bounded.
 - Notebook execution is owner-only and fails closed unless both distinct notebook owner and notebook worker tokens are configured.
 
 DREAM HOST does not create GPU capacity. Notebook cells execute on an operator-owned worker connected to HOST. A CPU worker can run ordinary Python; GPU training requires compatible hardware and packages on that worker. The existing chat inference worker remains a separate compatibility path.
