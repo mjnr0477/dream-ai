@@ -104,7 +104,6 @@ export function createR2ArtifactStore({ client, bucket, commands }) {
       }
     });
     const temporaryKey = "uploads/staging/" + randomUUID() + ".part";
-    let staged = false;
 
     try {
       source.on("error", error => meter.destroy(error));
@@ -117,7 +116,6 @@ export function createR2ArtifactStore({ client, bucket, commands }) {
       }));
       source.pipe(meter);
       await uploadPromise;
-      staged = true;
       if (size < 1) throw new R2ArtifactStoreError("Artifact upload is empty.", 400);
       if (size !== expectedBytes) throw new R2ArtifactStoreError("Artifact byte count did not match Content-Length.", 400);
 
@@ -130,7 +128,6 @@ export function createR2ArtifactStore({ client, bucket, commands }) {
         MetadataDirective: "COPY"
       }));
       await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: temporaryKey })).catch(() => {});
-      staged = false;
 
       const metadata = {
         schema: METADATA_SCHEMA,
@@ -149,7 +146,7 @@ export function createR2ArtifactStore({ client, bucket, commands }) {
       }));
       return metadata;
     } catch (error) {
-      if (staged) await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: temporaryKey })).catch(() => {});
+      await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: temporaryKey })).catch(() => {});
       if (streamFailure) throw streamFailure;
       if (error instanceof R2ArtifactStoreError) throw error;
       const failure = new R2ArtifactStoreError("R2 could not store the artifact.", 502);
