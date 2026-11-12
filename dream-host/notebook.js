@@ -80,6 +80,7 @@
     });
     localStorage.setItem(ACTIVE_KEY, notebook.id);
     el("save-state").textContent = "Saved in this browser";
+    await updateNotebookList();
   }
 
   function scheduleSave() {
@@ -91,6 +92,26 @@
         showToast(error.message);
       });
     }, 250);
+  }
+
+  async function updateNotebookList() {
+    const select = el("notebook-list");
+    if (!select || !notebook) return;
+    const db = await openDatabase();
+    const saved = await new Promise((resolve, reject) => {
+      const request = db.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).getAll();
+      request.onsuccess = () => resolve(request.result || []);
+      request.onerror = () => reject(request.error || new Error("Saved notebooks could not be listed."));
+    });
+    saved.sort((a, b) => String(b.modifiedAt || "").localeCompare(String(a.modifiedAt || "")));
+    select.replaceChildren();
+    for (const item of saved) {
+      const option = document.createElement("option");
+      option.value = item.id;
+      option.textContent = String(item.title || "Untitled notebook").slice(0, 80);
+      select.append(option);
+    }
+    select.value = notebook.id;
   }
 
   async function loadNotebook() {
@@ -119,6 +140,26 @@
       }
     }));
     if (!notebook.cells.length) notebook.cells = [makeCell()];
+    await updateNotebookList();
+  }
+
+  async function switchNotebook(notebookId) {
+    if (!notebookId || notebookId === notebook.id) return;
+    const db = await openDatabase();
+    const selected = await new Promise((resolve, reject) => {
+      const request = db.transaction(STORE_NAME, "readonly").objectStore(STORE_NAME).get(notebookId);
+      request.onsuccess = () => resolve(request.result || null);
+      request.onerror = () => reject(request.error || new Error("Notebook could not be opened."));
+    });
+    if (!selected || !Array.isArray(selected.cells)) {
+      showToast("That saved notebook could not be found.");
+      await updateNotebookList();
+      return;
+    }
+    notebook = selected;
+    localStorage.setItem(ACTIVE_KEY, notebook.id);
+    render();
+    await updateNotebookList();
   }
 
   function showToast(message) {
@@ -448,7 +489,11 @@
     }
 
     el("connect-form").addEventListener("submit", connect);
+    el("notebook-list").addEventListener("change", event => {
+      switchNotebook(event.target.value).catch(error => showToast(error.message));
+    });
     el("new-notebook").addEventListener("click", async () => {
+      await storeNotebook();
       notebook = makeNotebook("Untitled notebook");
       await storeNotebook();
       render();
