@@ -502,7 +502,7 @@ async function handleArtifactRoute(req, res, url) {
     if (req.method === "GET" && url.pathname === "/api/v1/notebook/artifacts") {
       return sendJson(res, 200, { ok: true, artifacts: await listArtifacts(ARTIFACTS_DIR) });
     }
-    const downloadMatch = url.pathname.match(/^\\/api\\/v1\\/notebook\\/artifacts\\/([a-f0-9]{64})$/);
+    const downloadMatch = url.pathname.match(/^\/api\/v1\/notebook\/artifacts\/([a-f0-9]{64})$/);
     if (req.method === "GET" && downloadMatch) {
       const { metadata, stream } = await getArtifact(ARTIFACTS_DIR, downloadMatch[1]);
       res.writeHead(200, {
@@ -517,7 +517,7 @@ async function handleArtifactRoute(req, res, url) {
       stream.pipe(res);
       return;
     }
-    const uploadMatch = url.pathname.match(/^\\/api\\/v1\\/notebook\\/artifacts\\/([A-Za-z0-9._-]{1,120})$/);
+    const uploadMatch = url.pathname.match(/^\/api\/v1\/notebook\/artifacts\/([A-Za-z0-9._-]{1,120})$/);
     if ((req.method === "PUT" || req.method === "POST") && uploadMatch) {
       const metadata = await putArtifact({ root: ARTIFACTS_DIR, name: uploadMatch[1], source: req, maxBytes: ARTIFACT_MAX_BYTES });
       return sendJson(res, 201, { ok: true, artifact: metadata });
