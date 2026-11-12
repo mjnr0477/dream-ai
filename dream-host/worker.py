@@ -97,9 +97,8 @@ def generate(job):
         raise RuntimeError("The model returned an empty answer.")
     return content, int(prompt_length), int(generated.shape[-1])
 
-def main():
-    print("Registering with DREAM HOST:", HOST, flush=True)
-    registration = post("/api/v1/workers/register", {
+def register_until_ready():
+    payload = {
         "workerId": WORKER_ID,
         "name": WORKER_NAME,
         "metadata": {
@@ -107,9 +106,21 @@ def main():
             "model": BASE_MODEL,
             "adapter": ADAPTER
         }
-    })
-    registration.raise_for_status()
-    print("Registered. Worker ID:", WORKER_ID, flush=True)
+    }
+    while not STOP.is_set():
+        try:
+            print("Registering with DREAM HOST:", HOST, flush=True)
+            registration = post("/api/v1/workers/register", payload, timeout=90)
+            registration.raise_for_status()
+            print("Registered. Worker ID:", WORKER_ID, flush=True)
+            return
+        except requests.RequestException as exc:
+            print("DREAM HOST is waking or temporarily unavailable; retrying registration:", str(exc)[:300], flush=True)
+            STOP.wait(5)
+    raise RuntimeError("Worker stopped before registration completed.")
+
+def main():
+    register_until_ready()
 
     heartbeat = threading.Thread(target=heartbeat_loop, daemon=True)
     heartbeat.start()
