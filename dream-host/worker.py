@@ -132,7 +132,7 @@ def startup_smoke_test():
         "GPU self-test passed:",
         "prompt_tokens=" + str(prompt_tokens),
         "completion_tokens=" + str(completion_tokens),
-        "reply_preview=" + content[:80].replace("\\n", " "),
+        "reply_preview=" + content[:80].replace("\n", " "),
         flush=True
     )
 
