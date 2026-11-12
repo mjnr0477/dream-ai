@@ -138,3 +138,14 @@ test("a returning worker can reclaim a stale assignment after registering again"
   assert.equal(reclaimed.id, submitted.id);
   assert.equal(reclaimed.attempts, 2);
 });
+
+test("idle worker polling keeps its heartbeat fresh when the queue is empty", () => {
+  let now = 1000;
+  const queue = new NotebookQueue({ now: () => now, workerStaleMs: 10 });
+  worker(queue);
+  now = 1008;
+  assert.equal(queue.claim("notebook-worker-01"), null);
+  now = 1016;
+  assert.equal(queue.claim("notebook-worker-01"), null);
+  assert.equal(queue.status().workers.connected, 1);
+});
