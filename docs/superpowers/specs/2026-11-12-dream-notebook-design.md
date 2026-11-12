@@ -35,8 +35,8 @@ Build a first-party notebook experience served by DREAM HOST so DREAM AI develop
 
 - `GET /notebook` serves the UI; the existing health endpoint behavior remains unchanged.
 - The browser stores notebook content in IndexedDB and keeps the notebook access token only for the active browser session.
-- The operator configures `DREAM_HOST_NOTEBOOK_TOKEN` (at least 32 characters). Notebook client API calls require this token. If it is absent, notebook API calls fail closed with a setup error and the rest of DREAM HOST still starts normally.
-- The independent notebook worker authenticates with the existing `DREAM_HOST_WORKER_TOKEN` and registers a notebook capability. It does not load the chat model into GPU memory. Notebook code can import the packages installed on that worker.
+- The operator configures `DREAM_HOST_NOTEBOOK_TOKEN` and `DREAM_HOST_NOTEBOOK_WORKER_TOKEN` (each at least 32 characters and distinct from each other and the chat tokens). Notebook client API calls require the former; notebook worker routes require the latter. If either is absent or reused, notebook API calls fail closed with a setup error and the rest of DREAM HOST still starts normally.
+- The independent notebook worker authenticates with the dedicated `DREAM_HOST_NOTEBOOK_WORKER_TOKEN` and registers a notebook capability. It does not load the chat model into GPU memory. Notebook code can import the packages installed on that worker.
 - Notebook jobs are asynchronous: submit, claim, execute, complete/fail, and poll status. Queue size, cell size, output size, execution duration and worker heartbeat are bounded.
 - The worker is an operator-owned trusted-code executor, not a hardened multi-tenant sandbox. It must only be run on a machine dedicated to the operator's own notebooks. Do not expose it as a public code-execution service.
 - HOST job/worker state is in memory and is lost on service restart. Notebook documents are stored in the user's browser and can be exported. Kernel variables and files on a worker are temporary and are lost when that worker/kernel stops.
