@@ -162,7 +162,7 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
     },
     body: JSON.stringify({
       workerId: "notebook-worker-01",
-      stdout: "notebook integration\\n",
+      stdout: "notebook integration\n",
       stderr: "",
       display: "None",
       executionCount: 1
@@ -176,7 +176,7 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   assert.equal(notebookCompletedResponse.status, 200);
   const notebookCompleted = (await notebookCompletedResponse.json()).job;
   assert.equal(notebookCompleted.status, "completed");
-  assert.equal(notebookCompleted.result.stdout, "notebook integration\\n");
+  assert.equal(notebookCompleted.result.stdout, "notebook integration\n");
 
   const notReady = await fetch(baseUrl + "/health/ready");
   assert.equal(notReady.status, 503);
