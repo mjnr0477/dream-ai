@@ -71,6 +71,7 @@
 
   async function storeNotebook() {
     const db = await openDatabase();
+    notebook.modifiedAt = new Date().toISOString();
     await new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_NAME, "readwrite");
       transaction.objectStore(STORE_NAME).put(notebook);
