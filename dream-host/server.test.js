@@ -37,6 +37,8 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   const baseUrl = `http://127.0.0.1:${port}`;
   const workerToken = "test-worker-token-0123456789-abcdefghijklmnopqrstuvwxyz";
   const clientToken = "test-client-token-0123456789-abcdefghijklmnopqrstuvwxyz";
+  const notebookToken = "test-notebook-token-0123456789-abcdefghijklmnopqrstuvwxyz";
+  const notebookWorkerToken = "test-notebook-worker-token-0123456789-abcdefghijklmnopqrstuvwxyz";
   const workerId = "worker-test-0001";
 
   const child = spawn(process.execPath, [SERVER_PATH], {
@@ -45,6 +47,8 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
       PORT: String(port),
       DREAM_HOST_WORKER_TOKEN: workerToken,
       DREAM_HOST_CLIENT_TOKEN: clientToken,
+      DREAM_HOST_NOTEBOOK_TOKEN: notebookToken,
+      DREAM_HOST_NOTEBOOK_WORKER_TOKEN: notebookWorkerToken,
       DREAM_HOST_MODEL_NAME: MODEL,
       DREAM_HOST_ADAPTER_NAME: ADAPTER
     },
@@ -63,10 +67,116 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
 
   const initialHealth = await fetch(baseUrl + "/health").then(response => response.json());
   assert.equal(initialHealth.name, "DREAM HOST");
-  assert.equal(initialHealth.version, "0.2.0");
+  assert.equal(initialHealth.version, "0.3.0");
   assert.equal(initialHealth.modelConfigured, true);
   assert.equal(initialHealth.modelReady, false);
   assert.equal(initialHealth.persistence, "in-memory");
+
+  const notebookPage = await fetch(baseUrl + "/notebook");
+  assert.equal(notebookPage.status, 200);
+  assert.match(await notebookPage.text(), /DREAM NOTEBOOK/);
+  assert.match(notebookPage.headers.get("content-security-policy"), /script-src 'self'/);
+
+  const notebookScript = await fetch(baseUrl + "/notebook.js");
+  assert.equal(notebookScript.status, 200);
+  assert.match(notebookScript.headers.get("content-type"), /javascript/);
+  assert.match(await notebookScript.text(), /indexedDB/);
+
+  const notebookStyle = await fetch(baseUrl + "/notebook.css");
+  assert.equal(notebookStyle.status, 200);
+  assert.match(notebookStyle.headers.get("content-type"), /css/);
+
+  const notebookUnauthorized = await fetch(baseUrl + "/api/v1/notebook/status");
+  assert.equal(notebookUnauthorized.status, 401);
+
+  const notebookStatusResponse = await fetch(baseUrl + "/api/v1/notebook/status", {
+    headers: { authorization: "Bearer " + notebookToken }
+  });
+  assert.equal(notebookStatusResponse.status, 200);
+  const notebookStatus = await notebookStatusResponse.json();
+  assert.equal(notebookStatus.workers.connected, 0);
+  assert.equal(notebookStatus.queue.pending, 0);
+
+  const notebookJobResponse = await fetch(baseUrl + "/api/v1/notebook/jobs", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: "Bearer " + notebookToken
+    },
+    body: JSON.stringify({
+      notebookId: "notebook-test-01",
+      cellId: "cell-test-01",
+      code: "print('notebook integration')"
+    })
+  });
+  assert.equal(notebookJobResponse.status, 202);
+  const notebookJob = (await notebookJobResponse.json()).job;
+  assert.equal(notebookJob.status, "queued");
+
+  const chatWorkerTokenRejected = await fetch(baseUrl + "/api/v1/notebook/workers/register", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: "Bearer " + workerToken
+    },
+    body: JSON.stringify({
+      workerId: "notebook-worker-unauthorized",
+      metadata: { role: "notebook", deviceType: "cpu" }
+    })
+  });
+  assert.equal(chatWorkerTokenRejected.status, 401);
+
+  const notebookWorkerRegistration = await fetch(baseUrl + "/api/v1/notebook/workers/register", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: "Bearer " + notebookWorkerToken
+    },
+    body: JSON.stringify({
+      workerId: "notebook-worker-01",
+      name: "Integration notebook worker",
+      metadata: { role: "notebook", device: "Test CPU", deviceType: "cpu", python: "3.11" }
+    })
+  });
+  assert.equal(notebookWorkerRegistration.status, 200);
+
+  const notebookClaimResponse = await fetch(baseUrl + "/api/v1/notebook/workers/jobs/claim", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: "Bearer " + notebookWorkerToken
+    },
+    body: JSON.stringify({ workerId: "notebook-worker-01" })
+  });
+  assert.equal(notebookClaimResponse.status, 200);
+  const claimedNotebookJob = (await notebookClaimResponse.json()).job;
+  assert.equal(claimedNotebookJob.id, notebookJob.id);
+  assert.equal(claimedNotebookJob.status, "running");
+  assert.equal(claimedNotebookJob.code, "print('notebook integration')");
+
+  const notebookResultResponse = await fetch(baseUrl + "/api/v1/notebook/workers/jobs/" + notebookJob.id + "/result", {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: "Bearer " + notebookWorkerToken
+    },
+    body: JSON.stringify({
+      workerId: "notebook-worker-01",
+      stdout: "notebook integration\n",
+      stderr: "",
+      display: "None",
+      executionCount: 1
+    })
+  });
+  assert.equal(notebookResultResponse.status, 200);
+
+  const notebookCompletedResponse = await fetch(baseUrl + "/api/v1/notebook/jobs/" + notebookJob.id, {
+    headers: { authorization: "Bearer " + notebookToken }
+  });
+  assert.equal(notebookCompletedResponse.status, 200);
+  const notebookCompleted = (await notebookCompletedResponse.json()).job;
+  assert.equal(notebookCompleted.status, "completed");
+  assert.equal(notebookCompleted.result.stdout, "notebook integration\n");
 
   const notReady = await fetch(baseUrl + "/health/ready");
   assert.equal(notReady.status, 503);
@@ -192,3 +302,43 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
     "Hello from the DREAM HOST integration test."
   );
 });
+
+test("DREAM NOTEBOOK fails closed without a distinct access token while HOST still starts", { timeout: 15000 }, async t => {
+  const port = await getFreePort();
+  const baseUrl = `http://127.0.0.1:${port}`;
+  const workerToken = "test-worker-token-0123456789-abcdefghijklmnopqrstuvwxyz";
+  const clientToken = "test-client-token-0123456789-abcdefghijklmnopqrstuvwxyz";
+  const child = spawn(process.execPath, [SERVER_PATH], {
+    env: {
+      ...process.env,
+      PORT: String(port),
+      DREAM_HOST_WORKER_TOKEN: workerToken,
+      DREAM_HOST_CLIENT_TOKEN: clientToken,
+      DREAM_HOST_NOTEBOOK_TOKEN: workerToken,
+      DREAM_HOST_NOTEBOOK_WORKER_TOKEN: "test-notebook-worker-token-0123456789-abcdefghijklmnopqrstuvwxyz",
+      DREAM_HOST_MODEL_NAME: MODEL,
+      DREAM_HOST_ADAPTER_NAME: ADAPTER
+    },
+    stdio: "ignore"
+  });
+
+  t.after(async () => {
+    if (child.exitCode === null) {
+      child.kill("SIGTERM");
+      await Promise.race([once(child, "exit"), delay(2000)]);
+      if (child.exitCode === null) child.kill("SIGKILL");
+    }
+  });
+
+  await waitForHost(baseUrl, child);
+  const health = await fetch(baseUrl + "/health");
+  assert.equal(health.status, 200);
+
+  const disabled = await fetch(baseUrl + "/api/v1/notebook/status", {
+    headers: { authorization: "Bearer " + workerToken }
+  });
+  assert.equal(disabled.status, 503);
+  const body = await disabled.json();
+  assert.match(body.error.message, /distinct private value/);
+});
+

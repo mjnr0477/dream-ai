@@ -1,8 +1,18 @@
 # DREAM HOST
 
-DREAM HOST is a lightweight Render-hosted control plane for GPU workers. It does not run a GPU or host Kaggle itself. A Kaggle notebook runs the worker agent, connects outbound to this stable HTTPS API, pulls inference jobs, runs Qwen3-1.7B plus the DREAM adapter on its GPU, and posts results back.
+DREAM HOST is the first-party control plane for DREAM AI. It hosts the AI inference API and the DREAM NOTEBOOK interface while compute runs on separately connected, operator-controlled workers.
 
-## Current release (0.2.0)
+## Current release (0.3.0, backward-compatible)
+
+- All existing 0.2.0 inference endpoints and chat worker behavior remain available.
+- First-party notebook interface at `/notebook`.
+- Python and Markdown cells, run-one/run-all, execution output, worker status, and standard Jupyter `.ipynb` import/export.
+- Browser IndexedDB notebook storage; the free Render service's temporary filesystem is not used as permanent notebook storage.
+- Separate authenticated notebook job queue and a standalone Python notebook worker. It does not load the chat model into GPU memory.
+- Notebook code and output sizes, pending queue, queued-job wait time, worker heartbeats, retries and execution windows are bounded.
+- Notebook execution is owner-only and fails closed unless both distinct notebook owner and notebook worker tokens are configured.
+
+DREAM HOST does not create GPU capacity. Notebook cells execute on an operator-owned worker connected to HOST. A CPU worker can run ordinary Python; GPU training requires compatible hardware and packages on that worker. The existing chat inference worker remains a separate compatibility path.
 
 - OpenAI-compatible POST /v1/chat/completions and GET /v1/models.
 - Authenticated worker registration, heartbeat, job claiming, result and failure reporting.
@@ -62,6 +72,50 @@ os.environ["DREAM_HOST_URL"] = "https://dream-host-live.onrender.com"
 ```
 
 The earlier DREAM AI Kaggle notebook already used torch, transformers and peft. Avoid reinstalling or upgrading torch unnecessarily; install only a package that is actually missing. If the previous tunnel-based inference server is still running, restart the Kaggle session first because this worker loads its own model copy. Keep the notebook session running while the worker is needed.
+
+## DREAM NOTEBOOK
+
+Open `https://dream-host-live.onrender.com/notebook` after the 0.3.0 host release is deployed.
+
+### One-time HOST configuration
+
+Add both of these private environment variables to the DREAM HOST Render service:
+
+- `DREAM_HOST_NOTEBOOK_TOKEN`: a new random secret used by the notebook owner in the browser.
+- `DREAM_HOST_NOTEBOOK_WORKER_TOKEN`: a separate random secret used only by the notebook Python worker.
+
+Each value must be at least 32 characters and distinct from the other and from the existing chat `DREAM_HOST_WORKER_TOKEN` and `DREAM_HOST_CLIENT_TOKEN`. Do not place any token in the frontend source, a notebook cell, a public repository, or a notebook export.
+
+### Start an operator-owned notebook worker
+
+On a machine dedicated to the notebook owner, install the notebook worker requirements and a compatible Python environment. Install PyTorch separately when GPU/accelerator training is needed, using a build compatible with the machine's driver and accelerator.
+
+Set these environment variables privately:
+
+- `DREAM_HOST_URL=https://dream-host-live.onrender.com`
+- `DREAM_HOST_NOTEBOOK_WORKER_TOKEN=<the dedicated notebook worker token>`
+- `DREAM_HOST_NOTEBOOK_TRUSTED_MODE=1`
+
+Then install and run:
+
+```bash
+python -m pip install -r dream-host/requirements-notebook-worker.txt
+python dream-host/notebook_worker.py
+```
+
+The worker registers as a notebook executor, maintains a separate Python kernel for each notebook, heartbeats while cells run, and returns stdout, stderr, expression results and tracebacks. It allows up to four active kernels by default and cleans kernels that have been idle for 30 minutes. The worker's Python environment is the environment available to notebook cells; packages installed there are available to subsequent cells.
+
+### Storage and security boundaries
+
+- Notebook documents are saved in the current browser's IndexedDB. Export important work as `.ipynb`; imported Jupyter Notebook version 4 files are supported.
+- HOST worker registrations, queues and active jobs are in memory and are cleared by a HOST restart. The browser keeps the notebook document, but kernel variables and worker-local files are temporary.
+- Notebook cell execution runs trusted Python code. The worker is **not** a hardened multi-tenant sandbox. Start it only on a machine you control, do not expose its worker token, and do not use it for untrusted public notebooks.
+- The notebook API requires both `DREAM_HOST_NOTEBOOK_TOKEN` and `DREAM_HOST_NOTEBOOK_WORKER_TOKEN`; if either is absent or reused, the notebook UI is still served but execution/status endpoints return 503. Existing chat service startup does not depend on these variables.
+- A connected CPU can execute ordinary code. Long or large model-training runs require enough RAM/VRAM, disk, and a compatible accelerator. HOST itself does not supply those resources.
+
+### DREAM AI training
+
+The notebook is an execution environment, not automatic permission to train. Use the existing DREAM AI training scripts only with datasets that pass DREAM's consent, rights, provenance, privacy, quality and split-isolation reviews. Training should create a candidate checkpoint/adapter and evaluation report; it must not overwrite the active production model automatically.
 
 ## API
 

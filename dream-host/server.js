@@ -1,5 +1,7 @@
 import http from "node:http";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { NotebookQueue } from "./notebook-core.js";
 
 const PORT = Number(process.env.PORT || 10000);
 function normalizeToken(value) {
@@ -11,6 +13,23 @@ const WORKER_TOKEN = normalizeToken(process.env.DREAM_HOST_WORKER_TOKEN);
 console.log("DREAM_HOST_WORKER_AUTH_DIAGNOSTIC", JSON.stringify({configured: Boolean(WORKER_TOKEN), length: WORKER_TOKEN.length, fingerprint: createHash("sha256").update(WORKER_TOKEN).digest("hex").slice(0, 12)}));
 
 const CLIENT_TOKEN = process.env.DREAM_HOST_CLIENT_TOKEN || "";
+const NOTEBOOK_TOKEN = normalizeToken(process.env.DREAM_HOST_NOTEBOOK_TOKEN);
+const NOTEBOOK_WORKER_TOKEN = normalizeToken(process.env.DREAM_HOST_NOTEBOOK_WORKER_TOKEN);
+const NOTEBOOK_TOKEN_CONFIGURED = NOTEBOOK_TOKEN.length >= 32
+  && NOTEBOOK_TOKEN !== WORKER_TOKEN
+  && NOTEBOOK_TOKEN !== normalizeToken(CLIENT_TOKEN);
+const NOTEBOOK_WORKER_TOKEN_CONFIGURED = NOTEBOOK_WORKER_TOKEN.length >= 32
+  && NOTEBOOK_WORKER_TOKEN !== WORKER_TOKEN
+  && NOTEBOOK_WORKER_TOKEN !== normalizeToken(CLIENT_TOKEN)
+  && NOTEBOOK_WORKER_TOKEN !== NOTEBOOK_TOKEN;
+const NOTEBOOK_QUEUE = new NotebookQueue({
+  maxQueue: process.env.DREAM_HOST_NOTEBOOK_MAX_QUEUE,
+  maxCodeChars: process.env.DREAM_HOST_NOTEBOOK_MAX_CODE_CHARS,
+  maxOutputChars: process.env.DREAM_HOST_NOTEBOOK_MAX_OUTPUT_CHARS,
+  workerStaleMs: process.env.DREAM_HOST_NOTEBOOK_WORKER_STALE_MS,
+  jobLeaseMs: process.env.DREAM_HOST_NOTEBOOK_JOB_LEASE_MS,
+  maxExecutionMs: process.env.DREAM_HOST_NOTEBOOK_EXECUTION_TIMEOUT_MS
+});
 const MAX_BODY_BYTES = 1024 * 1024;
 const rawQueueLimit = Number(process.env.DREAM_HOST_MAX_QUEUE || 30);
 const MAX_QUEUE = Number.isFinite(rawQueueLimit) ? Math.max(1, Math.min(rawQueueLimit, 200)) : 30;
@@ -20,7 +39,7 @@ const rawStale = Number(process.env.DREAM_HOST_WORKER_STALE_MS || 60000);
 const WORKER_STALE_MS = Number.isFinite(rawStale) ? Math.max(30000, Math.min(rawStale, 180000)) : 60000;
 const MODEL_NAME = process.env.DREAM_HOST_MODEL_NAME || "Qwen/Qwen3-1.7B";
 const ADAPTER_NAME = process.env.DREAM_HOST_ADAPTER_NAME || "msjnr0477/dream-ai-adapter";
-const HOST_VERSION = "0.2.0";
+const HOST_VERSION = "0.3.0";
 const STARTED_AT = Date.now();
 
 if (WORKER_TOKEN.length < 32 || CLIENT_TOKEN.length < 32) {
@@ -56,6 +75,17 @@ function sendEmpty(res, status = 204) {
   res.end();
 }
 
+async function sendStaticFile(res, fileName, contentType) {
+  const content = await readFile(new URL(fileName, import.meta.url));
+  res.writeHead(200, {
+    ...securityHeaders,
+    "content-type": contentType,
+    "cache-control": "no-cache",
+    "content-security-policy": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:"
+  });
+  res.end(content);
+}
+
 function tokenMatches(req, expected) {
   const header = String(req.headers.authorization || "").trim();
   if (header.slice(0, 7).toLowerCase() !== "bearer ") return false;
@@ -68,6 +98,32 @@ function requireToken(req, res, expected) {
   if (tokenMatches(req, expected)) return true;
   sendJson(res, 401, { error: { message: "Unauthorized", type: "authentication_error" } });
   return false;
+}
+
+function requireNotebookToken(req, res) {
+  if (!NOTEBOOK_TOKEN_CONFIGURED || !NOTEBOOK_WORKER_TOKEN_CONFIGURED) {
+    sendJson(res, 503, {
+      error: {
+        message: "DREAM NOTEBOOK is not configured. Set DREAM_HOST_NOTEBOOK_TOKEN and DREAM_HOST_NOTEBOOK_WORKER_TOKEN to distinct private values of at least 32 characters.",
+        type: "configuration_error"
+      }
+    });
+    return false;
+  }
+  return requireToken(req, res, NOTEBOOK_TOKEN);
+}
+
+function requireNotebookWorkerToken(req, res) {
+  if (!NOTEBOOK_TOKEN_CONFIGURED || !NOTEBOOK_WORKER_TOKEN_CONFIGURED) {
+    sendJson(res, 503, {
+      error: {
+        message: "DREAM NOTEBOOK worker authentication is not configured. Set both private notebook tokens on DREAM HOST.",
+        type: "configuration_error"
+      }
+    });
+    return false;
+  }
+  return requireToken(req, res, NOTEBOOK_WORKER_TOKEN);
 }
 
 function finiteNumber(value, fallback, minimum, maximum) {
@@ -414,9 +470,85 @@ async function handleWorkerRoute(req, res, url) {
   return sendJson(res, 404, { error: "Worker endpoint not found." });
 }
 
+async function handleNotebookClientRoute(req, res, url) {
+  if (!requireNotebookToken(req, res)) return;
+  try {
+    if (req.method === "GET" && url.pathname === "/api/v1/notebook/status") {
+      return sendJson(res, 200, NOTEBOOK_QUEUE.status());
+    }
+    if (req.method === "POST" && url.pathname === "/api/v1/notebook/jobs") {
+      const body = await readJson(req);
+      const job = NOTEBOOK_QUEUE.submit(body);
+      return sendJson(res, 202, { ok: true, job });
+    }
+    const match = url.pathname.match(/^\/api\/v1\/notebook\/jobs\/([A-Za-z0-9_-]{1,100})$/);
+    if (req.method === "GET" && match) {
+      const job = NOTEBOOK_QUEUE.getJob(match[1]);
+      return job
+        ? sendJson(res, 200, { ok: true, job })
+        : sendJson(res, 404, { error: { message: "Notebook job not found.", type: "not_found" } });
+    }
+    return sendJson(res, 404, { error: { message: "Notebook endpoint not found.", type: "not_found" } });
+  } catch (error) {
+    const status = Number.isInteger(error.status) ? error.status : 500;
+    return sendJson(res, status, {
+      error: {
+        message: status >= 500 ? "DREAM NOTEBOOK could not process the request." : error.message,
+        type: status === 429 ? "rate_limit_error" : "notebook_error"
+      }
+    });
+  }
+}
+
+async function handleNotebookWorkerRoute(req, res, url) {
+  if (!requireNotebookWorkerToken(req, res)) return;
+  try {
+    NOTEBOOK_QUEUE.sweep();
+    if (req.method === "POST" && url.pathname === "/api/v1/notebook/workers/register") {
+      const body = await readJson(req);
+      return sendJson(res, 200, NOTEBOOK_QUEUE.registerWorker(body));
+    }
+    if (req.method === "POST" && url.pathname === "/api/v1/notebook/workers/heartbeat") {
+      const body = await readJson(req);
+      return sendJson(res, 200, NOTEBOOK_QUEUE.heartbeat(body));
+    }
+    if (req.method === "POST" && url.pathname === "/api/v1/notebook/workers/jobs/claim") {
+      const body = await readJson(req);
+      const job = NOTEBOOK_QUEUE.claim(body.workerId);
+      return job ? sendJson(res, 200, { ok: true, job }) : sendEmpty(res, 204);
+    }
+    const match = url.pathname.match(/^\/api\/v1\/notebook\/workers\/jobs\/([A-Za-z0-9_-]{1,100})\/(result|fail)$/);
+    if (req.method === "POST" && match) {
+      const body = await readJson(req);
+      const job = match[2] === "result"
+        ? NOTEBOOK_QUEUE.complete(body.workerId, match[1], body)
+        : NOTEBOOK_QUEUE.fail(body.workerId, match[1], body.error);
+      return sendJson(res, 200, { ok: true, job });
+    }
+    return sendJson(res, 404, { error: "Notebook worker endpoint not found." });
+  } catch (error) {
+    const status = Number.isInteger(error.status) ? error.status : 500;
+    return sendJson(res, status, {
+      error: {
+        message: status >= 500 ? "DREAM NOTEBOOK worker request failed." : error.message,
+        type: "notebook_worker_error"
+      }
+    });
+  }
+}
+
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url || "/", "http://localhost");
+    if (req.method === "GET" && url.pathname === "/notebook") {
+      return await sendStaticFile(res, "./notebook.html", "text/html; charset=utf-8");
+    }
+    if (req.method === "GET" && url.pathname === "/notebook.js") {
+      return await sendStaticFile(res, "./notebook.js", "text/javascript; charset=utf-8");
+    }
+    if (req.method === "GET" && url.pathname === "/notebook.css") {
+      return await sendStaticFile(res, "./notebook.css", "text/css; charset=utf-8");
+    }
     if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/health" || url.pathname === "/healthz" || url.pathname === "/health/live")) {
       return sendJson(res, 200, statusSnapshot());
     }
@@ -437,6 +569,12 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === "POST" && url.pathname === "/v1/chat/completions") {
       return await handleChat(req, res);
+    }
+    if (url.pathname.startsWith("/api/v1/notebook/workers/")) {
+      return await handleNotebookWorkerRoute(req, res, url);
+    }
+    if (url.pathname.startsWith("/api/v1/notebook/")) {
+      return await handleNotebookClientRoute(req, res, url);
     }
     if (url.pathname.startsWith("/api/v1/workers/")) {
       return await handleWorkerRoute(req, res, url);
