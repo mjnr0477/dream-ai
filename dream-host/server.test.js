@@ -38,6 +38,7 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   const workerToken = "test-worker-token-0123456789-abcdefghijklmnopqrstuvwxyz";
   const clientToken = "test-client-token-0123456789-abcdefghijklmnopqrstuvwxyz";
   const notebookToken = "test-notebook-token-0123456789-abcdefghijklmnopqrstuvwxyz";
+  const notebookWorkerToken = "test-notebook-worker-token-0123456789-abcdefghijklmnopqrstuvwxyz";
   const workerId = "worker-test-0001";
 
   const child = spawn(process.execPath, [SERVER_PATH], {
@@ -47,6 +48,7 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
       DREAM_HOST_WORKER_TOKEN: workerToken,
       DREAM_HOST_CLIENT_TOKEN: clientToken,
       DREAM_HOST_NOTEBOOK_TOKEN: notebookToken,
+      DREAM_HOST_NOTEBOOK_WORKER_TOKEN: notebookWorkerToken,
       DREAM_HOST_MODEL_NAME: MODEL,
       DREAM_HOST_ADAPTER_NAME: ADAPTER
     },
@@ -115,7 +117,7 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: "Bearer " + workerToken
+      authorization: "Bearer " + notebookWorkerToken
     },
     body: JSON.stringify({
       workerId: "notebook-worker-01",
@@ -143,7 +145,7 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: "Bearer " + workerToken
+      authorization: "Bearer " + notebookWorkerToken
     },
     body: JSON.stringify({
       workerId: "notebook-worker-01",
@@ -300,6 +302,7 @@ test("DREAM NOTEBOOK fails closed without a distinct access token while HOST sti
       DREAM_HOST_WORKER_TOKEN: workerToken,
       DREAM_HOST_CLIENT_TOKEN: clientToken,
       DREAM_HOST_NOTEBOOK_TOKEN: workerToken,
+      DREAM_HOST_NOTEBOOK_WORKER_TOKEN: "test-notebook-worker-token-0123456789-abcdefghijklmnopqrstuvwxyz",
       DREAM_HOST_MODEL_NAME: MODEL,
       DREAM_HOST_ADAPTER_NAME: ADAPTER
     },
