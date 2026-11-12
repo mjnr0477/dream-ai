@@ -150,9 +150,16 @@ function sweep() {
 function statusSnapshot() {
   sweep();
   const connected = [...workers.values()].filter(w => Date.now() - w.lastSeen <= WORKER_STALE_MS);
+  const activeWorker = connected.find(w => w.metadata && typeof w.metadata.device === "string");
   return {
     name: "DREAM HOST",
-    version: "0.1.0",
+    version: "0.1.1",
+    ok: true,
+    modelConfigured: true,
+    modelReady: connected.length > 0,
+    model: MODEL_NAME,
+    adapter: process.env.DREAM_HOST_ADAPTER_NAME || "msjnr0477/dream-ai-adapter",
+    device: activeWorker?.metadata?.device || null,
     queue: {
       pending: pending.filter(id => jobs.get(id)?.status === "queued").length,
       running: [...jobs.values()].filter(j => j.status === "running").length,
@@ -188,6 +195,15 @@ async function handleChat(req, res) {
     return sendJson(res, 400, openAiError("Each message must have a supported role and text content up to 12,000 characters.", "invalid_request_error"));
   }
   sweep();
+  const connectedWorkers = [...workers.values()].filter(w => Date.now() - w.lastSeen <= WORKER_STALE_MS);
+  if (connectedWorkers.length === 0) {
+    return sendJson(
+      res,
+      503,
+      openAiError("No Kaggle GPU worker is connected. Start the DREAM HOST worker and retry.", "server_error"),
+      { "retry-after": "10" }
+    );
+  }
   const queuedCount = pending.filter(id => jobs.get(id)?.status === "queued").length;
   if (queuedCount >= MAX_QUEUE) {
     return sendJson(res, 429, openAiError("DREAM HOST queue is full. Retry shortly.", "rate_limit_error"), { "retry-after": "5" });
