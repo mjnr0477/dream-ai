@@ -353,3 +353,6 @@ body {
   .sidebar { transition: none; }
   .message { animation: none; }
 }
+
+/* Preserve the welcome/chat state toggled by app.js. */
+.welcome[hidden] { display: none !important; }
