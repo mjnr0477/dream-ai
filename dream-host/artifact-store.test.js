@@ -73,14 +73,31 @@ test("R2 artifact vault streams to content-addressed objects, lists metadata and
   class PutObjectCommand { constructor(input) { this.input = input; } }
   class GetObjectCommand { constructor(input) { this.input = input; } }
   class ListObjectsV2Command { constructor(input) { this.input = input; } }
-  const commands = { PutObjectCommand, GetObjectCommand, ListObjectsV2Command };
+  class CopyObjectCommand { constructor(input) { this.input = input; } }
+  class DeleteObjectCommand { constructor(input) { this.input = input; } }
+  const commands = { PutObjectCommand, GetObjectCommand, ListObjectsV2Command, CopyObjectCommand, DeleteObjectCommand };
   const client = {
     async send(command) {
       const input = command.input;
       if (command instanceof PutObjectCommand) {
-        const chunks = [];
-        for await (const chunk of input.Body) chunks.push(Buffer.from(chunk));
-        objects.set(input.Key, Buffer.concat(chunks));
+        let bytes;
+        if (Buffer.isBuffer(input.Body) || input.Body instanceof Uint8Array || typeof input.Body === "string") {
+          bytes = Buffer.from(input.Body);
+        } else {
+          const chunks = [];
+          for await (const chunk of input.Body) chunks.push(Buffer.from(chunk));
+          bytes = Buffer.concat(chunks);
+        }
+        objects.set(input.Key, bytes);
+        return {};
+      }
+      if (command instanceof CopyObjectCommand) {
+        const sourceKey = input.CopySource.slice(input.CopySource.indexOf("/") + 1);
+        objects.set(input.Key, Buffer.from(objects.get(sourceKey)));
+        return {};
+      }
+      if (command instanceof DeleteObjectCommand) {
+        objects.delete(input.Key);
         return {};
       }
       if (command instanceof GetObjectCommand) {
@@ -134,7 +151,7 @@ test("R2 artifact vault rejects missing lengths and unsafe artifact names", asyn
   class ListObjectsV2Command { constructor(input) { this.input = input; } }
   const store = createR2ArtifactStore({
     bucket: "dream-ai-model-vault",
-    commands: { PutObjectCommand, GetObjectCommand, ListObjectsV2Command },
+    commands: { PutObjectCommand, GetObjectCommand, ListObjectsV2Command, CopyObjectCommand, DeleteObjectCommand },
     client: { async send() { throw new Error("Should not reach R2"); } }
   });
   await assert.rejects(
