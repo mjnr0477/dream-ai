@@ -21,12 +21,13 @@ sys.path.insert(0, str(ROOT / "data"))
 from dream_ai_optin_pipeline import export_optin_rows, write_jsonl
 from review_candidates import review_file
 from sync_dream_ai_reviews_to_supabase import sync_file
+from dream_ai_supabase_guard import validate_dream_ai_supabase_url
 
 CONSENT_VERSION = "dream-learning-opt-in-v3"
 
 
 def fetch_pending(base_url: str, key: str) -> list[dict]:
-    base_url = base_url.rstrip("/")
+    base_url = validate_dream_ai_supabase_url(base_url)
     rows = []
     offset = 0
     page_size = 500
