@@ -119,7 +119,25 @@ def register_until_ready():
             STOP.wait(5)
     raise RuntimeError("Worker stopped before registration completed.")
 
+def startup_smoke_test():
+    print("Running a short GPU inference self-test before worker registration.", flush=True)
+    content, prompt_tokens, completion_tokens = generate({
+        "messages": [{"role": "user", "content": "Reply with exactly: DREAM HOST GPU READY"}],
+        "max_tokens": 24,
+        "temperature": 0
+    })
+    if not content.strip():
+        raise RuntimeError("DREAM HOST GPU self-test returned an empty response.")
+    print(
+        "GPU self-test passed:",
+        "prompt_tokens=" + str(prompt_tokens),
+        "completion_tokens=" + str(completion_tokens),
+        "reply_preview=" + content[:80].replace("\n", " "),
+        flush=True
+    )
+
 def main():
+    startup_smoke_test()
     register_until_ready()
 
     heartbeat = threading.Thread(target=heartbeat_loop, daemon=True)

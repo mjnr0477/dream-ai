@@ -12,6 +12,9 @@ const JOB_TIMEOUT_MS = Number.isFinite(rawTimeout) ? Math.max(15000, Math.min(ra
 const rawStale = Number(process.env.DREAM_HOST_WORKER_STALE_MS || 60000);
 const WORKER_STALE_MS = Number.isFinite(rawStale) ? Math.max(30000, Math.min(rawStale, 180000)) : 60000;
 const MODEL_NAME = process.env.DREAM_HOST_MODEL_NAME || "Qwen/Qwen3-1.7B";
+const ADAPTER_NAME = process.env.DREAM_HOST_ADAPTER_NAME || "msjnr0477/dream-ai-adapter";
+const HOST_VERSION = "0.2.0";
+const STARTED_AT = Date.now();
 
 if (WORKER_TOKEN.length < 32 || CLIENT_TOKEN.length < 32) {
   throw new Error("DREAM_HOST_WORKER_TOKEN and DREAM_HOST_CLIENT_TOKEN must each contain at least 32 characters.");
@@ -147,28 +150,47 @@ function sweep() {
   }
 }
 
-function statusSnapshot() {
+function connectedWorkers() {
   sweep();
-  const connected = [...workers.values()].filter(w => Date.now() - w.lastSeen <= WORKER_STALE_MS);
-  const activeWorker = connected.find(w => w.metadata && typeof w.metadata.device === "string");
+  const now = Date.now();
+  return [...workers.values()].filter(worker => now - worker.lastSeen <= WORKER_STALE_MS);
+}
+
+function readyWorkers() {
+  return connectedWorkers().filter(worker =>
+    worker.metadata?.model === MODEL_NAME &&
+    worker.metadata?.adapter === ADAPTER_NAME
+  );
+}
+
+function statusSnapshot() {
+  const connected = connectedWorkers();
+  const ready = connected.filter(worker =>
+    worker.metadata?.model === MODEL_NAME &&
+    worker.metadata?.adapter === ADAPTER_NAME
+  );
+  const activeWorker = ready.find(worker => typeof worker.metadata?.device === "string");
   return {
     name: "DREAM HOST",
-    version: "0.1.1",
+    version: HOST_VERSION,
     ok: true,
     modelConfigured: true,
-    modelReady: connected.length > 0,
+    modelReady: ready.length > 0,
     model: MODEL_NAME,
-    adapter: process.env.DREAM_HOST_ADAPTER_NAME || "msjnr0477/dream-ai-adapter",
+    adapter: ADAPTER_NAME,
     device: activeWorker?.metadata?.device || null,
+    uptimeSeconds: Math.max(0, Math.floor((Date.now() - STARTED_AT) / 1000)),
+    persistence: "in-memory",
     queue: {
       pending: pending.filter(id => jobs.get(id)?.status === "queued").length,
-      running: [...jobs.values()].filter(j => j.status === "running").length,
+      running: [...jobs.values()].filter(job => job.status === "running").length,
       limit: MAX_QUEUE
     },
     workers: {
       connected: connected.length,
-      idle: connected.filter(w => w.status === "idle").length,
-      busy: connected.filter(w => w.status === "busy").length
+      ready: ready.length,
+      idle: ready.filter(worker => worker.status === "idle").length,
+      busy: ready.filter(worker => worker.status === "busy").length
     }
   };
 }
@@ -186,6 +208,9 @@ async function handleChat(req, res) {
   if (!Array.isArray(body.messages) || body.messages.length < 1 || body.messages.length > 64) {
     return sendJson(res, 400, openAiError("messages must be an array containing 1 to 64 entries.", "invalid_request_error"));
   }
+  if (body.model !== undefined && body.model !== MODEL_NAME) {
+    return sendJson(res, 400, openAiError("Requested model does not match DREAM HOST configuration.", "invalid_request_error"));
+  }
   const messages = body.messages.map(message => {
     if (!message || typeof message !== "object" || !["system", "user", "assistant"].includes(message.role) ||
         typeof message.content !== "string" || message.content.length > 12000) return null;
@@ -195,8 +220,8 @@ async function handleChat(req, res) {
     return sendJson(res, 400, openAiError("Each message must have a supported role and text content up to 12,000 characters.", "invalid_request_error"));
   }
   sweep();
-  const connectedWorkers = [...workers.values()].filter(w => Date.now() - w.lastSeen <= WORKER_STALE_MS);
-  if (connectedWorkers.length === 0) {
+  const availableWorkers = readyWorkers();
+  if (availableWorkers.length === 0) {
     return sendJson(
       res,
       503,
@@ -295,6 +320,9 @@ async function handleWorkerRoute(req, res, url) {
     const workerId = typeof body.workerId === "string" ? body.workerId.trim() : "";
     const worker = workers.get(workerId);
     if (!worker) return sendJson(res, 409, { error: "Worker is not registered. Register it again." });
+    if (worker.metadata?.model !== MODEL_NAME || worker.metadata?.adapter !== ADAPTER_NAME) {
+      return sendJson(res, 409, { error: "Worker model or adapter does not match DREAM HOST configuration." });
+    }
     if (worker.busyJobId) return sendJson(res, 409, { error: "Worker already has an active job." });
     worker.lastSeen = Date.now();
     while (pending.length) {
@@ -368,8 +396,12 @@ async function handleWorkerRoute(req, res, url) {
 const server = http.createServer(async (req, res) => {
   try {
     const url = new URL(req.url || "/", "http://localhost");
-    if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/health" || url.pathname === "/healthz")) {
-      return sendJson(res, 200, { ok: true, ...statusSnapshot() });
+    if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/health" || url.pathname === "/healthz" || url.pathname === "/health/live")) {
+      return sendJson(res, 200, statusSnapshot());
+    }
+    if (req.method === "GET" && url.pathname === "/health/ready") {
+      const snapshot = statusSnapshot();
+      return sendJson(res, snapshot.modelReady ? 200 : 503, snapshot, snapshot.modelReady ? {} : { "retry-after": "10" });
     }
     if (req.method === "GET" && url.pathname === "/api/v1/status") {
       if (!requireToken(req, res, CLIENT_TOKEN)) return;
@@ -399,5 +431,5 @@ const server = http.createServer(async (req, res) => {
 server.keepAliveTimeout = 65000;
 server.headersTimeout = 66000;
 server.listen(PORT, "0.0.0.0", () => {
-  console.log("DREAM HOST v0.1.0 listening on 0.0.0.0:" + PORT);
+  console.log("DREAM HOST v" + HOST_VERSION + " listening on 0.0.0.0:" + PORT);
 });

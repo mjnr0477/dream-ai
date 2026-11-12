@@ -2,11 +2,14 @@
 
 DREAM HOST is a lightweight Render-hosted control plane for GPU workers. It does not run a GPU or host Kaggle itself. A Kaggle notebook runs the worker agent, connects outbound to this stable HTTPS API, pulls inference jobs, runs Qwen3-1.7B plus the DREAM adapter on its GPU, and posts results back.
 
-## First release
+## Current release (0.2.0)
 
 - OpenAI-compatible POST /v1/chat/completions and GET /v1/models.
 - Authenticated worker registration, heartbeat, job claiming, result and failure reporting.
-- Worker health, queue depth and connected/idle/busy counts.
+- Strict worker readiness: the connected worker must report the exact configured model and adapter.
+- Separate liveness (`/health/live`) and readiness (`/health/ready`) endpoints.
+- Queue depth, uptime, connected/ready/idle/busy worker counts, and an explicit in-memory persistence indicator.
+- An integration test covering worker registration, mismatch rejection, job claim, result delivery and client completion.
 - Bounded in-memory queue, request sizes and timeouts.
 - No inbound tunnel, public Kaggle port, or Cloudflare Quick Tunnel required.
 
@@ -76,6 +79,11 @@ All protected routes require Authorization: Bearer <token>.
 
 ## Important reliability limits
 
-This is a control plane, not a new source of GPU compute. The free Render instance can sleep and restart, while Kaggle notebook sessions have runtime and quota limits. This first release keeps its job queue and worker registry in process memory; a Render restart clears queued jobs and active leases. The worker reconnects when the Kaggle notebook process is running again, but it cannot wake a stopped Kaggle session. Persistent storage, a durable queue, multiple-worker scheduling and automatic notebook restart require a later version and/or additional infrastructure.
+This is a control plane, not a new source of GPU compute. The free Render instance can sleep and restart, while Kaggle notebook sessions have runtime and quota limits. Version 0.2.0 still keeps its job queue and worker registry in process memory; a Render restart clears queued jobs and active leases. The worker reconnects when its notebook process is running again, but it cannot wake a stopped Kaggle session. A durable queue requires a dedicated persistent database or queue service; uninterrupted GPU availability requires a compute worker that does not depend on notebook session limits.
 
-Do not set DREAM AI's production model URL to this service until the host is deployed and the Kaggle worker has registered successfully. Test the host independently first.
+DREAM AI is currently configured to use the fixed `https://dream-host-live.onrender.com/v1` endpoint. The application can start while the worker is absent, but model inference will return an unavailable response until `/health/ready` reports `modelReady: true`. Do not describe the model as connected until an authenticated end-to-end completion has succeeded.
+
+
+## Tests
+
+Run the complete repository checks, including the DREAM HOST integration test, with `npm test`. The host test starts an isolated local server and verifies authentication, model/adapter readiness, queue claim, result delivery and the OpenAI-compatible response.
