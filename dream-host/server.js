@@ -4,7 +4,7 @@ import { randomUUID, timingSafeEqual } from "node:crypto";
 const PORT = Number(process.env.PORT || 10000);
 function normalizeToken(value) {
   const token = String(value || "").trim();
-  return token.replace(/^Bearer\\s+/i, "").trim();
+  return token.toLowerCase().startsWith("bearer ") ? token.slice(7).trim() : token;
 }
 
 const WORKER_TOKEN = normalizeToken(process.env.DREAM_HOST_WORKER_TOKEN);
@@ -57,9 +57,8 @@ function sendEmpty(res, status = 204) {
 
 function tokenMatches(req, expected) {
   const header = String(req.headers.authorization || "").trim();
-  const match = header.match(/^Bearer\\s+(.+)$/i);
-  if (!match) return false;
-  const supplied = Buffer.from(normalizeToken(match[1]));
+  if (header.slice(0, 7).toLowerCase() !== "bearer ") return false;
+  const supplied = Buffer.from(normalizeToken(header.slice(7)));
   const wanted = Buffer.from(expected);
   return supplied.length === wanted.length && timingSafeEqual(supplied, wanted);
 }
