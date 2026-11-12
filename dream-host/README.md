@@ -88,7 +88,7 @@ Each value must be at least 32 characters and distinct from the other and from t
 
 ### Start an operator-owned notebook worker
 
-On a machine dedicated to the notebook owner, install `requests` and a compatible Python environment. Install PyTorch separately when GPU/accelerator training is needed, using a build compatible with the machine's driver and accelerator.
+On a machine dedicated to the notebook owner, install the notebook worker requirements and a compatible Python environment. Install PyTorch separately when GPU/accelerator training is needed, using a build compatible with the machine's driver and accelerator.
 
 Set these environment variables privately:
 
@@ -96,13 +96,14 @@ Set these environment variables privately:
 - `DREAM_HOST_NOTEBOOK_WORKER_TOKEN=<the dedicated notebook worker token>`
 - `DREAM_HOST_NOTEBOOK_TRUSTED_MODE=1`
 
-Then run:
+Then install and run:
 
 ```bash
+python -m pip install -r dream-host/requirements-notebook-worker.txt
 python dream-host/notebook_worker.py
 ```
 
-The worker registers as a notebook executor, maintains a separate Python kernel for each notebook, heartbeats while cells run, and returns stdout, stderr, expression results and tracebacks. The worker's Python environment is the environment available to notebook cells; packages installed there are available to subsequent cells.
+The worker registers as a notebook executor, maintains a separate Python kernel for each notebook, heartbeats while cells run, and returns stdout, stderr, expression results and tracebacks. It allows up to four active kernels by default and cleans kernels that have been idle for 30 minutes. The worker's Python environment is the environment available to notebook cells; packages installed there are available to subsequent cells.
 
 ### Storage and security boundaries
 
