@@ -131,7 +131,7 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: "Bearer " + workerToken
+      authorization: "Bearer " + notebookWorkerToken
     },
     body: JSON.stringify({ workerId: "notebook-worker-01" })
   });
