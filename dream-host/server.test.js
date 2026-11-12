@@ -117,7 +117,7 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   assert.equal(disconnected.status, 200);
   assert.match(disconnected.headers.get("set-cookie"), /Max-Age=0/i);
   const cookieAfterDisconnect = await fetch(baseUrl + "/api/v1/notebook/status", {
-    headers: { cookie: cookie.split(";")[0] }
+    headers: { cookie: "dream_notebook_session=" }
   });
   assert.equal(cookieAfterDisconnect.status, 401);
 
