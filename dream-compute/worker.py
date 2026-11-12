@@ -155,7 +155,13 @@ def main():
     threading.Thread(target=heartbeat_loop, daemon=True).start()
     while not STOP.is_set():
         try:
-            response = post("/api/v1/workers/jobs/claim", {"workerId": WORKER_ID}, timeout=35)
+            try:
+                response = post("/api/v1/workers/jobs/claim", {"workerId": WORKER_ID}, timeout=35)
+            except requests.HTTPError as exc:
+                # post() raises for HTTP 4xx/5xx; keep 409 available for the recovery branch below.
+                if exc.response is None or exc.response.status_code != 409:
+                    raise
+                response = exc.response
             if response.status_code == 204:
                 time.sleep(1.5)
                 continue
