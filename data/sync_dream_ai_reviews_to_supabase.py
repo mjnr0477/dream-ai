@@ -17,6 +17,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
+from dream_ai_supabase_guard import validate_dream_ai_supabase_url
 
 REVIEW_FLAGS = (
     "rights_confirmed",
@@ -100,10 +101,7 @@ def validate_reviewed_record(record: object, line: int) -> dict:
 def sync_file(path: Path, base_url: str, key: str) -> dict:
     if not path.is_file():
         raise FileNotFoundError(path)
-    base_url = base_url.rstrip("/")
-    parsed = urllib.parse.urlsplit(base_url)
-    if parsed.scheme != "https" or not parsed.hostname or not parsed.hostname.endswith(".supabase.co"):
-        raise ValueError("SUPABASE_URL must be an HTTPS Supabase project URL.")
+    base_url = validate_dream_ai_supabase_url(base_url)
 
     approved = 0
     already_approved = 0
