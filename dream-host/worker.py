@@ -10,7 +10,9 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from peft import PeftModel
 
 HOST = os.environ.get("DREAM_HOST_URL", "").rstrip("/")
-WORKER_TOKEN = os.environ.get("DREAM_HOST_WORKER_TOKEN", "")
+WORKER_TOKEN = os.environ.get("DREAM_HOST_WORKER_TOKEN", "").strip()
+if WORKER_TOKEN.lower().startswith("bearer "):
+    WORKER_TOKEN = WORKER_TOKEN[7:].strip()
 HF_TOKEN = os.environ.get("HF_TOKEN", "")
 BASE_MODEL = os.environ.get("DREAM_MODEL_BASE", "Qwen/Qwen3-1.7B")
 ADAPTER = os.environ.get("DREAM_MODEL_ADAPTER", "msjnr0477/dream-ai-adapter")
