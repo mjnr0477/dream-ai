@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { Readable } from "node:stream";
@@ -51,4 +51,17 @@ test("artifact vault requires a valid content hash for downloads", async t => {
   const root = await mkdtemp(path.join(tmpdir(), "dream-artifacts-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   await assert.rejects(getArtifact(root, "not-a-hash"), /SHA-256/);
+});
+
+test("artifact vault detects stored-byte tampering", async t => {
+  const root = await mkdtemp(path.join(tmpdir(), "dream-artifacts-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const payload = Buffer.from("original checkpoint bytes");
+  const stored = await putArtifact({
+    root,
+    name: "checkpoint.bin",
+    source: Readable.from([payload])
+  });
+  await writeFile(path.join(root, "objects", stored.sha256 + ".bin"), Buffer.from("tampered"));
+  await assert.rejects(getArtifact(root, stored.sha256), /SHA-256 integrity/);
 });
