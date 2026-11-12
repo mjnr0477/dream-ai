@@ -8,6 +8,9 @@ DREAM HOST is the first-party control plane for DREAM AI. It hosts the AI infere
 - First-party notebook interface at `/notebook`.
 - Python and Markdown cells, run-one/run-all, execution output, worker status, and standard Jupyter `.ipynb` import/export.
 - Browser IndexedDB notebook storage; the free Render service's temporary filesystem is not used as permanent notebook storage.
+- Remembered browser sign-in uses a 30-day HttpOnly, Secure, SameSite=Strict cookie; the raw owner key is not saved in JavaScript storage or notebook exports. Use “Forget access” on shared devices.
+- Dataset tools download HTTPS files to the worker's temporary notebook workspace, scan /kaggle/input and the notebook dataset folder, and remove downloaded files.
+- One-click import of DREAM's existing reviewed, resumable adapter-training workflow; training creates a candidate adapter and never overwrites the active adapter.
 - Separate authenticated notebook job queue and a standalone Python notebook worker. It does not load the chat model into GPU memory.
 - Notebook code and output sizes, pending queue, queued-job wait time, worker heartbeats, retries and execution windows are bounded.
 - Notebook execution is owner-only and fails closed unless both distinct notebook owner and notebook worker tokens are configured.
@@ -95,6 +98,18 @@ Set these environment variables privately:
 - `DREAM_HOST_URL=https://dream-host-live.onrender.com`
 - `DREAM_HOST_NOTEBOOK_WORKER_TOKEN=<the dedicated notebook worker token>`
 - `DREAM_HOST_NOTEBOOK_TRUSTED_MODE=1`
+- Optional for DREAM adapter training: `DREAM_NOTEBOOK_HF_TOKEN=<your Hugging Face token>`
+
+To populate the optional training token from a Kaggle Secret named `HF_TOKEN`, run this before starting the worker:
+
+```python
+from kaggle_secrets import UserSecretsClient
+import os
+
+os.environ["DREAM_NOTEBOOK_HF_TOKEN"] = UserSecretsClient().get_secret("HF_TOKEN")
+```
+
+The worker passes only this explicitly named training token to its trusted notebook child processes. It does not pass the DREAM HOST worker token or other host credentials. Notebook code can access this optional token, so run only notebooks and cells you trust.
 
 Then install and run:
 
@@ -108,6 +123,8 @@ The worker registers as a notebook executor, maintains a separate Python kernel 
 ### Storage and security boundaries
 
 - Notebook documents are saved in the current browser's IndexedDB. Export important work as `.ipynb`; imported Jupyter Notebook version 4 files are supported.
+- The notebook owner key is exchanged once for a browser-managed HttpOnly session cookie. The default “Remember this device” duration is 30 days; “Forget access” clears it. A shared browser should not be remembered.
+- HTTPS dataset downloads are saved under `datasets/` in the connected worker's per-notebook temporary workspace. The scanner also inspects private Kaggle attachments under `/kaggle/input`. Worker kernels and files are temporary and disappear when the worker restarts or its idle-kernel cleanup runs.
 - HOST worker registrations, queues and active jobs are in memory and are cleared by a HOST restart. The browser keeps the notebook document, but kernel variables and worker-local files are temporary.
 - Notebook cell execution runs trusted Python code. The worker is **not** a hardened multi-tenant sandbox. Start it only on a machine you control, do not expose its worker token, and do not use it for untrusted public notebooks.
 - The notebook API requires both `DREAM_HOST_NOTEBOOK_TOKEN` and `DREAM_HOST_NOTEBOOK_WORKER_TOKEN`; if either is absent or reused, the notebook UI is still served but execution/status endpoints return 503. Existing chat service startup does not depend on these variables.
