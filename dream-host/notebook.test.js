@@ -107,3 +107,11 @@ test("worker output is bounded and completion is accepted only once", () => {
     display: ""
   }), /not running/);
 });
+
+test("execution timeout is independent from the shorter worker heartbeat lease", () => {
+  const queue = new NotebookQueue({ jobLeaseMs: 15000, maxExecutionMs: 900000 });
+  worker(queue);
+  queue.submit({ notebookId: "notebook-1", cellId: "cell-long", code: "train_model()" });
+  const job = queue.claim("notebook-worker-01");
+  assert.equal(job.timeoutMs, 900000);
+});
