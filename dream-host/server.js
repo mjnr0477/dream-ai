@@ -14,7 +14,14 @@ console.log("DREAM_HOST_WORKER_AUTH_DIAGNOSTIC", JSON.stringify({configured: Boo
 
 const CLIENT_TOKEN = process.env.DREAM_HOST_CLIENT_TOKEN || "";
 const NOTEBOOK_TOKEN = normalizeToken(process.env.DREAM_HOST_NOTEBOOK_TOKEN);
-const NOTEBOOK_TOKEN_CONFIGURED = NOTEBOOK_TOKEN.length >= 32 && NOTEBOOK_TOKEN !== WORKER_TOKEN && NOTEBOOK_TOKEN !== normalizeToken(CLIENT_TOKEN);
+const NOTEBOOK_WORKER_TOKEN = normalizeToken(process.env.DREAM_HOST_NOTEBOOK_WORKER_TOKEN);
+const NOTEBOOK_TOKEN_CONFIGURED = NOTEBOOK_TOKEN.length >= 32
+  && NOTEBOOK_TOKEN !== WORKER_TOKEN
+  && NOTEBOOK_TOKEN !== normalizeToken(CLIENT_TOKEN);
+const NOTEBOOK_WORKER_TOKEN_CONFIGURED = NOTEBOOK_WORKER_TOKEN.length >= 32
+  && NOTEBOOK_WORKER_TOKEN !== WORKER_TOKEN
+  && NOTEBOOK_WORKER_TOKEN !== normalizeToken(CLIENT_TOKEN)
+  && NOTEBOOK_WORKER_TOKEN !== NOTEBOOK_TOKEN;
 const NOTEBOOK_QUEUE = new NotebookQueue({
   maxQueue: process.env.DREAM_HOST_NOTEBOOK_MAX_QUEUE,
   maxCodeChars: process.env.DREAM_HOST_NOTEBOOK_MAX_CODE_CHARS,
@@ -94,16 +101,29 @@ function requireToken(req, res, expected) {
 }
 
 function requireNotebookToken(req, res) {
-  if (!NOTEBOOK_TOKEN_CONFIGURED) {
+  if (!NOTEBOOK_TOKEN_CONFIGURED || !NOTEBOOK_WORKER_TOKEN_CONFIGURED) {
     sendJson(res, 503, {
       error: {
-        message: "DREAM NOTEBOOK is not configured. Set DREAM_HOST_NOTEBOOK_TOKEN to a distinct private value of at least 32 characters.",
+        message: "DREAM NOTEBOOK is not configured. Set DREAM_HOST_NOTEBOOK_TOKEN and DREAM_HOST_NOTEBOOK_WORKER_TOKEN to distinct private values of at least 32 characters.",
         type: "configuration_error"
       }
     });
     return false;
   }
   return requireToken(req, res, NOTEBOOK_TOKEN);
+}
+
+function requireNotebookWorkerToken(req, res) {
+  if (!NOTEBOOK_TOKEN_CONFIGURED || !NOTEBOOK_WORKER_TOKEN_CONFIGURED) {
+    sendJson(res, 503, {
+      error: {
+        message: "DREAM NOTEBOOK worker authentication is not configured. Set both private notebook tokens on DREAM HOST.",
+        type: "configuration_error"
+      }
+    });
+    return false;
+  }
+  return requireToken(req, res, NOTEBOOK_WORKER_TOKEN);
 }
 
 function finiteNumber(value, fallback, minimum, maximum) {
@@ -481,7 +501,7 @@ async function handleNotebookClientRoute(req, res, url) {
 }
 
 async function handleNotebookWorkerRoute(req, res, url) {
-  if (!requireToken(req, res, WORKER_TOKEN)) return;
+  if (!requireNotebookWorkerToken(req, res)) return;
   try {
     NOTEBOOK_QUEUE.sweep();
     if (req.method === "POST" && url.pathname === "/api/v1/notebook/workers/register") {
