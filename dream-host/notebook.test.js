@@ -115,3 +115,13 @@ test("execution timeout is independent from the shorter worker heartbeat lease",
   const job = queue.claim("notebook-worker-01");
   assert.equal(job.timeoutMs, 900000);
 });
+
+test("queued jobs expire when no notebook worker connects", () => {
+  let now = 1000;
+  const queue = new NotebookQueue({ now: () => now, queueTtlMs: 5000 });
+  const job = queue.submit({ notebookId: "notebook-1", cellId: "cell-waiting", code: "1 + 1" });
+  now = 6001;
+  const expired = queue.getJob(job.id);
+  assert.equal(expired.status, "failed");
+  assert.match(expired.error, /waiting for a connected worker/);
+});
