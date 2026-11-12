@@ -1,0 +1,47 @@
+name: DREAM COMPUTE checks
+
+on:
+  push:
+    branches: [dream-compute-platform]
+    paths:
+      - "dream-compute-source.part*"
+      - "dream-compute/worker.py"
+      - "dream-compute/README.md"
+      - ".github/workflows/dream-compute-tests.yml"
+  pull_request:
+    branches: [dream-compute-platform]
+
+concurrency:
+  group: dream-compute-checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  worker-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile the provider-independent worker
+        run: python -m py_compile dream-compute/worker.py
+
+  control-plane:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Extract the exact source bundle deployed to Render
+        run: |
+          cat dream-compute-source.part* | base64 -d | tar -xz
+      - name: Install control-plane dependencies
+        run: npm --prefix dream-compute install
+      - name: Test queue, completion, model matching and worker recovery
+        run: npm --prefix dream-compute test
