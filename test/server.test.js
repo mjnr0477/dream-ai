@@ -14,6 +14,7 @@ const modelRequests = [];
 let modelReply = "Test response from the DREAM model runtime.";
 let modelEngine = "dream-native-transformer";
 let modelHasCheckpoint = true;
+let modelHealthOk = true;
 let runtimeModelName = "dream-test-model";
 let holdModelResponses = false;
 const heldModelResponses = [];
@@ -37,9 +38,11 @@ before(async () => {
   model = http.createServer((req, res) => {
     if (req.method === "GET" && req.url === "/health") {
       res.writeHead(200, { "content-type": "application/json" });
-      res.end(JSON.stringify(modelHasCheckpoint
-        ? { ok: true, engine: modelEngine, model: runtimeModelName, completed_training_steps: 12, checkpoint_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", device: "cpu", parameters: 1000, tokenizer: "DreamByteTokenizer" }
-        : { ok: true, engine: modelEngine }));
+      res.end(JSON.stringify(!modelHealthOk
+        ? { ok: false, engine: modelEngine }
+        : (modelHasCheckpoint
+          ? { ok: true, engine: modelEngine, model: runtimeModelName, completed_training_steps: 12, checkpoint_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", device: "cpu", parameters: 1000, tokenizer: "DreamByteTokenizer" }
+          : { ok: true, engine: modelEngine })));
       return;
     }
     const chunks = [];
@@ -769,8 +772,8 @@ test("Gmail account status is guest-scoped and private Gmail prompts bypass publ
 
 
 test("chat degrades to an honest offline status when the native runtime is unavailable", async () => {
-  const previous = modelHasCheckpoint;
-  modelHasCheckpoint = false;
+  const previous = modelHealthOk;
+  modelHealthOk = false;
   try {
     const response = await postChat({
       mode: "general",
@@ -782,6 +785,6 @@ test("chat degrades to an honest offline status when the native runtime is unava
     assert.match(data.reply, /language-model worker is currently offline/i);
     assert.match(data.reply, /public-source evidence/i);
   } finally {
-    modelHasCheckpoint = previous;
+    modelHealthOk = previous;
   }
 });
