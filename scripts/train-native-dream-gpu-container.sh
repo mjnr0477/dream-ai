@@ -64,7 +64,8 @@ python model/train.py \
   --grad-accum-steps 4 \
   --gradient-checkpointing \
   --tokenizer bpe \
-  --vocab-size 1024
+  --vocab-size 1024 \
+  "${PRETRAIN_ARGS[@]}"
 
 python model/audit_checkpoint.py \
   --checkpoint "$PRETRAIN" \
@@ -96,7 +97,8 @@ python model/sft.py \
   --eval-every 100 \
   --eval-batches 5 \
   --batch-size 2 \
-  --grad-accum-steps 4
+  --grad-accum-steps 4 \
+  "${SFT_ARGS[@]}"
 
 python model/audit_checkpoint.py \
   --checkpoint "$SFT" \
