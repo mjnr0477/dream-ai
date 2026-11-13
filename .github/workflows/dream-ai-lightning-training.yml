@@ -28,8 +28,19 @@ jobs:
 
       - name: Install and syntax-check the launcher
         run: |
-          python -m pip install --disable-pip-version-check lightning-sdk
-          python -m py_compile training/dream_ai_adapter_self_train_remote.py scripts/launch_dream_ai_lightning.py scripts/publish_dream_reviewed_training_data.py
+          python -m pip install --disable-pip-version-check lightning-sdk kaggle huggingface_hub
+          python -m py_compile training/dream_ai_adapter_self_train_remote.py scripts/launch_dream_ai_lightning.py scripts/publish_dream_reviewed_training_data.py scripts/migrate_dream_kaggle_dataset.py
+
+      - name: Migrate the reviewed dataset once if it is not in the private model store
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_KEY: ${{ secrets.KAGGLE_KEY }}
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+          DREAM_AI_KAGGLE_DATASET: ${{ vars.DREAM_AI_KAGGLE_DATASET }}
+          DREAM_ADAPTER_REPO: ${{ vars.DREAM_ADAPTER_REPO || 'msjnr0477/dream-ai-adapter' }}
+          DREAM_TRAINING_DATASET_PATH: ${{ vars.DREAM_TRAINING_DATASET_PATH || 'training-data/active' }}
+        run: python scripts/migrate_dream_kaggle_dataset.py
 
       - name: Submit bounded T4 training job
         env:
