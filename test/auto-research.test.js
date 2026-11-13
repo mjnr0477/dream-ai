@@ -386,3 +386,11 @@ test("background-only sources are not presented as current news coverage", () =>
   assert.match(context, /do not present them as current reporting/);
   assert.match(context, /Do not claim that DREAM has no real-time news access/);
 });
+
+
+test("routes concise CJK factual prompts to automatic research", () => {
+  assert.equal(shouldAutoResearch("谁？"), true);
+  assert.equal(shouldAutoResearch("北京今天有什么新闻？"), true);
+  assert.equal(shouldAutoResearch("请解释人工智能。"), true);
+  assert.equal(shouldAutoResearch("请写一个关于今天的故事。"), false);
+});
