@@ -94,7 +94,7 @@ Each value must be at least 32 characters and distinct from the other and from t
 The browser-based DREAM NOTEBOOK is the notebook we use to edit and run cells. Kaggle is only the connected compute machine; do not use a separate Kaggle training notebook as the main workflow.
 
 1. On Render, configure two distinct secrets: `DREAM_HOST_NOTEBOOK_TOKEN` for the browser owner and `DREAM_HOST_NOTEBOOK_WORKER_TOKEN` for the compute worker. Both must be at least 32 characters and must differ from the chat worker, client and artifact tokens.
-2. In Kaggle, create a notebook with GPU and Internet enabled. Add Kaggle Secrets named `DREAM_HOST_NOTEBOOK_WORKER_TOKEN` and `DREAM_NOTEBOOK_ARTIFACT_TOKEN`. The latter is the dedicated artifact API token already configured on Render; it is not an R2 S3 key.
+2. In Kaggle, create a notebook with GPU and Internet enabled. Add Kaggle Secrets named `DREAM_HOST_NOTEBOOK_WORKER_TOKEN` and `DREAM_NOTEBOOK_ARTIFACT_TOKEN`. The latter is the dedicated artifact API token already configured on Render; it is not an R2 S3 key. Add `HF_TOKEN` only if you intend to run the separate Qwen adapter-improvement workflow.
 3. Import and run the one-cell connector notebook from `/notebook/kaggle-worker.ipynb`. Keep that cell running. It starts `notebook_worker.py`, not the Qwen chat inference worker.
 4. Open `/notebook` in another tab, connect with `DREAM_HOST_NOTEBOOK_TOKEN`, and choose one of the two separate workflows:
    - **Load native DREAM training** starts DREAM's own transformer from random initialization. It uses `approved-records.jsonl`, optionally followed by reviewed native SFT conversation files.
