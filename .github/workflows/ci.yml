@@ -96,6 +96,8 @@ jobs:
               Path("training/dream_train_colab.ipynb"),
               Path("training/dream_train_kaggle.ipynb"),
               Path("training/dream_ai_adapter_self_train_kaggle.ipynb"),
+              Path("training/dream_native_notebook.ipynb"),
+              Path("training/dream_notebook_kaggle_worker.ipynb"),
               Path("training/auto-train-kernel/dream_ai_auto_train.ipynb"),
           ):
               document = json.loads(notebook.read_text(encoding="utf-8"))
