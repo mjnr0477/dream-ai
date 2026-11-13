@@ -154,12 +154,13 @@ test("idle worker polling keeps its heartbeat fresh when the queue is empty", ()
 test("queue snapshots recover completed work and requeue interrupted jobs after restart", () => {
   let now = 1000;
   const first = new NotebookQueue({ now: () => now, maxAttempts: 3 });
-  worker(first);
+  worker(first, "notebook-worker-01");
+  worker(first, "notebook-worker-02");
   const interrupted = first.submit({ notebookId: "notebook-1", cellId: "cell-running", code: "train_step()" });
   first.claim("notebook-worker-01");
   const completed = first.submit({ notebookId: "notebook-1", cellId: "cell-done", code: "2 + 2" });
-  first.claim("notebook-worker-01");
-  first.complete("notebook-worker-01", completed.id, {
+  first.claim("notebook-worker-02");
+  first.complete("notebook-worker-02", completed.id, {
     stdout: "",
     stderr: "",
     display: "4",
