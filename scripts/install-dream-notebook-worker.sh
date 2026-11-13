@@ -54,6 +54,7 @@ chown -R dreamai:dreamai "${REPO_DIR}"
 "${PYTHON_BIN}" -m venv --system-site-packages "${REPO_DIR}/.venv"
 "${REPO_DIR}/.venv/bin/python" -m pip install --upgrade pip
 "${REPO_DIR}/.venv/bin/python" -m pip install -r "${REPO_DIR}/dream-host/requirements-notebook-worker.txt"
+chown -R dreamai:dreamai "${REPO_DIR}/.venv"
 
 "${REPO_DIR}/.venv/bin/python" - <<'PY'
 import torch
