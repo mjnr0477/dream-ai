@@ -149,7 +149,8 @@ def child_environment(workspace: Path) -> dict[str, str]:
     # operator environment variables into notebook code.
     allowed = (
         "PATH", "LANG", "LC_ALL", "CUDA_VISIBLE_DEVICES", "LD_LIBRARY_PATH",
-        "CUDA_HOME", "CUDA_PATH", "NVIDIA_VISIBLE_DEVICES",
+        "CUDA_HOME", "CUDA_PATH", "HF_HOME", "HUGGINGFACE_HUB_CACHE", "TRANSFORMERS_CACHE",
+        "NVIDIA_VISIBLE_DEVICES",
         "NVIDIA_DRIVER_CAPABILITIES", "OMP_NUM_THREADS", "MKL_NUM_THREADS",
         "PYTHONPATH", "CONDA_PREFIX", "VIRTUAL_ENV"
     )
