@@ -10,7 +10,7 @@ Use `scripts/run-chat-evals.mjs` when measuring what a user actually receives. I
 DREAM_APP_URL=https://dream-ai-live.onrender.com DREAM_EVAL_LIMIT=12 npm run eval:chat
 ```
 
-The evaluator defaults to 12 cases, selected round-robin across categories before taking second examples, and waits one second between cases. Increase the limit after the first pass. The core set currently contains 79 cases across 32 categories, including everyday assistance, health information, Kenyan legal information, business, relationships, careers, controversial-but-safe analysis, coding, research and 14 multilingual groups. Run the full set with `DREAM_EVAL_LIMIT=100`.
+The evaluator defaults to 12 cases, selected round-robin across categories before taking second examples, and waits 3.5 seconds between cases. Increase the limit after the first pass. The core set currently contains 79 cases across 32 categories, including everyday assistance, health information, Kenyan legal information, business, relationships, careers, controversial-but-safe analysis, coding, research and 14 multilingual groups. Run the full set with `DREAM_EVAL_LIMIT=100`.
 
 ## African and multilingual pass
 
@@ -20,7 +20,7 @@ DREAM_APP_URL=https://dream-ai-live.onrender.com DREAM_EVAL_SET=african-language
 
 Optional controls:
 
-- `DREAM_EVAL_PAUSE_MS`: delay between calls; default 1000, range 0–10000.
+- `DREAM_EVAL_PAUSE_MS`: delay between calls; default 3500, range 0–10000.
 - `DREAM_EVAL_TIMEOUT_MS`: per-request timeout; default 90000, range 1000–120000.
 
 The application URL must be an HTTPS origin. HTTP is accepted only for localhost/loopback testing. Do not put credentials, tokens, a path, query string or fragment in the URL.
