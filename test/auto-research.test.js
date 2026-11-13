@@ -22,6 +22,52 @@ test("recognizes conversational news and transfer questions as current research 
   assert.equal(shouldAutoResearch("What's new around the club?"), true);
 });
 
+test("routes current-information questions in supported African and global languages to research", () => {
+  const questions = [
+    "Nani alishinda uchaguzi leo?",
+    "Matokeo ya mechi yalikuwa nini jana?",
+    "Kí ni tuntun loni nípa ìdìbò?",
+    "Menene labarai yau game da zaben?",
+    "ዛሬ ምን ዜና አለ?",
+    "Kedu akụkọ ọhụrụ taa?",
+    "Waa maxay wararka maanta?",
+    "Ni ayahe makuru mashya uyu munsi?",
+    "Amawulire ki agaliwo leero?",
+    "Yiziphi izindaba zanamuhla?",
+    "Zithini iindaba zanamhlanje?",
+    "¿Qué noticias hay hoy?",
+    "Quelles sont les nouvelles aujourd'hui ?",
+    "ما آخر الأخبار اليوم؟",
+    "आज की ताज़ा खबरें क्या हैं?",
+    "What is happening with the election today?"
+  ];
+
+  for (const question of questions) {
+    assert.equal(shouldAutoResearch(question), true, question);
+  }
+});
+
+test("routes static factual questions in supported non-English languages to research", () => {
+  for (const question of [
+    "Ni nini maana ya demokrasia?",
+    "Ṣàlàyé itan ti ìlú náà.",
+    "Menene tarihin Najeriya?",
+    "Kedu ihe bụ photosynthesis?",
+    "¿Qué significa la fotosíntesis?",
+    "Explique l'histoire du Kenya."
+  ]) {
+    assert.equal(shouldAutoResearch(question), true, question);
+  }
+});
+
+test("localized creative prompts and greetings do not trigger unnecessary research", () => {
+  assert.equal(shouldAutoResearch("Andika hadithi kuhusu leo"), false);
+  assert.equal(shouldAutoResearch("Bhala indaba emayelana nezindaba zanamuhla"), false);
+  assert.equal(shouldAutoResearch("Escribe una historia sobre mañana"), false);
+  assert.equal(shouldAutoResearch("Habari yako?"), false);
+  assert.equal(shouldAutoResearch("Sawubona"), false);
+});
+
 test("researches factual questions in general, coding and learning modes", () => {
   for (const mode of ["general", "coding", "learning", "research"]) {
     assert.equal(shouldAutoResearch("Who is Ada Lovelace?", mode), true, mode);
