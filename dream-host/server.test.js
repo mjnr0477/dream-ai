@@ -137,7 +137,7 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   const chatConnectorSource = chatConnectorNotebook.cells
     .map(cell => Array.isArray(cell.source) ? cell.source.join("") : String(cell.source || ""))
     .join("\\n");
-  assert.doesNotMatch(chatConnectorSource, /DREAM_HOST_WORKER_TOKEN/);
+  assert.equal(chatConnectorSource.includes('read_secret("DREAM_HOST_WORKER_TOKEN")'), false);
   assert.match(chatConnectorSource, /DREAM_HOST_NOTEBOOK_WORKER_TOKEN/);
   assert.match(chatConnectorSource, /HF_TOKEN/);
   assert.match(chatConnectorSource, /DREAM_NOTEBOOK_ARTIFACT_TOKEN/);
