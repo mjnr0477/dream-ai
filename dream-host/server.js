@@ -521,7 +521,7 @@ function statusSnapshot() {
     device: activeWorker?.metadata?.device || (NOTEBOOK_CHAT_WARMUP_ENABLED && NOTEBOOK_CHAT_MODEL_READY ? NOTEBOOK_CHAT_MODEL_DEVICE : null) || (ready.length > 0 ? notebookDevice : null),
     uptimeSeconds: Math.max(0, Math.floor((Date.now() - STARTED_AT) / 1000)),
     persistence: "in-memory",
-    notebookPersistence: NOTEBOOK_STATE_STORE ? "cloudflare-r2" : "unavailable",
+    notebookPersistence: NOTEBOOK_STORAGE_PROVIDER,
     artifactStorage: ARTIFACT_STORAGE_CONFIGURED ? (R2_CONFIGURED ? "r2" : "filesystem") : "disabled",
     queue: {
       pending: pending.filter(id => jobs.get(id)?.status === "queued").length,
