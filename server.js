@@ -295,14 +295,14 @@ async function handleChat(req, res) {
   }
 
   activeChats += 1;
+  const latestQuestion = messages.at(-1).content;
+  const requestsGmail = isGmailRequest(latestQuestion);
+  const requestsMeta = isMetaRequest(latestQuestion);
+  let automaticResearch = null;
+  let researchSources = [];
   try {
     let researchContext = "";
     let privateAccountContext = "";
-    let automaticResearch = null;
-    let researchSources = [];
-    const latestQuestion = messages.at(-1).content;
-    const requestsGmail = isGmailRequest(latestQuestion);
-    const requestsMeta = isMetaRequest(latestQuestion);
     if (requestsGmail && !isDreamEngineConfigured(process.env)) {
       privateAccountContext = "DREAM's model runtime is not configured. No Gmail messages were retrieved. Explain that private account questions can be answered only after the DREAM model runtime is ready.";
     } else if (requestsGmail) {
