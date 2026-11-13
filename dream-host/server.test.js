@@ -293,7 +293,8 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   });
   assert.equal(mismatchedClaim.status, 409);
 
-  const notebookChatPromise = fetch(baseUrl + "/v1/chat/completions", {
+  // A training-only notebook worker must not be asked to load the legacy Qwen/HF chat model.
+  const trainingOnlyChatResponse = await fetch(baseUrl + "/v1/chat/completions", {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -306,55 +307,19 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
       temperature: 0
     })
   });
+  assert.equal(trainingOnlyChatResponse.status, 503);
+  const trainingOnlyChatError = await trainingOnlyChatResponse.json();
+  assert.match(trainingOnlyChatError.error.message, /connected for training and notebook execution/i);
 
-  let claimedNotebookChatJob = null;
-  for (let attempt = 0; attempt < 40 && !claimedNotebookChatJob; attempt += 1) {
-    const claim = await fetch(baseUrl + "/api/v1/notebook/workers/jobs/claim", {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        authorization: "Bearer " + notebookWorkerToken
-      },
-      body: JSON.stringify({ workerId: "notebook-worker-01" })
-    });
-    if (claim.status === 200) claimedNotebookChatJob = (await claim.json()).job;
-    else {
-      assert.equal(claim.status, 204);
-      await delay(50);
-    }
-  }
-  assert.ok(claimedNotebookChatJob, "the notebook GPU worker should claim a user chat request");
-  assert.equal(claimedNotebookChatJob.notebookId, "dream-ai-chat-runtime");
-  assert.match(claimedNotebookChatJob.code, /_dream_chat_model.generate/);
-  assert.ok(claimedNotebookChatJob.code.includes(MODEL));
-  assert.ok(claimedNotebookChatJob.code.includes(ADAPTER));
-
-  const notebookChatResult = await fetch(baseUrl + "/api/v1/notebook/workers/jobs/" + claimedNotebookChatJob.id + "/result", {
+  const noLegacyChatJob = await fetch(baseUrl + "/api/v1/notebook/workers/jobs/claim", {
     method: "POST",
     headers: {
       "content-type": "application/json",
       authorization: "Bearer " + notebookWorkerToken
     },
-    body: JSON.stringify({
-      workerId: "notebook-worker-01",
-      stdout: "DREAM_CHAT_RESULT:" + JSON.stringify({
-        content: "Hello from the DREAM NOTEBOOK model.",
-        promptTokens: 6,
-        completionTokens: 7,
-        device: "Test GPU"
-      }) + "\n",
-      stderr: "",
-      display: "",
-      executionCount: 2
-    })
+    body: JSON.stringify({ workerId: "notebook-worker-01" })
   });
-  assert.equal(notebookChatResult.status, 200);
-  const notebookChatResponse = await notebookChatPromise;
-  assert.equal(notebookChatResponse.status, 200);
-  const notebookCompletion = await notebookChatResponse.json();
-  assert.equal(notebookCompletion.object, "chat.completion");
-  assert.equal(notebookCompletion.model, MODEL);
-  assert.equal(notebookCompletion.choices[0].message.content, "Hello from the DREAM NOTEBOOK model.");
+  assert.equal(noLegacyChatJob.status, 204);
 
   const registration = await fetch(baseUrl + "/api/v1/workers/register", {
     method: "POST",
