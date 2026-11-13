@@ -79,6 +79,7 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   assert.match(notebookHtml, /Load native DREAM training/);
   assert.match(notebookHtml, /Improve existing Qwen adapter/);
   assert.match(notebookHtml, /Get Kaggle GPU connector/);
+  assert.match(notebookHtml, /Get AI \\+ notebook GPU connector/);
   assert.match(notebookPage.headers.get("content-security-policy"), /script-src 'self'/);
 
   const notebookScript = await fetch(baseUrl + "/notebook.js");
@@ -126,6 +127,19 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   assert.match(connectorSource, /DREAM_HOST_NOTEBOOK_WORKER_TOKEN/);
   assert.match(connectorSource, /DREAM_NOTEBOOK_ARTIFACT_TOKEN/);
   assert.ok(connectorSource.includes("notebook_worker.py"));
+
+  const chatConnector = await fetch(baseUrl + "/notebook/chat-worker.ipynb");
+  assert.equal(chatConnector.status, 200);
+  assert.ok(chatConnector.headers.get("content-disposition").includes("dream-notebook-chat-worker.ipynb"));
+  const chatConnectorNotebook = await chatConnector.json();
+  const chatConnectorSource = chatConnectorNotebook.cells
+    .map(cell => Array.isArray(cell.source) ? cell.source.join("") : String(cell.source || ""))
+    .join("\\n");
+  assert.match(chatConnectorSource, /DREAM_HOST_WORKER_TOKEN/);
+  assert.match(chatConnectorSource, /DREAM_HOST_NOTEBOOK_WORKER_TOKEN/);
+  assert.match(chatConnectorSource, /DREAM_NOTEBOOK_ARTIFACT_TOKEN/);
+  assert.ok(chatConnectorSource.includes("worker.py"));
+  assert.ok(chatConnectorSource.includes("notebook_worker.py"));
 
   const connectResponse = await fetch(baseUrl + "/api/v1/notebook/session", {
     method: "POST",
