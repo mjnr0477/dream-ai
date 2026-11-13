@@ -61,8 +61,11 @@ test("evaluates through the full chat route and retains research diagnostics", a
         return jsonResponse({ ok: true, modelReady: true, provider: "native", version: "0.3.0" });
       }
       requests.push({ url: String(url), body: JSON.parse(options.body) });
+      const prompt = requests.at(-1).body.messages[0].content;
       return jsonResponse({
-        reply: requests.length === 1 ? "56, because 7 groups of 8 make 56." : "function add(a, b) { return a + b; }",
+        reply: prompt.includes("7 times 8")
+          ? "56, because 7 groups of 8 make 56."
+          : "function add(a, b) { return a + b; }",
         mode: requests.at(-1).body.mode,
         source: "dream-model-runtime",
         autoResearch: { status: "sources-found", sourceCount: 2, providers: { wikipedia: "ok" } }
@@ -72,11 +75,12 @@ test("evaluates through the full chat route and retains research diagnostics", a
 
   assert.equal(requests.length, 2);
   assert.ok(requests.every(item => item.url.endsWith("/api/chat")));
-  assert.equal(requests[0].body.mode, "general");
-  assert.equal(requests[1].body.mode, "coding");
+  assert.equal(requests[0].body.mode, "coding");
+  assert.equal(requests[1].body.mode, "general");
   assert.deepEqual(requests[0].body.messages, [{ role: "user", content: cases[0].prompt }]);
   assert.equal(run.results.length, 2);
-  assert.equal(run.results[0].output, "56, because 7 groups of 8 make 56.");
+  assert.equal(run.results[0].output, "function add(a, b) { return a + b; }");
+  assert.equal(run.results[1].output, "56, because 7 groups of 8 make 56.");
   assert.equal(run.results[0].autoResearchStatus, "sources-found");
   assert.equal(run.results[0].autoResearchSourceCount, 2);
   assert.equal(run.results[0].runtimeProvider, "native");
