@@ -15,6 +15,7 @@ HOST = ROOT / "dream-host" / "server.js"
 NATIVE_WORKER = ROOT / "dream-host" / "native_inference_worker.py"
 INFERENCE_UNIT = ROOT / "deploy" / "systemd" / "dream-native-inference-worker.service"
 ENABLE_INFERENCE = ROOT / "scripts" / "enable-dream-native-inference-worker.sh"
+LIGHTNING_LAUNCHER = ROOT / "scripts" / "start-lightning-studio-worker.sh"
 
 
 class PersistentNotebookTests(unittest.TestCase):
@@ -184,6 +185,25 @@ class PersistentNotebookTests(unittest.TestCase):
         self.assertIn("DREAM_HOST_ARTIFACT_TOKEN", source)
         self.assertIn("dream-native-inference-worker.service", source)
         self.assertNotIn("enable --now dream-native-inference-worker.service", source)
+    def test_lightning_launcher_requires_cuda_existing_host_and_r2_without_paid_or_hf_setup(self):
+        source = LIGHTNING_LAUNCHER.read_text(encoding="utf-8")
+        for required in (
+            "DREAM_HOST_NOTEBOOK_WORKER_TOKEN",
+            "DREAM_NOTEBOOK_ARTIFACT_TOKEN",
+            "torch.cuda.is_available()",
+            "/api/v1/notebook/artifacts",
+            "DREAM_CHECKPOINT_DIR",
+            "DREAM_PREPARED_DIR",
+            "DREAM_APPROVED_RECORDS_PATH",
+            "DREAM_NATIVE_TRAIN_SECONDS",
+            "exec python -u dream-host/notebook_worker.py",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, source)
+        for forbidden in ("HF_TOKEN", "kaggle", "railway", "sudo", "pay-as-you-go"):
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden.casefold(), source.casefold())
+
     def test_documentation_does_not_claim_gpu_or_model_migration_is_already_live(self):
         source = DOC.read_text(encoding="utf-8").casefold()
         self.assertIn("r2", source)
