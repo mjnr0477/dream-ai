@@ -463,7 +463,7 @@ async function handleNotebookChat(res, model, messages, maxTokens, temperature, 
       return sendJson(res, 502, openAiError("DREAM NOTEBOOK could not run the saved DREAM AI model. Check the GPU runtime status and retry.", "server_error"));
     }
     if (job.status === "completed") {
-      const marker = String(job.result?.stdout || "").split(/\\r?\\n/).reverse().find(line => line.startsWith("DREAM_CHAT_RESULT:"));
+      const marker = String(job.result?.stdout || "").split(/\r?\n/).reverse().find(line => line.startsWith("DREAM_CHAT_RESULT:"));
       if (!marker) {
         NOTEBOOK_CHAT_MODEL_ERROR = "DREAM AI inference did not return a valid result.";
         return sendJson(res, 502, openAiError("The saved DREAM AI model did not return a valid answer. Check the notebook GPU runtime and retry.", "server_error"));
@@ -817,7 +817,7 @@ async function handleNotebookWorkerRoute(req, res, url) {
         : NOTEBOOK_QUEUE.fail(body.workerId, match[1], body.error);
       if (match[1] === NOTEBOOK_CHAT_WARMUP_JOB_ID) {
         NOTEBOOK_CHAT_WARMUP_JOB_ID = null;
-        const readyLine = String(job.result?.stdout || "").split(/\\r?\\n/).find(line => line.startsWith("DREAM_CHAT_MODEL_READY:"));
+        const readyLine = String(job.result?.stdout || "").split(/\r?\n/).find(line => line.startsWith("DREAM_CHAT_MODEL_READY:"));
         if (job.status === "completed" && readyLine) {
           NOTEBOOK_CHAT_MODEL_READY = true;
           NOTEBOOK_CHAT_MODEL_DEVICE = readyLine.slice("DREAM_CHAT_MODEL_READY:".length).trim() || null;
