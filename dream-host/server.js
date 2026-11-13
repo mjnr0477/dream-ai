@@ -825,7 +825,13 @@ async function handleNotebookWorkerRoute(req, res, url) {
         } else {
           NOTEBOOK_CHAT_MODEL_READY = false;
           NOTEBOOK_CHAT_MODEL_ERROR = "DREAM AI model warm-up did not complete.";
-          console.warn("DREAM_NOTEBOOK_CHAT_MODEL_WARMUP_FAILED");
+          const diagnostic = String(job.result?.stderr || job.result?.display || "")
+            .replace(/(?:hf_[A-Za-z0-9]{20,}|Bearer\\s+\\S+)/gi, "[redacted]")
+            .slice(-1200);
+          console.warn("DREAM_NOTEBOOK_CHAT_MODEL_WARMUP_FAILED", JSON.stringify({
+            output: String(job.result?.stdout || "").slice(-300),
+            diagnostic
+          }));
         }
       }
       return sendJson(res, 200, { ok: true, job });
