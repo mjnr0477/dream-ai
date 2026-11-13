@@ -688,6 +688,16 @@ const server = http.createServer(async (req, res) => {
       res.end(content);
       return;
     }
+    if (req.method === "GET" && url.pathname === "/notebook/adapter-template.ipynb") {
+      const content = await readFile(new URL("../training/dream_adapter_improvement_notebook.ipynb", import.meta.url));
+      res.writeHead(200, {
+        ...securityHeaders,
+        "content-type": "application/x-ipynb+json; charset=utf-8",
+        "cache-control": "no-store"
+      });
+      res.end(content);
+      return;
+    }
     if (req.method === "GET" && url.pathname === "/notebook/kaggle-worker.ipynb") {
       const content = await readFile(new URL("../training/dream_notebook_kaggle_worker.ipynb", import.meta.url));
       res.writeHead(200, {
