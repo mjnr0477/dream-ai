@@ -83,7 +83,7 @@ test("quota probe network errors are contained and do not expose credentials", a
 
 test("the application server does not depend on Hugging Face ZeroGPU availability", async () => {
   const source = await readFile(new URL("../server.js", import.meta.url), "utf8");
-  assert.doesNotMatch(source, /import \\{ logHuggingFaceZeroGpuQuota \\}/);
-  assert.doesNotMatch(source, /logHuggingFaceZeroGpuQuota\\s*\\(/);
-  assert.doesNotMatch(source, /authorization: "Bearer " \\+ config\\.token[^\\n]*whoami-v2/);
+  assert.doesNotMatch(source, /import \{ logHuggingFaceZeroGpuQuota \}/);
+  assert.doesNotMatch(source, /logHuggingFaceZeroGpuQuota\s*\(/);
+  assert.doesNotMatch(source, /authorization: "Bearer " \+ config\.token[^\n]*whoami-v2/);
 });
