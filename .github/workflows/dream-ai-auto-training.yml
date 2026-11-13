@@ -1,0 +1,52 @@
+name: DREAM AI automatic GPU training
+
+on:
+  schedule:
+    # One daily training window, with resumable progress stored outside the GPU session.
+    - cron: "15 6 * * *"
+  workflow_dispatch:
+    inputs:
+      force_retry:
+        description: Retry after reviewing and fixing a failed Kaggle run
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dream-ai-kaggle-adapter-training
+  cancel-in-progress: false
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out DREAM AI
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Kaggle CLI
+        run: python -m pip install --upgrade kaggle
+
+      - name: Validate the training launcher
+        run: |
+          python -m py_compile scripts/launch_dream_ai_kaggle.py
+          python scripts/launch_dream_ai_kaggle.py --check
+
+      - name: Submit one resumable Kaggle GPU run
+        env:
+          KAGGLE_USERNAME: ${{ secrets.KAGGLE_USERNAME }}
+          KAGGLE_API_TOKEN: ${{ secrets.KAGGLE_API_TOKEN }}
+        run: |
+          if [[ "${{ github.event_name == 'workflow_dispatch' && inputs.force_retry }}" == "true" ]]; then
+            python scripts/launch_dream_ai_kaggle.py --force-retry
+          else
+            python scripts/launch_dream_ai_kaggle.py
+          fi
