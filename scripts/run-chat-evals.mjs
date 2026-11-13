@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const DEFAULT_LIMIT = 12;
 const MAX_LIMIT = 100;
@@ -227,7 +228,7 @@ async function main() {
   );
 }
 
-if (process.argv[1] && new URL("file://" + process.argv[1]).href === import.meta.url) {
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch(error => {
     process.stderr.write(error.message + "\n");
     process.exitCode = 1;
