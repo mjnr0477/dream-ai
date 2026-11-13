@@ -11,7 +11,10 @@ WORKER = ROOT / "dream-host" / "notebook_worker.py"
 INSTALLER = ROOT / "scripts" / "install-dream-notebook-worker.sh"
 UNIT = ROOT / "deploy" / "systemd" / "dream-notebook-worker.service"
 DOC = ROOT / "docs" / "PERMANENT_GPU_WORKER.md"
-HOST = ROOT / "dream-host" / "server.js""
+HOST = ROOT / "dream-host" / "server.js"
+NATIVE_WORKER = ROOT / "dream-host" / "native_inference_worker.py"
+INFERENCE_UNIT = ROOT / "deploy" / "systemd" / "dream-native-inference-worker.service"
+ENABLE_INFERENCE = ROOT / "scripts" / "enable-dream-native-inference-worker.sh""
 
 
 class PersistentNotebookTests(unittest.TestCase):
@@ -141,6 +144,46 @@ class PersistentNotebookTests(unittest.TestCase):
         self.assertGreaterEqual(start, 0)
         self.assertGreater(end, start)
         self.assertIn("dream_native_persistent_notebook.ipynb", source[start:end])
+    def test_native_inference_loads_only_an_approved_r2_sft_checkpoint(self):
+        source = NATIVE_WORKER.read_text(encoding="utf-8")
+        for required in (
+            "DREAM_NATIVE_CHECKPOINT_SHA256",
+            "dream-native-sft-checkpoint.pt",
+            "load_validated_checkpoint",
+            "sft_training",
+            "torch.cuda.is_available()",
+            "DREAM_HOST_MODEL_NAME",
+            "DREAM_HOST_ADAPTER_NAME",
+            "/api/v1/notebook/artifacts",
+            "SHA-256 or byte count does not match",
+        ):
+            with self.subTest(required=required):
+                self.assertIn(required, source)
+        for forbidden in ("HF_TOKEN", "huggingface.co", "from_pretrained(", "AutoTokenizer", "AutoModelForCausalLM", "transformers", "peft", "kaggle"):
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden.casefold(), source.casefold())
+
+    def test_native_inference_service_is_separate_and_restartable(self):
+        source = INFERENCE_UNIT.read_text(encoding="utf-8")
+        self.assertIn("User=dreamai", source)
+        self.assertIn("Restart=always", source)
+        self.assertIn("EnvironmentFile=/etc/dream-ai/native-inference-worker.env", source)
+        self.assertIn("native_inference_worker.py", source)
+
+    def test_native_inference_activation_requires_exact_r2_hash_and_native_host_config(self):
+        source = ENABLE_INFERENCE.read_text(encoding="utf-8")
+        self.assertIn("DREAM_NATIVE_CHECKPOINT_SHA256", source)
+        self.assertIn("dream-native-sft-checkpoint.pt", source)
+        self.assertIn("DREAM_HOST_MODEL_NAME=dream-native-v1", source)
+        self.assertIn("DREAM_HOST_ADAPTER_NAME=none", source)
+        self.assertIn("systemctl enable --now dream-native-inference-worker.service", source)
+
+    def test_notebook_installer_prepares_but_does_not_enable_native_inference(self):
+        source = INSTALLER.read_text(encoding="utf-8")
+        self.assertIn("DREAM_HOST_WORKER_TOKEN", source)
+        self.assertIn("DREAM_HOST_ARTIFACT_TOKEN", source)
+        self.assertIn("dream-native-inference-worker.service", source)
+        self.assertNotIn("enable --now dream-native-inference-worker.service", source)
     def test_documentation_does_not_claim_gpu_or_model_migration_is_already_live(self):
         source = DOC.read_text(encoding="utf-8").casefold()
         self.assertIn("r2", source)
