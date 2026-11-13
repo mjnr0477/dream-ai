@@ -79,7 +79,7 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   assert.match(notebookHtml, /Load native DREAM training/);
   assert.match(notebookHtml, /Improve existing Qwen adapter/);
   assert.match(notebookHtml, /Get Kaggle GPU connector/);
-  assert.match(notebookHtml, /Get DREAM AI \\+ notebook connector/);
+  assert.ok(notebookHtml.includes("Get DREAM AI + notebook connector"));
   assert.match(notebookPage.headers.get("content-security-policy"), /script-src 'self'/);
 
   const notebookScript = await fetch(baseUrl + "/notebook.js");
