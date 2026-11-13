@@ -2,6 +2,7 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 import assert from "node:assert/strict";
 import { searchPublicKnowledge } from "../lib/research.js";
+import { searchGlobalPublicSources } from "../lib/research-global.js";
 
 test("searches the fixed public knowledge endpoint and returns safe source links", async () => {
   const requestedUrls = [];
@@ -293,4 +294,54 @@ test("research UI presents scholarly metadata without misrepresenting it as pape
   assert.ok(app.includes("no abstract or full text retrieved"));
   assert.ok(app.includes("A scholarly metadata record supports bibliographic facts only"));
   assert.ok(app.includes("Freshness classification"));
+});
+
+
+test("uses the query language for Wikipedia search and extracts", async () => {
+  const requests = [];
+  const result = await searchPublicKnowledge("Nini maana ya elimu?", async url => {
+    const requested = new URL(url);
+    requests.push(requested);
+    if (requested.searchParams.get("list") === "search") {
+      return {
+        ok: true,
+        json: async () => ({ query: { search: [{ pageid: 99, title: "Elimu", snippet: "Elimu ni maarifa." }] } })
+      };
+    }
+    return {
+      ok: true,
+      json: async () => ({
+        query: { pages: { 99: {
+          pageid: 99,
+          extract: "Elimu ni mchakato wa kujifunza.",
+          fullurl: "https://sw.wikipedia.org/wiki/Elimu"
+        } } }
+      })
+    };
+  });
+
+  assert.equal(result.language, "sw");
+  assert.equal(requests.length, 2);
+  assert.ok(requests.every(url => url.origin === "https://sw.wikipedia.org"));
+  assert.equal(result.results[0].url, "https://sw.wikipedia.org/wiki/Elimu");
+});
+
+test("searches Wikidata labels in the language of the question", async () => {
+  const requests = [];
+  const result = await searchGlobalPublicSources("Nini maana ya elimu?", async url => {
+    const requested = new URL(url);
+    requests.push(requested);
+    if (requested.hostname === "www.wikidata.org") {
+      return { ok: true, json: async () => ({ search: [] }) };
+    }
+    if (requested.hostname === "api.gdeltproject.org") {
+      return { ok: true, json: async () => ({ articles: [] }) };
+    }
+    throw new Error("Unexpected provider request: " + requested.hostname);
+  }, {});
+
+  const wikidata = requests.find(url => url.hostname === "www.wikidata.org");
+  assert.equal(result.language, "sw");
+  assert.equal(wikidata.searchParams.get("language"), "sw");
+  assert.equal(wikidata.searchParams.get("uselang"), "sw");
 });
