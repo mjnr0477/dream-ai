@@ -307,7 +307,7 @@ def launch(*, force_retry: bool = False) -> int:
             print("CREATING_PRIVATE_KAGGLE_KERNEL")
             run([
                 "kaggle", "kernels", "push", "--path", str(workdir),
-                "--accelerator", "NvidiaTeslaT4", "--timeout", "3600",
+                "--accelerator", "NvidiaTeslaT4", "--timeout", "7200",
             ])
             print("KAGGLE_TRAINING_LAUNCH: FIRST_RUN_SUBMITTED")
             print("The private kernel reads HF_TOKEN and DREAM_NOTEBOOK_ARTIFACT_TOKEN from Kaggle Secrets.")
@@ -331,7 +331,7 @@ def launch(*, force_retry: bool = False) -> int:
         print("PRODUCTION_ADAPTER: protected; notebook uploads candidates only")
         run([
             "kaggle", "kernels", "push", "--path", str(workdir),
-            "--accelerator", "NvidiaTeslaT4", "--timeout", "3600",
+            "--accelerator", "NvidiaTeslaT4", "--timeout", "7200",
         ])
         print("KAGGLE_TRAINING_LAUNCH: SUBMITTED")
     return 0
