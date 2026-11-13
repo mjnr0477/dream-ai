@@ -43,6 +43,8 @@ test("maps evaluation categories to the correct DREAM chat modes", () => {
   assert.equal(modeForEvaluationCategory("security"), "coding");
   assert.equal(modeForEvaluationCategory("teaching"), "learning");
   assert.equal(modeForEvaluationCategory("planning"), "learning");
+  assert.equal(modeForEvaluationCategory("research-method"), "research");
+  assert.equal(modeForEvaluationCategory("research"), "research");
   assert.equal(modeForEvaluationCategory("mathematics"), "general");
 });
 
