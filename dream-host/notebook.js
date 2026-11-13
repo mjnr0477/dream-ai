@@ -327,13 +327,15 @@
       el("worker-count").textContent = String(count);
       el("queue-count").textContent = String(data.queue?.pending || 0);
       let chatReady = false;
+      let chatLoading = false;
+      let chatComputeOnline = false;
       try {
         const hostResponse = await fetch("/health", { credentials: "same-origin", cache: "no-store" });
         if (hostResponse.ok) {
           const hostStatus = await hostResponse.json();
           chatReady = hostStatus.modelReady === true;
-          const chatLoading = hostStatus.modelLoading === true;
-          const chatComputeOnline = hostStatus.chatAvailable === true;
+          chatLoading = hostStatus.modelLoading === true;
+          chatComputeOnline = hostStatus.chatAvailable === true;
         }
       } catch {}
       const chatLabel = chatReady ? "ready" : chatLoading ? "loading saved model" : chatComputeOnline ? "GPU connected · preparing model" : "offline";
