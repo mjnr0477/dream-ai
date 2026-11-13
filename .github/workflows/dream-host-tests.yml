@@ -51,4 +51,4 @@ jobs:
           node --test dream-host/*.test.js
           python -m py_compile dream-host/notebook_worker.py dream-host/native_inference_worker.py
           python -m unittest scripts.test_persistent_notebook -v
-          bash -n scripts/install-dream-notebook-worker.sh scripts/enable-dream-native-inference-worker.sh
+          bash -n scripts/install-dream-notebook-worker.sh scripts/enable-dream-native-inference-worker.sh scripts/start-lightning-studio-worker.sh
