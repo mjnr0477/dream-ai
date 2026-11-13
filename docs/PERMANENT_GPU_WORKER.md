@@ -9,7 +9,7 @@ This migration keeps the existing DREAM HOST, DREAM NOTEBOOK and Cloudflare R2 a
 - **Cloudflare R2:** remains the durable store for prepared-corpus archives and native DREAM checkpoints. Every restore and upload is SHA-256/size verified; inference requires an exact, operator-approved checkpoint hash.
 - **Native model:** `model/train.py` and `model/sft.py` train DREAM's own transformer from random initialization. `dream-host/native_inference_worker.py` loads only a validated native checkpoint from R2.
 
-**Hardware boundary:** R2 is storage, not GPU compute. The current Render Free services are CPU web services. The installer must run on a persistent Linux machine that already has an NVIDIA GPU, a compatible driver and CUDA-enabled PyTorch. It is not designed for Android Termux or Render Free.
+**Hardware boundary:** R2 is storage, not GPU compute. The permanent worker described here runs on an owner-controlled GPU host. The current Render Free services are CPU web services. The installer must run on a persistent Linux machine that already has an NVIDIA GPU, a compatible driver and CUDA-enabled PyTorch. It is not designed for Android Termux or Render Free.
 
 ## Use a temporary free GPU from Lightning AI Studio
 
