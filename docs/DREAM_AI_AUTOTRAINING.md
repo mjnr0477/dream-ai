@@ -18,7 +18,7 @@ Add these as **GitHub repository Actions secrets** in `mjnr0477/dream-ai`:
 - `KAGGLE_USERNAME`: the Kaggle account username.
 - `KAGGLE_API_TOKEN`: a current Kaggle API token from https://www.kaggle.com/settings/api.
 
-The private Kaggle notebook must also have these Kaggle Secrets configured once:
+The private Kaggle notebook must also have these Kaggle Secrets configured once, before its first GPU run:
 
 - `HF_TOKEN`: access to the private DREAM adapter repository.
 - `DREAM_NOTEBOOK_ARTIFACT_TOKEN`: access to the private DREAM HOST R2 artifact vault.
@@ -27,6 +27,6 @@ Do not put tokens in the repository, notebook source, workflow YAML or chat.
 
 ## Limits
 
-This is automatic and resumable, not a permanently running free GPU. Kaggle controls free GPU availability and enforces quota and session limits. The permanent assets are the private training data, verified R2 checkpoints, optimizer/RNG state, candidate history and scheduler. When Kaggle stops a session, a later scheduled run can restore the last checkpoint that finished uploading.
+This is automatic and resumable, not a permanently running free GPU. The scheduled controller talks directly to Kaggle's API; it does not require the interactive DREAM NOTEBOOK page or its browser connector to remain open. Kaggle controls free GPU availability and enforces quota and session limits. The permanent assets are the private training data, verified R2 checkpoints, optimizer/RNG state, candidate history and scheduler. When Kaggle stops a session, a later scheduled run can restore the last checkpoint that finished uploading.
 
 GitHub scheduled workflows run from the repository's default branch. GitHub may disable scheduled workflows in a public repository after 60 days without repository activity, so the schedule needs occasional activity or re-enabling in Actions.
