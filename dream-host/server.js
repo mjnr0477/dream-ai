@@ -939,7 +939,7 @@ async function handleNotebookClientRoute(req, res, url) {
     if (req.method === "GET" && url.pathname === "/api/v1/notebook/notebooks") {
       return sendJson(res, 200, { ok: true, notebooks: await listPersistentNotebooks() });
     }
-    const notebookMatch = url.pathname.match(/^\\/api\\/v1\\/notebook\\/notebooks\\/([A-Za-z0-9_-]{1,100})$/);
+    const notebookMatch = url.pathname.match(/^\/api\/v1\/notebook\/notebooks\/([A-Za-z0-9_-]{1,100})$/);
     if (req.method === "GET" && notebookMatch) {
       const document = await readPersistentNotebook(notebookMatch[1]);
       return document
