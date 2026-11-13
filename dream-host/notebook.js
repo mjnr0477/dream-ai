@@ -332,15 +332,19 @@
         if (hostResponse.ok) {
           const hostStatus = await hostResponse.json();
           chatReady = hostStatus.modelReady === true;
+          const chatLoading = hostStatus.modelLoading === true;
+          const chatComputeOnline = hostStatus.chatAvailable === true;
         }
       } catch {}
+      const chatLabel = chatReady ? "ready" : chatLoading ? "loading saved model" : chatComputeOnline ? "GPU connected · preparing model" : "offline";
+      const chatState = chatReady ? "online" : "warning";
       if (count > 0) {
         const device = data.workers?.devices?.map(item => item.device).filter(Boolean).join(", ") || "connected";
-        el("worker-detail").textContent = device + " · " + (data.workers.busy || 0) + " busy · DREAM AI chat " + (chatReady ? "ready" : "offline");
-        statusLabel("Notebook connected · AI chat " + (chatReady ? "ready" : "offline"), chatReady ? "online" : "warning");
+        el("worker-detail").textContent = device + " · " + (data.workers.busy || 0) + " busy · DREAM AI chat " + chatLabel;
+        statusLabel("Notebook connected · AI chat " + chatLabel, chatState);
       } else {
-        el("worker-detail").textContent = "Notebook compute offline · DREAM AI chat " + (chatReady ? "ready" : "offline; separate model worker required");
-        statusLabel("Notebook offline · AI chat " + (chatReady ? "ready" : "offline"), chatReady ? "online" : "warning");
+        el("worker-detail").textContent = "Notebook compute offline · DREAM AI chat " + chatLabel;
+        statusLabel("Notebook offline · AI chat " + chatLabel, chatState);
       }
       updateControls();
       return true;
