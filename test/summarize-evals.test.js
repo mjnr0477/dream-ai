@@ -72,6 +72,7 @@ test("rejects incomplete or mixed full-application evaluation provenance", () =>
 test("does not combine native checkpoint and public application evaluation rows", () => {
   const native = {
     ...sample[0],
+    id: "native-sw",
     runId: "native-run",
     runStartedAt: "2026-11-13T14:00:00.000Z",
     evaluationSet: "core-v1",
