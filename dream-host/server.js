@@ -955,6 +955,87 @@ const server = http.createServer(async (req, res) => {
 
 server.keepAliveTimeout = 65000;
 server.headersTimeout = 66000;
+async function inspectZipIndex(artifact) {
+  const fullSize = Number(artifact.size_bytes);
+  if (!Number.isSafeInteger(fullSize) || fullSize < 22) return { name: artifact.name, zipIndex: "invalid-size" };
+  const tailLength = Math.min(fullSize, 65557);
+  const response = await ARTIFACT_R2_CLIENT.send(new GetObjectCommand({
+    Bucket: R2_BUCKET,
+    Key: "objects/" + artifact.sha256 + ".bin",
+    Range: "bytes=" + (fullSize - tailLength) + "-" + (fullSize - 1)
+  }));
+  const chunks = [];
+  let received = 0;
+  for await (const chunk of response.Body) {
+    const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    received += bytes.length;
+    if (received > 65557) throw new Error("ZIP index range exceeded its read limit.");
+    chunks.push(bytes);
+  }
+  const tail = Buffer.concat(chunks, received);
+  let eocd = -1;
+  for (let i = tail.length - 22; i >= Math.max(0, tail.length - 65557); i--) {
+    if (tail.readUInt32LE(i) === 0x06054b50) { eocd = i; break; }
+  }
+  if (eocd < 0) return { name: artifact.name, zipIndex: "end-record-not-found" };
+  const entryCount = tail.readUInt16LE(eocd + 10);
+  const directorySize = tail.readUInt32LE(eocd + 12);
+  const directoryOffset = tail.readUInt32LE(eocd + 16);
+  if (entryCount === 0xffff || directorySize === 0xffffffff || directoryOffset === 0xffffffff) {
+    return { name: artifact.name, zipIndex: "zip64-not-expanded", entryCount };
+  }
+  if (entryCount > 2000 || directorySize > 4 * 1024 * 1024) {
+    return { name: artifact.name, zipIndex: "index-too-large", entryCount, directorySize };
+  }
+  const tailStart = fullSize - tail.length;
+  let directory;
+  if (directoryOffset >= tailStart && directoryOffset + directorySize <= fullSize) {
+    directory = tail.subarray(directoryOffset - tailStart, directoryOffset - tailStart + directorySize);
+  } else {
+    const directoryResponse = await ARTIFACT_R2_CLIENT.send(new GetObjectCommand({
+      Bucket: R2_BUCKET,
+      Key: "objects/" + artifact.sha256 + ".bin",
+      Range: "bytes=" + directoryOffset + "-" + (directoryOffset + directorySize - 1)
+    }));
+    const parts = [];
+    let total = 0;
+    for await (const chunk of directoryResponse.Body) {
+      const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      total += bytes.length;
+      if (total > 4 * 1024 * 1024) throw new Error("ZIP central directory exceeded its read limit.");
+      parts.push(bytes);
+    }
+    directory = Buffer.concat(parts, total);
+  }
+  const entries = [];
+  let offset = 0;
+  while (offset + 46 <= directory.length && directory.readUInt32LE(offset) === 0x02014b50 && entries.length < entryCount) {
+    const compressedBytes = directory.readUInt32LE(offset + 20);
+    const uncompressedBytes = directory.readUInt32LE(offset + 24);
+    const nameLength = directory.readUInt16LE(offset + 28);
+    const extraLength = directory.readUInt16LE(offset + 30);
+    const commentLength = directory.readUInt16LE(offset + 32);
+    const flags = directory.readUInt16LE(offset + 8);
+    const method = directory.readUInt16LE(offset + 10);
+    const nameStart = offset + 46;
+    const nameEnd = nameStart + nameLength;
+    if (nameEnd > directory.length) break;
+    entries.push({
+      path: directory.subarray(nameStart, nameEnd).toString((flags & 0x0800) ? "utf8" : "latin1"),
+      size_bytes: uncompressedBytes,
+      compressed_bytes: compressedBytes,
+      compression_method: method
+    });
+    offset = nameEnd + extraLength + commentLength;
+  }
+  return {
+    name: artifact.name,
+    zipIndex: entries.length === entryCount ? "read" : "partial",
+    entryCount,
+    entries
+  };
+}
+
 async function logArtifactStoreInventory() {
   const provider = R2_CONFIGURED ? "cloudflare-r2" : (ARTIFACT_STORE ? "filesystem" : "disabled");
   if (!ARTIFACT_STORE) {
@@ -975,6 +1056,14 @@ async function logArtifactStoreInventory() {
         }))
       : null;
     const artifacts = await ARTIFACT_STORE.listArtifacts();
+    const zipIndexes = R2_CONFIGURED
+      ? await Promise.all(artifacts.filter(item => /\\.zip$/i.test(item.name)).map(async item => {
+          try { return await inspectZipIndex(item); }
+          catch (error) {
+            return { name: item.name, zipIndex: "read-failed", error: String(error?.message || "ZIP index read failed").slice(0, 160) };
+          }
+        }))
+      : [];
     console.log("DREAM_ARTIFACT_STORE_INVENTORY", JSON.stringify({
       configured: true,
       provider,
@@ -984,7 +1073,8 @@ async function logArtifactStoreInventory() {
       readableArtifactCount: artifacts.length,
       artifacts: artifacts.map(({ name, sha256, size_bytes, created_at }) => ({
         name, sha256, size_bytes, created_at
-      }))
+      })),
+      zipIndexes
     }));
   } catch (error) {
     console.error("DREAM_ARTIFACT_STORE_INVENTORY_FAILED", JSON.stringify({
