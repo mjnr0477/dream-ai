@@ -14,7 +14,7 @@ test("Cloudflare Workers AI configuration builds the account-scoped chat endpoin
   });
 
   assert.equal(config.provider, "cloudflare-workers-ai");
-  assert.equal(config.modelName, "@cf/meta/llama-3.1-8b-instruct");
+  assert.equal(config.modelName, "@cf/meta/llama-3.1-8b-instruct-fast");
   assert.equal(
     config.url,
     `https://api.cloudflare.com/client/v4/accounts/${accountId}/ai/v1/chat/completions`
@@ -40,7 +40,7 @@ test("Cloudflare Workers AI rejects missing or malformed credentials", () => {
 test("Cloudflare Workers AI sends authenticated OpenAI-compatible chat requests", async () => {
   const config = resolveModelConfig({
     DREAM_MODEL_PROVIDER: "cloudflare-workers-ai",
-    DREAM_MODEL_NAME: "@cf/meta/llama-3.1-8b-instruct",
+    DREAM_MODEL_NAME: "@cf/meta/llama-3.1-8b-instruct-fast",
     CLOUDFLARE_ACCOUNT_ID: accountId,
     CLOUDFLARE_API_TOKEN: token
   });
