@@ -87,6 +87,12 @@ const NOTEBOOK_QUEUE = new NotebookQueue({
   jobLeaseMs: process.env.DREAM_HOST_NOTEBOOK_JOB_LEASE_MS,
   maxExecutionMs: process.env.DREAM_HOST_NOTEBOOK_EXECUTION_TIMEOUT_MS
 });
+let NOTEBOOK_CHAT_MODEL_READY = false;
+let NOTEBOOK_CHAT_MODEL_DEVICE = null;
+let NOTEBOOK_CHAT_MODEL_ERROR = "";
+let NOTEBOOK_CHAT_WARMUP_JOB_ID = null;
+const NOTEBOOK_CHAT_RUNTIME_ID = "dream-ai-chat-runtime";
+
 const MAX_BODY_BYTES = 1024 * 1024;
 const rawQueueLimit = Number(process.env.DREAM_HOST_MAX_QUEUE || 30);
 const MAX_QUEUE = Number.isFinite(rawQueueLimit) ? Math.max(1, Math.min(rawQueueLimit, 200)) : 30;
@@ -302,16 +308,28 @@ function statusSnapshot() {
     worker.metadata?.model === MODEL_NAME &&
     worker.metadata?.adapter === ADAPTER_NAME
   );
+  const notebook = NOTEBOOK_QUEUE.status();
+  const notebookComputeOnline = notebook.workers.connected > 0;
   const activeWorker = ready.find(worker => typeof worker.metadata?.device === "string");
+  const notebookDevice = notebook.workers.devices.find(item => typeof item.device === "string")?.device || null;
+  const modelReady = ready.length > 0 || (NOTEBOOK_CHAT_MODEL_READY && notebookComputeOnline);
+  const warmup = NOTEBOOK_CHAT_WARMUP_JOB_ID
+    ? NOTEBOOK_QUEUE.getJob(NOTEBOOK_CHAT_WARMUP_JOB_ID)
+    : null;
+  const modelLoading = Boolean(warmup && ["queued", "running"].includes(warmup.status));
   return {
     name: "DREAM HOST",
     version: HOST_VERSION,
     ok: true,
     modelConfigured: true,
-    modelReady: ready.length > 0,
+    modelReady,
+    chatAvailable: ready.length > 0 || notebookComputeOnline,
+    modelLoading,
+    modelError: NOTEBOOK_CHAT_MODEL_ERROR || null,
     model: MODEL_NAME,
     adapter: ADAPTER_NAME,
-    device: activeWorker?.metadata?.device || null,
+    modelRuntime: ready.length > 0 ? "gpu-worker" : (notebookComputeOnline ? "dream-notebook" : "offline"),
+    device: activeWorker?.metadata?.device || (NOTEBOOK_CHAT_MODEL_READY ? NOTEBOOK_CHAT_MODEL_DEVICE : null) || notebookDevice,
     uptimeSeconds: Math.max(0, Math.floor((Date.now() - STARTED_AT) / 1000)),
     persistence: "in-memory",
     artifactStorage: ARTIFACT_STORAGE_CONFIGURED ? (R2_CONFIGURED ? "r2" : "filesystem") : "disabled",
@@ -331,6 +349,136 @@ function statusSnapshot() {
 
 function openAiError(message, type = "server_error") {
   return { error: { message, type } };
+}
+
+function notebookModelBootstrapCode() {
+  return [
+    "import json",
+    "import os",
+    "if '_dream_chat_model' not in globals():",
+    "    import torch",
+    "    if not torch.cuda.is_available(): raise RuntimeError('DREAM AI chat requires a CUDA GPU in the connected notebook runtime.')",
+    "    from transformers import AutoTokenizer, AutoModelForCausalLM",
+    "    from peft import PeftModel",
+    "    _dream_hf_token = os.environ.get('DREAM_NOTEBOOK_HF_TOKEN') or None",
+    "    _dream_chat_tokenizer = AutoTokenizer.from_pretrained(" + JSON.stringify(ADAPTER_NAME) + ", token=_dream_hf_token)",
+    "    _dream_chat_base = AutoModelForCausalLM.from_pretrained(" + JSON.stringify(MODEL_NAME) + ", torch_dtype=torch.float16, low_cpu_mem_usage=True, token=_dream_hf_token)",
+    "    _dream_chat_model = PeftModel.from_pretrained(_dream_chat_base, " + JSON.stringify(ADAPTER_NAME) + ", token=_dream_hf_token, torch_device='cpu')",
+    "    _dream_chat_model = _dream_chat_model.to('cuda')",
+    "    _dream_chat_model.eval()",
+    "    _dream_chat_device = torch.cuda.get_device_name(0)",
+    "else:",
+    "    import torch",
+    "    _dream_chat_device = torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'unknown'",
+    "print('DREAM_CHAT_MODEL_READY:' + str(_dream_chat_device))"
+  ].join("\n");
+}
+
+function buildNotebookChatCode(payload) {
+  const requestLiteral = JSON.stringify(JSON.stringify(payload));
+  return [
+    notebookModelBootstrapCode(),
+    "_dream_request = json.loads(" + requestLiteral + ")",
+    "_dream_prompt = _dream_chat_tokenizer.apply_chat_template(_dream_request['messages'], tokenize=False, add_generation_prompt=True, enable_thinking=False)",
+    "_dream_inputs = _dream_chat_tokenizer(_dream_prompt, return_tensors='pt', truncation=True, max_length=6144)",
+    "_dream_inputs = {key: value.to('cuda') for key, value in _dream_inputs.items()}",
+    "_dream_options = {'max_new_tokens': max(1, min(int(_dream_request['max_tokens']), 1024)), 'pad_token_id': _dream_chat_tokenizer.eos_token_id, 'repetition_penalty': 1.05}",
+    "if float(_dream_request['temperature']) <= 0:",
+    "    _dream_options['do_sample'] = False",
+    "else:",
+    "    _dream_options.update({'do_sample': True, 'temperature': float(_dream_request['temperature']), 'top_p': float(_dream_request['top_p'])})",
+    "with torch.inference_mode():",
+    "    _dream_output = _dream_chat_model.generate(**_dream_inputs, **_dream_options)",
+    "_dream_prompt_tokens = int(_dream_inputs['input_ids'].shape[-1])",
+    "_dream_generated = _dream_output[0][_dream_prompt_tokens:]",
+    "_dream_content = _dream_chat_tokenizer.decode(_dream_generated, skip_special_tokens=True).strip()",
+    "if not _dream_content: raise RuntimeError('The saved DREAM AI model returned an empty answer.')",
+    "_dream_result = {'content': _dream_content, 'promptTokens': _dream_prompt_tokens, 'completionTokens': int(_dream_generated.shape[-1]), 'device': _dream_chat_device}",
+    "print('DREAM_CHAT_RESULT:' + json.dumps(_dream_result, ensure_ascii=False))"
+  ].join("\n");
+}
+
+function scheduleNotebookChatWarmup() {
+  if (NOTEBOOK_CHAT_MODEL_READY || NOTEBOOK_CHAT_WARMUP_JOB_ID || readyWorkers().length > 0) return;
+  if (NOTEBOOK_QUEUE.status().workers.connected < 1) return;
+  try {
+    const warmup = NOTEBOOK_QUEUE.submit({
+      notebookId: NOTEBOOK_CHAT_RUNTIME_ID,
+      cellId: "warmup_" + randomUUID().replaceAll("-", ""),
+      code: notebookModelBootstrapCode()
+    });
+    NOTEBOOK_CHAT_WARMUP_JOB_ID = warmup.id;
+    NOTEBOOK_CHAT_MODEL_ERROR = "";
+    console.log("DREAM_NOTEBOOK_CHAT_WARMUP_QUEUED", JSON.stringify({ jobId: warmup.id }));
+  } catch (error) {
+    NOTEBOOK_CHAT_MODEL_ERROR = "DREAM AI model warm-up could not be queued.";
+    console.warn("DREAM_NOTEBOOK_CHAT_WARMUP_REJECTED", error.message);
+  }
+}
+
+function sendNotebookChatCompletion(res, model, result) {
+  NOTEBOOK_CHAT_MODEL_READY = true;
+  NOTEBOOK_CHAT_MODEL_ERROR = "";
+  NOTEBOOK_CHAT_MODEL_DEVICE = typeof result.device === "string" ? result.device : NOTEBOOK_CHAT_MODEL_DEVICE;
+  return sendJson(res, 200, {
+    id: "chatcmpl_" + randomUUID().replaceAll("-", ""),
+    object: "chat.completion",
+    created: Math.floor(Date.now() / 1000),
+    model,
+    choices: [{ index: 0, message: { role: "assistant", content: result.content }, finish_reason: "stop" }],
+    usage: {
+      prompt_tokens: Math.max(0, Number(result.promptTokens) || 0),
+      completion_tokens: Math.max(0, Number(result.completionTokens) || 0),
+      total_tokens: Math.max(0, Number(result.promptTokens) || 0) + Math.max(0, Number(result.completionTokens) || 0)
+    }
+  });
+}
+
+async function handleNotebookChat(res, model, messages, maxTokens, temperature, topP) {
+  if (NOTEBOOK_QUEUE.status().workers.connected < 1) {
+    return sendJson(res, 503, openAiError("DREAM NOTEBOOK GPU compute is offline. Connect the DREAM AI + notebook GPU runtime.", "server_error"), { "retry-after": "10" });
+  }
+  const payload = { messages, max_tokens: maxTokens, temperature, top_p: topP };
+  let submitted;
+  try {
+    submitted = NOTEBOOK_QUEUE.submit({
+      notebookId: NOTEBOOK_CHAT_RUNTIME_ID,
+      cellId: "chat_" + randomUUID().replaceAll("-", ""),
+      code: buildNotebookChatCode(payload)
+    });
+  } catch (error) {
+    const status = Number.isInteger(error.status) ? error.status : 500;
+    return sendJson(res, status, openAiError(status >= 500 ? "DREAM NOTEBOOK could not queue the AI request." : error.message, status === 429 ? "rate_limit_error" : "server_error"));
+  }
+
+  const deadline = Date.now() + JOB_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if (res.destroyed || res.writableEnded) return;
+    const job = NOTEBOOK_QUEUE.getJob(submitted.id);
+    if (!job) {
+      return sendJson(res, 503, openAiError("DREAM NOTEBOOK lost the queued AI request. Please retry.", "server_error"), { "retry-after": "5" });
+    }
+    if (job.status === "failed") {
+      return sendJson(res, 502, openAiError("DREAM NOTEBOOK could not run the saved DREAM AI model. Check the GPU runtime status and retry.", "server_error"));
+    }
+    if (job.status === "completed") {
+      const marker = String(job.result?.stdout || "").split(/\r?\n/).reverse().find(line => line.startsWith("DREAM_CHAT_RESULT:"));
+      if (!marker) {
+        NOTEBOOK_CHAT_MODEL_ERROR = "DREAM AI inference did not return a valid result.";
+        return sendJson(res, 502, openAiError("The saved DREAM AI model did not return a valid answer. Check the notebook GPU runtime and retry.", "server_error"));
+      }
+      try {
+        const result = JSON.parse(marker.slice("DREAM_CHAT_RESULT:".length));
+        if (typeof result.content !== "string" || !result.content.trim()) throw new Error("Empty model response.");
+        return sendNotebookChatCompletion(res, model, result);
+      } catch {
+        NOTEBOOK_CHAT_MODEL_ERROR = "DREAM AI inference returned an invalid result.";
+        return sendJson(res, 502, openAiError("The saved DREAM AI model returned an invalid answer. Please retry.", "server_error"));
+      }
+    }
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
+  return sendJson(res, 504, openAiError("DREAM AI did not finish the notebook GPU request before the timeout. Please retry.", "timeout_error"), { "retry-after": "5" });
 }
 
 async function handleChat(req, res) {
@@ -355,11 +503,17 @@ async function handleChat(req, res) {
   }
   sweep();
   const availableWorkers = readyWorkers();
+  const maxTokens = finiteNumber(body.max_tokens ?? body.max_completion_tokens, 512, 1, 1024);
+  const temperature = finiteNumber(body.temperature, 0.7, 0, 2);
+  const topP = finiteNumber(body.top_p, 0.9, 0.01, 1);
   if (availableWorkers.length === 0) {
+    if (NOTEBOOK_QUEUE.status().workers.connected > 0) {
+      return await handleNotebookChat(res, MODEL_NAME, messages, maxTokens, temperature, topP);
+    }
     return sendJson(
       res,
       503,
-      openAiError("No Kaggle GPU worker is connected. Start the DREAM HOST worker and retry.", "server_error"),
+      openAiError("No DREAM NOTEBOOK GPU runtime is connected. Start the DREAM AI + notebook GPU connector and retry.", "server_error"),
       { "retry-after": "10" }
     );
   }
@@ -374,9 +528,9 @@ async function handleChat(req, res) {
     id,
     model: typeof body.model === "string" && body.model.trim() ? body.model.trim().slice(0, 120) : MODEL_NAME,
     messages,
-    maxTokens: finiteNumber(body.max_tokens ?? body.max_completion_tokens, 512, 1, 1024),
-    temperature: finiteNumber(body.temperature, 0.7, 0, 2),
-    topP: finiteNumber(body.top_p, 0.9, 0.01, 1),
+    maxTokens,
+    temperature,
+    topP,
     status: "queued",
     workerId: null,
     attempts: 0,
@@ -393,7 +547,7 @@ async function handleChat(req, res) {
       job.status = "timed_out";
       job.updatedAt = new Date().toISOString();
       removePending(job.id);
-      resolve({ status: 504, body: openAiError("No Kaggle GPU worker completed this request before the timeout.", "timeout_error") });
+      resolve({ status: 504, body: openAiError("No GPU worker completed this request before the timeout.", "timeout_error") });
     }, JOB_TIMEOUT_MS);
     waiters.set(job.id, { resolve, timer });
     res.on("close", () => {
@@ -641,7 +795,9 @@ async function handleNotebookWorkerRoute(req, res, url) {
     NOTEBOOK_QUEUE.sweep();
     if (req.method === "POST" && url.pathname === "/api/v1/notebook/workers/register") {
       const body = await readJson(req);
-      return sendJson(res, 200, NOTEBOOK_QUEUE.registerWorker(body));
+      const registration = NOTEBOOK_QUEUE.registerWorker(body);
+      scheduleNotebookChatWarmup();
+      return sendJson(res, 200, registration);
     }
     if (req.method === "POST" && url.pathname === "/api/v1/notebook/workers/heartbeat") {
       const body = await readJson(req);
@@ -658,6 +814,20 @@ async function handleNotebookWorkerRoute(req, res, url) {
       const job = match[2] === "result"
         ? NOTEBOOK_QUEUE.complete(body.workerId, match[1], body)
         : NOTEBOOK_QUEUE.fail(body.workerId, match[1], body.error);
+      if (match[1] === NOTEBOOK_CHAT_WARMUP_JOB_ID) {
+        NOTEBOOK_CHAT_WARMUP_JOB_ID = null;
+        const readyLine = String(job.result?.stdout || "").split(/\r?\n/).find(line => line.startsWith("DREAM_CHAT_MODEL_READY:"));
+        if (job.status === "completed" && readyLine) {
+          NOTEBOOK_CHAT_MODEL_READY = true;
+          NOTEBOOK_CHAT_MODEL_DEVICE = readyLine.slice("DREAM_CHAT_MODEL_READY:".length).trim() || null;
+          NOTEBOOK_CHAT_MODEL_ERROR = "";
+          console.log("DREAM_NOTEBOOK_CHAT_MODEL_READY", JSON.stringify({ device: NOTEBOOK_CHAT_MODEL_DEVICE }));
+        } else {
+          NOTEBOOK_CHAT_MODEL_READY = false;
+          NOTEBOOK_CHAT_MODEL_ERROR = "DREAM AI model warm-up did not complete.";
+          console.warn("DREAM_NOTEBOOK_CHAT_MODEL_WARMUP_FAILED");
+        }
+      }
       return sendJson(res, 200, { ok: true, job });
     }
     return sendJson(res, 404, { error: "Notebook worker endpoint not found." });
