@@ -1,4 +1,5 @@
 import http from "node:http";
+import { inflateRawSync } from "node:zlib";
 import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -1024,15 +1025,49 @@ async function inspectZipIndex(artifact) {
       path: directory.subarray(nameStart, nameEnd).toString((flags & 0x0800) ? "utf8" : "latin1"),
       size_bytes: uncompressedBytes,
       compressed_bytes: compressedBytes,
-      compression_method: method
+      compression_method: method,
+      local_offset: directory.readUInt32LE(offset + 42)
     });
     offset = nameEnd + extraLength + commentLength;
+  }
+  const metadataFiles = {};
+  for (const entry of entries.filter(item => /(?:adapter_config\\.json|DREAM-RECOVERY-MANIFEST\\.json)$/i.test(item.path))) {
+    if (entry.compressed_bytes > 256 * 1024 || entry.size_bytes > 256 * 1024) continue;
+    const localHeaderSize = 30;
+    const localHeaderResponse = await ARTIFACT_R2_CLIENT.send(new GetObjectCommand({
+      Bucket: R2_BUCKET,
+      Key: "objects/" + artifact.sha256 + ".bin",
+      Range: "bytes=" + entry.local_offset + "-" + (entry.local_offset + localHeaderSize + 1024 + entry.compressed_bytes - 1)
+    }));
+    const localParts = [];
+    let localTotal = 0;
+    for await (const chunk of localHeaderResponse.Body) {
+      const bytes = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      localTotal += bytes.length;
+      if (localTotal > 300 * 1024) throw new Error("ZIP metadata member exceeded its read limit.");
+      localParts.push(bytes);
+    }
+    const localBytes = Buffer.concat(localParts, localTotal);
+    if (localBytes.length < localHeaderSize || localBytes.readUInt32LE(0) !== 0x04034b50) {
+      throw new Error("ZIP metadata local header is invalid.");
+    }
+    const nameLength = localBytes.readUInt16LE(26);
+    const extraLength = localBytes.readUInt16LE(28);
+    const dataStart = localHeaderSize + nameLength + extraLength;
+    const compressed = localBytes.subarray(dataStart, dataStart + entry.compressed_bytes);
+    const content = entry.compression_method === 8
+      ? inflateRawSync(compressed, { maxOutputLength: 256 * 1024 })
+      : (entry.compression_method === 0 ? compressed : null);
+    if (!content || content.length !== entry.size_bytes) continue;
+    try { metadataFiles[entry.path] = JSON.parse(content.toString("utf8")); }
+    catch { metadataFiles[entry.path] = content.toString("utf8").slice(0, 3000); }
   }
   return {
     name: artifact.name,
     zipIndex: entries.length === entryCount ? "read" : "partial",
     entryCount,
-    entries
+    entries: entries.map(({ local_offset, ...entry }) => entry),
+    metadataFiles
   };
 }
 
