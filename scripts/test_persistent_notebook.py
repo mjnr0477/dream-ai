@@ -14,7 +14,7 @@ DOC = ROOT / "docs" / "PERMANENT_GPU_WORKER.md"
 HOST = ROOT / "dream-host" / "server.js"
 NATIVE_WORKER = ROOT / "dream-host" / "native_inference_worker.py"
 INFERENCE_UNIT = ROOT / "deploy" / "systemd" / "dream-native-inference-worker.service"
-ENABLE_INFERENCE = ROOT / "scripts" / "enable-dream-native-inference-worker.sh""
+ENABLE_INFERENCE = ROOT / "scripts" / "enable-dream-native-inference-worker.sh"
 
 
 class PersistentNotebookTests(unittest.TestCase):
