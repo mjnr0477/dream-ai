@@ -77,9 +77,8 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   const notebookHtml = await notebookPage.text();
   assert.match(notebookHtml, /DREAM NOTEBOOK/);
   assert.match(notebookHtml, /Load native DREAM training/);
-  assert.match(notebookHtml, /Improve existing Qwen adapter/);
-  assert.match(notebookHtml, /Get Kaggle GPU connector/);
-  assert.ok(notebookHtml.includes("Get DREAM AI + notebook connector"));
+  assert.match(notebookHtml, /Persistent GPU setup guide/);
+  assert.doesNotMatch(notebookHtml, /Kaggle|Qwen adapter|HF_TOKEN|notebook\/chat-worker/);
   assert.match(notebookPage.headers.get("content-security-policy"), /script-src 'self'/);
 
   const notebookScript = await fetch(baseUrl + "/notebook.js");
@@ -88,6 +87,7 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   const notebookScriptText = await notebookScript.text();
   assert.match(notebookScriptText, /indexedDB/);
   assert.match(notebookScriptText, /DREAM AI chat/);
+  assert.doesNotMatch(notebookScriptText, /kaggle|HF_TOKEN|importAdapterWorkflow|adapter-template/i);
 
   const notebookStyle = await fetch(baseUrl + "/notebook.css");
   assert.equal(notebookStyle.status, 200);
@@ -106,44 +106,17 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   assert.equal(nativeTrainingSource.includes("PRODUCTION_ADAPTER_REPO"), false);
   assert.equal(nativeTrainingSource.includes("Qwen/Qwen3-1.7B"), false);
 
-  const adapterTemplate = await fetch(baseUrl + "/notebook/adapter-template.ipynb");
-  assert.equal(adapterTemplate.status, 200);
-  const adapterNotebook = await adapterTemplate.json();
-  assert.equal(adapterNotebook.nbformat, 4);
-  const adapterSource = adapterNotebook.cells
-    .map(cell => Array.isArray(cell.source) ? cell.source.join("") : String(cell.source || ""))
-    .join("\n");
-  assert.ok(adapterSource.includes("Qwen/Qwen3-1.7B"));
-  assert.ok(adapterSource.includes("DREAM_NOTEBOOK_ARTIFACT_TOKEN"));
-  assert.ok(adapterSource.includes("candidate-not-active"));
-  assert.ok(adapterSource.includes("dream-r2-progress-bundle-v1"));
-  assert.ok(adapterSource.includes("PRODUCTION_ADAPTER_REPO"));
+  const setupGuide = await fetch(baseUrl + "/notebook/permanent-gpu-setup.md");
+  assert.equal(setupGuide.status, 200);
+  assert.match(setupGuide.headers.get("content-type"), /text\/markdown/);
+  const setupText = await setupGuide.text();
+  assert.match(setupText, /Cloudflare R2/);
+  assert.match(setupText, /dream-native-inference-worker/);
 
-  const kaggleConnector = await fetch(baseUrl + "/notebook/kaggle-worker.ipynb");
-  assert.equal(kaggleConnector.status, 200);
-  assert.ok(kaggleConnector.headers.get("content-disposition").includes("dream-notebook-kaggle-worker.ipynb"));
-  const connectorNotebook = await kaggleConnector.json();
-  const connectorSource = connectorNotebook.cells
-    .map(cell => Array.isArray(cell.source) ? cell.source.join("") : String(cell.source || ""))
-    .join("\\n");
-  assert.match(connectorSource, /DREAM_HOST_NOTEBOOK_WORKER_TOKEN/);
-  assert.match(connectorSource, /DREAM_NOTEBOOK_ARTIFACT_TOKEN/);
-  assert.ok(connectorSource.includes("notebook_worker.py"));
-
-  const chatConnector = await fetch(baseUrl + "/notebook/chat-worker.ipynb");
-  assert.equal(chatConnector.status, 200);
-  assert.ok(chatConnector.headers.get("content-disposition").includes("dream-notebook-chat-worker.ipynb"));
-  const chatConnectorNotebook = await chatConnector.json();
-  const chatConnectorSource = chatConnectorNotebook.cells
-    .map(cell => Array.isArray(cell.source) ? cell.source.join("") : String(cell.source || ""))
-    .join("\\n");
-  assert.equal(chatConnectorSource.includes('read_secret("DREAM_HOST_WORKER_TOKEN")'), false);
-  assert.match(chatConnectorSource, /DREAM_HOST_NOTEBOOK_WORKER_TOKEN/);
-  assert.match(chatConnectorSource, /HF_TOKEN/);
-  assert.match(chatConnectorSource, /DREAM_NOTEBOOK_ARTIFACT_TOKEN/);
-  assert.ok(chatConnectorSource.includes("notebook_worker.py"));
-  assert.match(chatConnectorSource, /DREAM HOST will automatically preload the saved Qwen adapter/);
-
+  for (const retiredPath of ["/notebook/adapter-template.ipynb", "/notebook/kaggle-worker.ipynb", "/notebook/chat-worker.ipynb"]) {
+    const retired = await fetch(baseUrl + retiredPath);
+    assert.equal(retired.status, 404);
+  }
   const connectResponse = await fetch(baseUrl + "/api/v1/notebook/session", {
     method: "POST",
     headers: {
@@ -265,8 +238,8 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   assert.equal(notebookCompleted.status, "completed");
   assert.equal(notebookCompleted.result.stdout, "notebook integration\n");
 
-  // The notebook worker also owns the persistent DREAM AI model kernel.
-  const warmupClaimResponse = await fetch(baseUrl + "/api/v1/notebook/workers/jobs/claim", {
+  // Notebook execution is training-only by default and must not queue the legacy Qwen/HF warm-up.
+  const noWarmupClaim = await fetch(baseUrl + "/api/v1/notebook/workers/jobs/claim", {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -274,39 +247,15 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
     },
     body: JSON.stringify({ workerId: "notebook-worker-01" })
   });
-  assert.equal(warmupClaimResponse.status, 200);
-  const warmupJob = (await warmupClaimResponse.json()).job;
-  assert.equal(warmupJob.notebookId, "dream-ai-chat-runtime");
-  assert.ok(warmupJob.code.includes(MODEL));
-  assert.ok(warmupJob.code.includes(ADAPTER));
-  assert.ok(warmupJob.code.includes("torchao"));
-  assert.ok(warmupJob.code.includes("import json\nimport os"));
-  const warmupResult = await fetch(baseUrl + "/api/v1/notebook/workers/jobs/" + warmupJob.id + "/result", {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: "Bearer " + notebookWorkerToken
-    },
-    body: JSON.stringify({
-      workerId: "notebook-worker-01",
-      stdout: "DREAM_CHAT_MODEL_READY:Test GPU\n",
-      stderr: "",
-      display: "",
-      executionCount: 1
-    })
-  });
-  assert.equal(warmupResult.status, 200);
-
-  const readyFromNotebook = await fetch(baseUrl + "/health/ready");
-  assert.equal(readyFromNotebook.status, 200);
-  const notebookReadyBody = await readyFromNotebook.json();
-  assert.equal(notebookReadyBody.modelReady, true);
-  assert.equal(notebookReadyBody.modelRuntime, "dream-notebook");
-  assert.equal(notebookReadyBody.device, "Test GPU");
+  assert.equal(noWarmupClaim.status, 204);
 
   const notReady = await fetch(baseUrl + "/health/ready");
-  assert.equal(notReady.status, 200);
-
+  assert.equal(notReady.status, 503);
+  const notebookReadyBody = await notReady.json();
+  assert.equal(notebookReadyBody.modelReady, false);
+  assert.equal(notebookReadyBody.chatAvailable, false);
+  assert.equal(notebookReadyBody.modelRuntime, "offline");
+  assert.equal(notebookReadyBody.notebookChatWarmupEnabled, false);
   const unauthorized = await fetch(baseUrl + "/api/v1/workers/register", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -328,8 +277,9 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   assert.equal(modelMismatch.status, 200);
 
   const mismatchedHealth = await fetch(baseUrl + "/health").then(response => response.json());
-  assert.equal(mismatchedHealth.modelReady, true);
-  assert.equal(mismatchedHealth.modelRuntime, "dream-notebook");
+  assert.equal(mismatchedHealth.modelReady, false);
+  assert.equal(mismatchedHealth.modelRuntime, "offline");
+  assert.equal(mismatchedHealth.notebookChatWarmupEnabled, false);
   assert.equal(mismatchedHealth.workers.connected, 1);
   assert.equal(mismatchedHealth.workers.ready, 0);
 
