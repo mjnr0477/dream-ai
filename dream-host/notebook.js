@@ -326,12 +326,20 @@
       const count = Number(data.workers?.connected || 0);
       el("worker-count").textContent = String(count);
       el("queue-count").textContent = String(data.queue?.pending || 0);
+      let chatReady = false;
+      try {
+        const hostResponse = await fetch("/health", { credentials: "same-origin", cache: "no-store" });
+        if (hostResponse.ok) {
+          const hostStatus = await hostResponse.json();
+          chatReady = hostStatus.modelReady === true;
+        }
+      } catch {}
       if (count > 0) {
         const device = data.workers?.devices?.map(item => item.device).filter(Boolean).join(", ") || "connected";
-        el("worker-detail").textContent = device + " · " + (data.workers.busy || 0) + " busy";
-        statusLabel("Connected · " + count + " worker" + (count === 1 ? "" : "s"), "online");
+        el("worker-detail").textContent = device + " · " + (data.workers.busy || 0) + " busy · DREAM AI chat " + (chatReady ? "ready" : "offline");
+        statusLabel("Notebook connected · AI chat " + (chatReady ? "ready" : "offline"), chatReady ? "online" : "warning");
       } else {
-        el("worker-detail").textContent = "No compute worker is connected. Start the Kaggle GPU connector to run notebook cells.";
+        el("worker-detail").textContent = "No notebook compute worker is connected. DREAM AI chat runs on a separate model worker.";
         statusLabel("Connected · waiting for compute", "warning");
       }
       updateControls();
