@@ -96,10 +96,14 @@ The browser-based DREAM NOTEBOOK is the notebook we use to edit and run cells. K
 1. On Render, configure two distinct secrets: `DREAM_HOST_NOTEBOOK_TOKEN` for the browser owner and `DREAM_HOST_NOTEBOOK_WORKER_TOKEN` for the compute worker. Both must be at least 32 characters and must differ from the chat worker, client and artifact tokens.
 2. In Kaggle, create a notebook with GPU and Internet enabled. Add Kaggle Secrets named `DREAM_HOST_NOTEBOOK_WORKER_TOKEN` and `DREAM_NOTEBOOK_ARTIFACT_TOKEN`. The latter is the dedicated artifact API token already configured on Render; it is not an R2 S3 key.
 3. Import and run the one-cell connector notebook from `/notebook/kaggle-worker.ipynb`. Keep that cell running. It starts `notebook_worker.py`, not the Qwen chat inference worker.
-4. Open `/notebook` in another tab, connect with `DREAM_HOST_NOTEBOOK_TOKEN`, and choose **Load native DREAM training**. The cells shown there run on the connected Kaggle GPU.
-5. Attach the private Kaggle Dataset containing `approved-records.jsonl` to the GPU connector. The workflow checks its rights, provenance, privacy and human-review gates. It then backs up the exact prepared corpus and native checkpoint into the private R2 vault.
+4. Open `/notebook` in another tab, connect with `DREAM_HOST_NOTEBOOK_TOKEN`, and choose one of the two separate workflows:
+   - **Load native DREAM training** starts DREAM's own transformer from random initialization. It uses `approved-records.jsonl`, optionally followed by reviewed native SFT conversation files.
+   - **Improve existing Qwen adapter** fine-tunes the current Qwen3-1.7B LoRA adapter on the reviewed opt-in dataset. It saves candidate/progress artifacts separately and never overwrites the live adapter.
+5. Attach the correct private Kaggle Dataset to the GPU connector. Native pretraining needs `approved-records.jsonl`; the adapter path needs `train.jsonl`, `validation.jsonl`, `manifest.json`, and `audit-gate.json`. Native instruction tuning optionally uses `sft-train.jsonl` and `sft-validation.jsonl`.
 
-The connector notebook is only a small worker launcher. The actual training cells, dataset checks, run history and notebook UI remain in DREAM NOTEBOOK. Do not run the Qwen chat worker in the same Kaggle GPU session while native training is running.
+The connector notebook is only a small worker launcher. The actual training cells, dataset checks, run history and notebook UI remain in DREAM NOTEBOOK. Do not run the Qwen chat inference worker in the same Kaggle GPU session while either training workflow is running; it would compete for GPU memory.
+
+The separately archived `dream-qwen-adapter-checkpoint-2.zip` is a Qwen LoRA recovery artifact, not a native DREAM checkpoint. Its weights match the current adapter, but its Trainer optimizer state is not assumed compatible with the custom adapter-progress format. Native DREAM's from-scratch checkpoints use different filenames and are stored separately in R2.
 
 ### Start an operator-owned notebook worker
 
