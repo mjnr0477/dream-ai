@@ -10,7 +10,7 @@ Use `scripts/run-chat-evals.mjs` when measuring what a user actually receives. I
 DREAM_APP_URL=https://dream-ai-live.onrender.com DREAM_EVAL_LIMIT=12 npm run eval:chat
 ```
 
-The evaluator defaults to the first 12 cases and waits one second between cases. Increase the limit after the first pass. The full core set can be run with `DREAM_EVAL_LIMIT=100` (the set itself is smaller than the hard limit).
+The evaluator defaults to the first 12 cases and waits one second between cases. Increase the limit after the first pass. The core set currently contains 79 cases across 32 categories, including everyday assistance, health information, Kenyan legal information, business, relationships, careers, controversial-but-safe analysis, coding, research and 14 multilingual groups. Run the full set with `DREAM_EVAL_LIMIT=100`.
 
 ## African and multilingual pass
 
