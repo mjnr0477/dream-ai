@@ -109,7 +109,7 @@ export async function runChatEvaluations({
   appUrl,
   cases,
   limit = DEFAULT_LIMIT,
-  pauseMs = 1000,
+  pauseMs = 3500,
   timeoutMs = DEFAULT_TIMEOUT_MS,
   fetchImpl = fetch,
   sleepImpl = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -242,7 +242,7 @@ async function main() {
   if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) {
     throw new Error("DREAM_EVAL_LIMIT must be an integer from 1 to " + MAX_LIMIT + ".");
   }
-  const pauseMs = Number(process.env.DREAM_EVAL_PAUSE_MS || 1000);
+  const pauseMs = Number(process.env.DREAM_EVAL_PAUSE_MS || 3500);
   const timeoutMs = Number(process.env.DREAM_EVAL_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
 
   const run = await runChatEvaluations({ appUrl, cases: rows, limit, pauseMs, timeoutMs });
