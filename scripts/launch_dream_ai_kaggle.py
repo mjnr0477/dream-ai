@@ -188,15 +188,15 @@ def run(command: list[str], *, capture: bool = False) -> subprocess.CompletedPro
             stderr=subprocess.PIPE if capture else None,
         )
     except subprocess.CalledProcessError as exc:
-        details = "\\n".join(
+        details = "\n".join(
             part.strip() for part in (exc.stdout, exc.stderr) if part and part.strip()
         )
-        token = os.environ.get("KAGGLE_API_TOKEN", "")
-        if token and details:
-            details = details.replace(token, "[REDACTED]")
+        for token in (os.environ.get("KAGGLE_API_TOKEN", ""), os.environ.get("KAGGLE_KEY", "")):
+            if token and details:
+                details = details.replace(token, "[REDACTED]")
         message = f"Kaggle command failed with exit code {exc.returncode}."
         if details:
-            message += "\\nKaggle reported: " + details[-4000:]
+            message += "\nKaggle reported: " + details[-4000:]
         raise RuntimeError(message) from exc
 
 
