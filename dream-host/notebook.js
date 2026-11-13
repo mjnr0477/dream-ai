@@ -644,7 +644,7 @@
     const code = [
       "from pathlib import Path",
       "import itertools",
-      "roots = [('Notebook datasets', Path('datasets')), ('Attached Kaggle datasets', Path('/kaggle/input'))]",
+      "roots = [('Persistent notebook datasets', Path('datasets'))]",
       "for label, root in roots:",
       "    print('\\n' + label + ':')",
       "    if not root.exists():",
@@ -694,7 +694,7 @@
       const blob = await response.blob();
       const file = new File([blob], "dream-native-training.ipynb", { type: "application/json" });
       await importNotebook(file, true);
-      el("dataset-status").textContent = "Native DREAM workflow loaded. Start the Kaggle GPU connector, attach the reviewed corpus, then run the cells here.";
+      el("dataset-status").textContent = "Native DREAM workflow loaded. Start the Lightning AI Studio GPU worker, put the reviewed corpus in datasets/, then run the cells here.";
     } catch (error) {
       showToast(error.message);
     }
@@ -702,7 +702,7 @@
 
   async function importAdapterWorkflow() {
     if (!authorized || running) return;
-    if (!window.confirm("Load the separate Qwen adapter-improvement workflow? It fine-tunes the existing adapter, not native DREAM. This replaces the open notebook, so export unsaved work first.")) return;
+    if (!window.confirm("Load the legacy Qwen adapter workflow? It still requires Hugging Face and is not part of native DREAM training. This replaces the open notebook, so export unsaved work first.")) return;
     try {
       const response = await fetch("/notebook/adapter-template.ipynb", {
         credentials: "same-origin",
@@ -712,7 +712,7 @@
       const blob = await response.blob();
       const file = new File([blob], "dream-adapter-improvement.ipynb", { type: "application/json" });
       await importNotebook(file, true);
-      el("dataset-status").textContent = "Adapter-improvement workflow loaded. Attach the four reviewed opt-in files and set HF_TOKEN in the Kaggle GPU connector only if you intend to train this separate Qwen-backed adapter.";
+      el("dataset-status").textContent = "Legacy Qwen adapter workflow loaded. It still depends on Hugging Face and is separate from the native DREAM training path; do not use it for native training.";
     } catch (error) {
       showToast(error.message);
     }
