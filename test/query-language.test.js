@@ -40,6 +40,8 @@ test("detects widely used global languages and writing systems", () => {
 
 test("uses English for English or unclassified text and handles invalid input", () => {
   assert.equal(detectQueryLanguage("What is photosynthesis?"), "en");
+  assert.equal(detectQueryLanguage("Who is Leo Messi?"), "en");
+  assert.equal(detectQueryLanguage("How do I leave a comment on this page?"), "en");
   assert.equal(detectQueryLanguage(""), "en");
   assert.equal(detectQueryLanguage(null), "en");
 });
