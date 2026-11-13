@@ -6,7 +6,7 @@
 - If the previous run is queued or running, it does not submit another GPU job.
 - If the previous run completed, the next scheduled run submits another bounded adapter-improvement cycle.
 - If a run failed or was cancelled, automatic retries pause. Review the private Kaggle logs, fix the cause, then manually dispatch the workflow with `force_retry=true`.
-- The Kaggle notebook restores the matching adapter, optimizer and RNG progress from DREAM HOST's private R2 vault, verifies hashes, then saves a new resumable checkpoint and candidate.
+- Each scheduled cycle allows up to 60 minutes of optimizer training and up to 120 minutes for the complete Kaggle run, including model loading, evaluation and verified R2 checkpoint upload. The notebook restores the matching adapter, optimizer and RNG progress from DREAM HOST's private R2 vault, verifies hashes, then saves a new resumable checkpoint and candidate.
 - The live chat adapter is not overwritten. Candidates require review and are never promoted automatically.
 
 Training only starts when the private Kaggle account dataset contains exactly one `train.jsonl`, `validation.jsonl`, `manifest.json` and `audit-gate.json`, and the notebook's consent, rights, privacy, human-review and evaluation checks pass.
