@@ -34,6 +34,12 @@ KERNEL_IDLE_SECONDS = max(60, min(int(os.environ.get("DREAM_HOST_NOTEBOOK_KERNEL
 OUTPUT_LIMIT = 120_000
 STOP = threading.Event()
 KERNELS: dict[str, dict] = {}
+
+PERSISTENT_WORKSPACE_ROOT_VALUE = os.environ.get("DREAM_NOTEBOOK_PERSISTENT_ROOT", "").strip()
+PERSISTENT_WORKSPACE_ROOT = (
+    Path(PERSISTENT_WORKSPACE_ROOT_VALUE).expanduser().resolve()
+    if PERSISTENT_WORKSPACE_ROOT_VALUE else None
+)
 KERNEL_LOCK = threading.Lock()
 
 if not HOST.startswith("https://") and not HOST.startswith("http://127.0.0.1"):
@@ -156,6 +162,12 @@ def child_environment(workspace: Path) -> dict[str, str]:
     )
     environment = {key: os.environ[key] for key in allowed if key in os.environ}
     environment["DREAM_HOST_URL"] = HOST
+    # Keep notebook files and datasets in persistent Studio storage.
+    # The worker authentication token is never passed into the child kernel.
+    environment["DREAM_NOTEBOOK_WORKSPACE"] = str(workspace)
+    environment["DREAM_NOTEBOOK_REPO"] = str(workspace / "dream-ai-native")
+    environment["DREAM_NOTEBOOK_DATASETS"] = str(workspace / "dream-ai-native" / "datasets")
+    environment["DREAM_REPO_BRANCH"] = os.environ.get("DREAM_REPO_BRANCH", "dream-permanent-compute")
     # Pass only dedicated, explicitly configured secrets to trusted notebook
     # kernels. Never pass DREAM_HOST_NOTEBOOK_WORKER_TOKEN or other HOST keys.
     for key in ("DREAM_NOTEBOOK_HF_TOKEN", "DREAM_NOTEBOOK_ARTIFACT_TOKEN"):
@@ -169,8 +181,14 @@ def child_environment(workspace: Path) -> dict[str, str]:
 
 
 def start_kernel(notebook_id: str) -> dict:
-    folder = tempfile.mkdtemp(prefix="dream-notebook-")
-    workspace = Path(folder)
+    if PERSISTENT_WORKSPACE_ROOT is not None:
+        notebooks_root = (PERSISTENT_WORKSPACE_ROOT / "notebooks").resolve()
+        workspace = (notebooks_root / notebook_id).resolve()
+        if notebooks_root not in workspace.parents:
+            raise ValueError("Notebook ID resolved outside the persistent workspace.")
+        workspace.mkdir(parents=True, exist_ok=True)
+    else:
+        workspace = Path(tempfile.mkdtemp(prefix="dream-notebook-"))
     process = subprocess.Popen(
         [sys.executable, "-u", "-c", KERNEL_BOOTSTRAP],
         stdin=subprocess.PIPE,
@@ -229,11 +247,13 @@ def stop_kernel(kernel: dict) -> None:
                 process.kill()
             except Exception:
                 pass
-    try:
-        import shutil
-        shutil.rmtree(kernel["workspace"], ignore_errors=True)
-    except Exception:
-        pass
+    # Temporary mode cleans up. Persistent mode preserves datasets and files.
+    if PERSISTENT_WORKSPACE_ROOT is None:
+        try:
+            import shutil
+            shutil.rmtree(kernel["workspace"], ignore_errors=True)
+        except Exception:
+            pass
 
 
 def execute_cell(job: dict) -> dict:
