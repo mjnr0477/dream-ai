@@ -44,29 +44,31 @@ python model/prepare_corpus.py \
   --input "$DATA_DIR/approved-records.jsonl" \
   --output "$PREPARED"
 
-PRETRAIN_ARGS=()
-if [[ -s "$PRETRAIN" ]]; then
-  PRETRAIN_ARGS=(--resume "$PRETRAIN")
+if [[ ! -s "$PRETRAIN" || "${DREAM_NATIVE_CONTINUE_PRETRAINING:-false}" == "true" ]]; then
+  PRETRAIN_ARGS=()
+  if [[ -s "$PRETRAIN" ]]; then
+    PRETRAIN_ARGS=(--resume "$PRETRAIN")
+  fi
+  printf '%s\n' "Training/resuming the native DREAM base model..."
+  python model/train.py \
+    --data "$PREPARED/train.txt" \
+    --validation-data "$PREPARED/validation.txt" \
+    --corpus-manifest "$PREPARED/manifest.json" \
+    --out "$PRETRAIN" \
+    --steps "${DREAM_NATIVE_PRETRAIN_STEPS:-2000}" \
+    --max-seconds "${DREAM_NATIVE_PRETRAIN_MAX_SECONDS:-0}" \
+    --checkpoint-every 100 \
+    --eval-every 100 \
+    --eval-batches 5 \
+    --batch-size 4 \
+    --grad-accum-steps 4 \
+    --gradient-checkpointing \
+    --tokenizer bpe \
+    --vocab-size 1024 \
+    "${PRETRAIN_ARGS[@]}"
+else
+  printf '%s\n' "Keeping the existing native DREAM pretraining checkpoint; SFT will continue from its saved state."
 fi
-
-printf '%s\n' "Training/resuming the native DREAM base model..."
-python model/train.py \
-  --data "$PREPARED/train.txt" \
-  --validation-data "$PREPARED/validation.txt" \
-  --corpus-manifest "$PREPARED/manifest.json" \
-  --out "$PRETRAIN" \
-  --steps "${DREAM_NATIVE_PRETRAIN_STEPS:-2000}" \
-  --max-seconds "${DREAM_NATIVE_PRETRAIN_MAX_SECONDS:-0}" \
-  --checkpoint-every 100 \
-  --eval-every 100 \
-  --eval-batches 5 \
-  --batch-size 4 \
-  --grad-accum-steps 4 \
-  --gradient-checkpointing \
-  --tokenizer bpe \
-  --vocab-size 1024 \
-  "${PRETRAIN_ARGS[@]}"
-
 python model/audit_checkpoint.py \
   --checkpoint "$PRETRAIN" \
   --out "$REPORTS/pretrain-audit.json"
@@ -79,9 +81,21 @@ python model/evaluate.py \
 
 SFT_ARGS=()
 if [[ -s "$SFT" ]]; then
-  SFT_ARGS=(--resume "$SFT")
+  BASE_SHA="$(sha256sum "$PRETRAIN" | awk '{print $1}')"
+  SFT_PARENT_SHA="$(python - "$SFT" <<'PY'
+import sys, torch
+payload = torch.load(sys.argv[1], map_location="cpu", weights_only=True)
+print(payload.get("base_checkpoint_sha256", ""))
+PY
+)"
+  if [[ "$SFT_PARENT_SHA" == "$BASE_SHA" ]]; then
+    SFT_ARGS=(--resume "$SFT")
+  else
+    ARCHIVE="$CHECKPOINTS/dream-native-sft-previous-$(date -u +%Y%m%dT%H%M%SZ).pt"
+    mv "$SFT" "$ARCHIVE"
+    printf 'Archived old SFT checkpoint because its base model changed: %s\n' "$ARCHIVE"
+  fi
 fi
-
 printf '%s\n' "Instruction-tuning/resuming from the audited native pretraining checkpoint..."
 python model/sft.py \
   --checkpoint "$PRETRAIN" \
