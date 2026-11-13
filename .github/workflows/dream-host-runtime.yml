@@ -1,0 +1,84 @@
+name: DREAM HOST and training notebook checks
+
+on:
+  push:
+    branches:
+      - dream-host-runtime
+      - feature/dream-r2-notebook-integration
+    paths:
+      - "dream-host/**"
+      - "training/dream_ai_adapter_self_train_kaggle.ipynb"
+      - "training/dream_train_kaggle.ipynb"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/dream-host-runtime.yml"
+  pull_request:
+    branches:
+      - dream-host-runtime
+    paths:
+      - "dream-host/**"
+      - "training/dream_ai_adapter_self_train_kaggle.ipynb"
+      - "training/dream_train_kaggle.ipynb"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/dream-host-runtime.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dream-host-training-checks-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  runtime-and-notebook:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies without running install hooks
+        run: npm install --ignore-scripts
+
+      - name: Run DREAM AI repository tests
+        run: npm test
+
+      - name: Run DREAM HOST storage and integration tests
+        run: node --test dream-host/*.test.js
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Compile DREAM HOST Python worker
+        run: python -m compileall -q dream-host
+
+      - name: Validate training notebook JSON and Python cells
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          for notebook in (
+              Path("training/dream_ai_adapter_self_train_kaggle.ipynb"),
+              Path("training/dream_train_kaggle.ipynb"),
+          ):
+              document = json.loads(notebook.read_text(encoding="utf-8"))
+              assert document.get("nbformat") == 4, notebook
+              assert document.get("cells"), notebook
+              for index, cell in enumerate(document["cells"]):
+                  assert cell.get("cell_type") in ("code", "markdown"), (notebook, index)
+                  source = cell.get("source", "")
+                  source = "".join(source) if isinstance(source, list) else source
+                  if cell["cell_type"] == "code":
+                      compile(source, f"{notebook}:cell-{index}", "exec")
+              print(f"Notebook JSON and Python syntax passed: {notebook}")
+          PY
