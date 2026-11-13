@@ -45,6 +45,8 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
     env: {
       ...process.env,
       PORT: String(port),
+      NODE_ENV: "test",
+      DREAM_HOST_NOTEBOOK_STATE_TEST_MODE: "true",
       DREAM_HOST_WORKER_TOKEN: workerToken,
       DREAM_HOST_CLIENT_TOKEN: clientToken,
       DREAM_HOST_NOTEBOOK_TOKEN: notebookToken,
@@ -71,6 +73,7 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   assert.equal(initialHealth.modelConfigured, true);
   assert.equal(initialHealth.modelReady, false);
   assert.equal(initialHealth.persistence, "in-memory");
+  assert.equal(initialHealth.notebookPersistence, "test-memory");
 
   const notebookPage = await fetch(baseUrl + "/notebook");
   assert.equal(notebookPage.status, 200);
@@ -156,6 +159,42 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   const notebookStatus = await notebookStatusResponse.json();
   assert.equal(notebookStatus.workers.connected, 0);
   assert.equal(notebookStatus.queue.pending, 0);
+  assert.equal(notebookStatus.persistence.provider, "test-memory");
+
+  const notebookDocument = {
+    id: "nb-persist-test",
+    title: "Persistent notebook integration",
+    cells: [{
+      id: "cell-persist-test",
+      type: "code",
+      source: "print('saved')",
+      executionCount: null,
+      output: { stdout: "", stderr: "", display: "" },
+      status: "idle"
+    }]
+  };
+  const notebookSave = await fetch(baseUrl + "/api/v1/notebook/notebooks/" + notebookDocument.id, {
+    method: "PUT",
+    headers: {
+      "content-type": "application/json",
+      authorization: "Bearer " + notebookToken
+    },
+    body: JSON.stringify(notebookDocument)
+  });
+  assert.equal(notebookSave.status, 200);
+  assert.equal((await notebookSave.json()).persistence, "test-memory");
+
+  const notebookList = await fetch(baseUrl + "/api/v1/notebook/notebooks", {
+    headers: { authorization: "Bearer " + notebookToken }
+  });
+  assert.equal(notebookList.status, 200);
+  assert.ok((await notebookList.json()).notebooks.some(item => item.id === notebookDocument.id));
+
+  const notebookLoad = await fetch(baseUrl + "/api/v1/notebook/notebooks/" + notebookDocument.id, {
+    headers: { authorization: "Bearer " + notebookToken }
+  });
+  assert.equal(notebookLoad.status, 200);
+  assert.equal((await notebookLoad.json()).notebook.cells[0].source, "print('saved')");
 
   const notebookJobResponse = await fetch(baseUrl + "/api/v1/notebook/jobs", {
     method: "POST",

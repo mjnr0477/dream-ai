@@ -149,3 +149,44 @@ test("idle worker polling keeps its heartbeat fresh when the queue is empty", ()
   assert.equal(queue.claim("notebook-worker-01"), null);
   assert.equal(queue.status().workers.connected, 1);
 });
+
+
+test("queue snapshots recover completed work and requeue interrupted jobs after restart", () => {
+  let now = 1000;
+  const first = new NotebookQueue({ now: () => now, maxAttempts: 3 });
+  worker(first, "notebook-worker-01");
+  worker(first, "notebook-worker-02");
+  const interrupted = first.submit({ notebookId: "notebook-1", cellId: "cell-running", code: "train_step()" });
+  first.claim("notebook-worker-01");
+  const completed = first.submit({ notebookId: "notebook-1", cellId: "cell-done", code: "2 + 2" });
+  first.claim("notebook-worker-02");
+  first.complete("notebook-worker-02", completed.id, {
+    stdout: "",
+    stderr: "",
+    display: "4",
+    executionCount: 1
+  });
+  const waiting = first.submit({ notebookId: "notebook-1", cellId: "cell-waiting", code: "3 + 3" });
+
+  const saved = JSON.parse(JSON.stringify(first.snapshot()));
+  const recovered = new NotebookQueue({ now: () => now, maxAttempts: 3 });
+  const summary = recovered.restore(saved);
+
+  assert.equal(summary.restoredJobs, 3);
+  assert.equal(summary.pending, 2);
+  assert.equal(recovered.status().workers.connected, 0);
+  assert.equal(recovered.getJob(interrupted.id).status, "queued");
+  assert.equal(recovered.getJob(completed.id).status, "completed");
+  assert.equal(recovered.getJob(completed.id).result.display, "4");
+  assert.equal(recovered.getJob(waiting.id).status, "queued");
+
+  worker(recovered, "notebook-worker-reconnected");
+  const reclaimed = recovered.claim("notebook-worker-reconnected");
+  assert.equal(reclaimed.id, interrupted.id);
+  assert.equal(reclaimed.attempts, 2);
+});
+
+test("queue recovery rejects an invalid snapshot schema", () => {
+  const queue = new NotebookQueue();
+  assert.throws(() => queue.restore({ schema: "unknown", jobs: [] }), /unsupported format/);
+});

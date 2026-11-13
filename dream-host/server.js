@@ -13,6 +13,7 @@ import {
 import { NotebookQueue } from "./notebook-core.js";
 import { getArtifact, listArtifacts, putArtifact } from "./artifact-store.js";
 import { createR2ArtifactStore } from "./r2-artifact-store.js";
+import { createR2StateStore } from "./r2-state-store.js";
 
 const PORT = Number(process.env.PORT || 10000);
 function normalizeToken(value) {
@@ -79,6 +80,55 @@ const ARTIFACT_STORE = R2_CONFIGURED
 const ARTIFACT_STORAGE_CONFIGURED = Boolean(ARTIFACT_STORE)
   && ARTIFACT_TOKEN.length >= 32
   && ![WORKER_TOKEN, normalizeToken(CLIENT_TOKEN), NOTEBOOK_TOKEN, NOTEBOOK_WORKER_TOKEN].includes(ARTIFACT_TOKEN);
+function createTestMemoryNotebookStateStore() {
+  const records = new Map();
+  return {
+    async readJson(key, maxBytes = 4 * 1024 * 1024) {
+      const value = records.get(key);
+      if (value === undefined) return null;
+      const bytes = Buffer.from(JSON.stringify(value));
+      if (bytes.length > maxBytes) {
+        const error = new Error("Test state exceeds the configured size limit.");
+        error.status = 413;
+        throw error;
+      }
+      return JSON.parse(bytes.toString("utf8"));
+    },
+    async writeJson(key, value, maxBytes = 4 * 1024 * 1024) {
+      const bytes = Buffer.from(JSON.stringify(value));
+      if (bytes.length > maxBytes) {
+        const error = new Error("Test state exceeds the configured size limit.");
+        error.status = 413;
+        throw error;
+      }
+      records.set(key, JSON.parse(bytes.toString("utf8")));
+      return { key, bytes: bytes.length };
+    },
+    async list(prefix = "", maxKeys = 100) {
+      return [...records.keys()].filter(key => key.startsWith(prefix) && key.endsWith(".json")).slice(0, maxKeys);
+    },
+    async remove(key) {
+      records.delete(key);
+    }
+  };
+}
+
+const TEST_NOTEBOOK_STATE_ENABLED = process.env.NODE_ENV === "test"
+  && process.env.DREAM_HOST_NOTEBOOK_STATE_TEST_MODE === "true";
+const NOTEBOOK_STATE_STORE = ARTIFACT_STORAGE_CONFIGURED && R2_CONFIGURED
+  ? createR2StateStore({
+      client: ARTIFACT_R2_CLIENT,
+      bucket: R2_BUCKET,
+      prefix: "dream-ai-state/",
+      commands: { GetObjectCommand, PutObjectCommand, ListObjectsV2Command, DeleteObjectCommand }
+    })
+  : (TEST_NOTEBOOK_STATE_ENABLED ? createTestMemoryNotebookStateStore() : null);
+const NOTEBOOK_STORAGE_PROVIDER = R2_CONFIGURED && ARTIFACT_STORAGE_CONFIGURED
+  ? "cloudflare-r2"
+  : (TEST_NOTEBOOK_STATE_ENABLED ? "test-memory" : "unavailable");
+const NOTEBOOK_QUEUE_STATE_KEY = "notebook/queue.json";
+const NOTEBOOK_QUEUE_STATE_MAX_BYTES = 16 * 1024 * 1024;
+const NOTEBOOK_STORAGE_MAX_BYTES = 900 * 1024;
 const NOTEBOOK_QUEUE = new NotebookQueue({
   maxQueue: process.env.DREAM_HOST_NOTEBOOK_MAX_QUEUE,
   maxCodeChars: process.env.DREAM_HOST_NOTEBOOK_MAX_CODE_CHARS,
@@ -87,6 +137,144 @@ const NOTEBOOK_QUEUE = new NotebookQueue({
   jobLeaseMs: process.env.DREAM_HOST_NOTEBOOK_JOB_LEASE_MS,
   maxExecutionMs: process.env.DREAM_HOST_NOTEBOOK_EXECUTION_TIMEOUT_MS
 });
+let notebookMutationChain = Promise.resolve();
+
+async function persistNotebookQueue() {
+  if (!NOTEBOOK_STATE_STORE) {
+    const error = new Error("Permanent notebook storage is not configured.");
+    error.status = 503;
+    throw error;
+  }
+  await NOTEBOOK_STATE_STORE.writeJson(NOTEBOOK_QUEUE_STATE_KEY, NOTEBOOK_QUEUE.snapshot(), NOTEBOOK_QUEUE_STATE_MAX_BYTES);
+}
+
+function mutateNotebookQueue(operation) {
+  const run = notebookMutationChain.catch(() => {}).then(async () => {
+    const before = NOTEBOOK_QUEUE.snapshot();
+    const value = operation();
+    if (value === null || value === undefined) return value;
+    try {
+      await persistNotebookQueue();
+      return value;
+    } catch (error) {
+      NOTEBOOK_QUEUE.restore(before);
+      error.status = Number.isInteger(error.status) ? error.status : 503;
+      throw error;
+    }
+  });
+  notebookMutationChain = run.catch(() => {});
+  return run;
+}
+
+async function restoreNotebookQueue() {
+  if (!NOTEBOOK_STATE_STORE) {
+    console.error("DREAM_NOTEBOOK_PERSISTENCE_DISABLED", JSON.stringify({ provider: "none" }));
+    return;
+  }
+  const saved = await NOTEBOOK_STATE_STORE.readJson(NOTEBOOK_QUEUE_STATE_KEY, NOTEBOOK_QUEUE_STATE_MAX_BYTES);
+  if (saved) {
+    const result = NOTEBOOK_QUEUE.restore(saved);
+    await persistNotebookQueue();
+    console.log("DREAM_NOTEBOOK_PERSISTENCE_RESTORED", JSON.stringify({
+      provider: NOTEBOOK_STORAGE_PROVIDER,
+      jobs: result.restoredJobs,
+      pending: result.pending
+    }));
+  } else {
+    await persistNotebookQueue();
+    console.log("DREAM_NOTEBOOK_PERSISTENCE_INITIALIZED", JSON.stringify({ provider: NOTEBOOK_STORAGE_PROVIDER }));
+  }
+}
+
+function validateNotebookDocument(input, expectedId) {
+  if (!input || typeof input !== "object" || Array.isArray(input) || input.id !== expectedId) {
+    const error = new Error("Notebook document is invalid.");
+    error.status = 400;
+    throw error;
+  }
+  const title = typeof input.title === "string" ? input.title.trim().slice(0, 120) : "";
+  if (!title || !Array.isArray(input.cells) || input.cells.length < 1 || input.cells.length > 100) {
+    const error = new Error("Notebook needs a title and between 1 and 100 cells.");
+    error.status = 400;
+    throw error;
+  }
+  const cells = input.cells.map(cell => {
+    if (!cell || typeof cell !== "object" || !["code", "markdown"].includes(cell.type)
+      || typeof cell.id !== "string" || !/^[A-Za-z0-9_-]{1,100}$/.test(cell.id)
+      || typeof cell.source !== "string" || cell.source.length > 20000) {
+      const error = new Error("Notebook contains an invalid cell.");
+      error.status = 400;
+      throw error;
+    }
+    const output = cell.output && typeof cell.output === "object" ? cell.output : {};
+    for (const key of ["stdout", "stderr", "display"]) {
+      if (output[key] !== undefined && (typeof output[key] !== "string" || output[key].length > 120000)) {
+        const error = new Error("Notebook cell output exceeds the safe storage limit.");
+        error.status = 413;
+        throw error;
+      }
+    }
+    return {
+      id: cell.id,
+      type: cell.type,
+      source: cell.source,
+      executionCount: Number.isInteger(cell.executionCount) && cell.executionCount >= 0 ? cell.executionCount : null,
+      output: {
+        stdout: String(output.stdout || ""),
+        stderr: String(output.stderr || ""),
+        display: String(output.display || "")
+      },
+      status: ["idle", "completed", "failed"].includes(cell.status) ? cell.status : "idle",
+      error: typeof cell.error === "string" ? cell.error.slice(0, 2000) : ""
+    };
+  });
+  const document = {
+    schema: "dream-notebook-v1",
+    id: expectedId,
+    title,
+    cells,
+    modifiedAt: new Date().toISOString()
+  };
+  if (Buffer.byteLength(JSON.stringify(document)) > NOTEBOOK_STORAGE_MAX_BYTES) {
+    const error = new Error("Notebook is too large to save to permanent cloud storage.");
+    error.status = 413;
+    throw error;
+  }
+  return document;
+}
+
+async function listPersistentNotebooks() {
+  if (!NOTEBOOK_STATE_STORE) {
+    const error = new Error("Permanent notebook storage is not configured.");
+    error.status = 503;
+    throw error;
+  }
+  const keys = await NOTEBOOK_STATE_STORE.list("notebooks/", 50);
+  const documents = await Promise.all(keys.map(key => NOTEBOOK_STATE_STORE.readJson(key, NOTEBOOK_STORAGE_MAX_BYTES)));
+  return documents.filter(item => item?.schema === "dream-notebook-v1" && typeof item.id === "string")
+    .sort((a, b) => String(b.modifiedAt || "").localeCompare(String(a.modifiedAt || "")))
+    .map(item => ({ id: item.id, title: item.title, modifiedAt: item.modifiedAt }));
+}
+
+async function readPersistentNotebook(notebookId) {
+  if (!NOTEBOOK_STATE_STORE) {
+    const error = new Error("Permanent notebook storage is not configured.");
+    error.status = 503;
+    throw error;
+  }
+  return NOTEBOOK_STATE_STORE.readJson("notebooks/" + notebookId + ".json", NOTEBOOK_STORAGE_MAX_BYTES);
+}
+
+async function writePersistentNotebook(notebookId, body) {
+  if (!NOTEBOOK_STATE_STORE) {
+    const error = new Error("Permanent notebook storage is not configured.");
+    error.status = 503;
+    throw error;
+  }
+  const document = validateNotebookDocument(body, notebookId);
+  await NOTEBOOK_STATE_STORE.writeJson("notebooks/" + notebookId + ".json", document, NOTEBOOK_STORAGE_MAX_BYTES);
+  return document;
+}
 let NOTEBOOK_CHAT_MODEL_READY = false;
 let NOTEBOOK_CHAT_MODEL_DEVICE = null;
 let NOTEBOOK_CHAT_MODEL_ERROR = "";
@@ -334,6 +522,7 @@ function statusSnapshot() {
     device: activeWorker?.metadata?.device || (NOTEBOOK_CHAT_WARMUP_ENABLED && NOTEBOOK_CHAT_MODEL_READY ? NOTEBOOK_CHAT_MODEL_DEVICE : null) || (ready.length > 0 ? notebookDevice : null),
     uptimeSeconds: Math.max(0, Math.floor((Date.now() - STARTED_AT) / 1000)),
     persistence: "in-memory",
+    notebookPersistence: NOTEBOOK_STORAGE_PROVIDER,
     artifactStorage: ARTIFACT_STORAGE_CONFIGURED ? (R2_CONFIGURED ? "r2" : "filesystem") : "disabled",
     queue: {
       pending: pending.filter(id => jobs.get(id)?.status === "queued").length,
@@ -410,16 +599,16 @@ function buildNotebookChatCode(payload) {
   ].join("\n");
 }
 
-function scheduleNotebookChatWarmup() {
+async function scheduleNotebookChatWarmup() {
   if (!NOTEBOOK_CHAT_WARMUP_ENABLED) return;
   if (NOTEBOOK_CHAT_MODEL_READY || NOTEBOOK_CHAT_WARMUP_JOB_ID || readyWorkers().length > 0) return;
   if (NOTEBOOK_QUEUE.status().workers.connected < 1) return;
   try {
-    const warmup = NOTEBOOK_QUEUE.submit({
+    const warmup = await mutateNotebookQueue(() => NOTEBOOK_QUEUE.submit({
       notebookId: NOTEBOOK_CHAT_RUNTIME_ID,
       cellId: "warmup_" + randomUUID().replaceAll("-", ""),
       code: notebookModelBootstrapCode()
-    });
+    }));
     NOTEBOOK_CHAT_WARMUP_JOB_ID = warmup.id;
     NOTEBOOK_CHAT_MODEL_ERROR = "";
     console.log("DREAM_NOTEBOOK_CHAT_WARMUP_QUEUED", JSON.stringify({ jobId: warmup.id }));
@@ -454,11 +643,11 @@ async function handleNotebookChat(res, model, messages, maxTokens, temperature, 
   const payload = { messages, max_tokens: maxTokens, temperature, top_p: topP };
   let submitted;
   try {
-    submitted = NOTEBOOK_QUEUE.submit({
+    submitted = await mutateNotebookQueue(() => NOTEBOOK_QUEUE.submit({
       notebookId: NOTEBOOK_CHAT_RUNTIME_ID,
       cellId: "chat_" + randomUUID().replaceAll("-", ""),
       code: buildNotebookChatCode(payload)
-    });
+    }));
   } catch (error) {
     const status = Number.isInteger(error.status) ? error.status : 500;
     return sendJson(res, status, openAiError(status >= 500 ? "DREAM NOTEBOOK could not queue the AI request." : error.message, status === 429 ? "rate_limit_error" : "server_error"));
@@ -781,11 +970,29 @@ async function handleNotebookClientRoute(req, res, url) {
   if (!requireNotebookToken(req, res)) return;
   try {
     if (req.method === "GET" && url.pathname === "/api/v1/notebook/status") {
-      return sendJson(res, 200, NOTEBOOK_QUEUE.status());
+      return sendJson(res, 200, {
+        ...NOTEBOOK_QUEUE.status(),
+        persistence: { provider: NOTEBOOK_STORAGE_PROVIDER }
+      });
+    }
+    if (req.method === "GET" && url.pathname === "/api/v1/notebook/notebooks") {
+      return sendJson(res, 200, { ok: true, notebooks: await listPersistentNotebooks() });
+    }
+    const notebookMatch = url.pathname.match(/^\/api\/v1\/notebook\/notebooks\/([A-Za-z0-9_-]{1,100})$/);
+    if (req.method === "GET" && notebookMatch) {
+      const document = await readPersistentNotebook(notebookMatch[1]);
+      return document
+        ? sendJson(res, 200, { ok: true, notebook: document })
+        : sendJson(res, 404, { error: { message: "Saved notebook not found.", type: "not_found" } });
+    }
+    if (req.method === "PUT" && notebookMatch) {
+      const body = await readJson(req);
+      const document = await writePersistentNotebook(notebookMatch[1], body);
+      return sendJson(res, 200, { ok: true, notebook: document, persistence: NOTEBOOK_STORAGE_PROVIDER });
     }
     if (req.method === "POST" && url.pathname === "/api/v1/notebook/jobs") {
       const body = await readJson(req);
-      const job = NOTEBOOK_QUEUE.submit(body);
+      const job = await mutateNotebookQueue(() => NOTEBOOK_QUEUE.submit(body));
       return sendJson(res, 202, { ok: true, job });
     }
     const match = url.pathname.match(/^\/api\/v1\/notebook\/jobs\/([A-Za-z0-9_-]{1,100})$/);
@@ -814,7 +1021,7 @@ async function handleNotebookWorkerRoute(req, res, url) {
     if (req.method === "POST" && url.pathname === "/api/v1/notebook/workers/register") {
       const body = await readJson(req);
       const registration = NOTEBOOK_QUEUE.registerWorker(body);
-      scheduleNotebookChatWarmup();
+      await scheduleNotebookChatWarmup();
       return sendJson(res, 200, registration);
     }
     if (req.method === "POST" && url.pathname === "/api/v1/notebook/workers/heartbeat") {
@@ -823,15 +1030,15 @@ async function handleNotebookWorkerRoute(req, res, url) {
     }
     if (req.method === "POST" && url.pathname === "/api/v1/notebook/workers/jobs/claim") {
       const body = await readJson(req);
-      const job = NOTEBOOK_QUEUE.claim(body.workerId);
+      const job = await mutateNotebookQueue(() => NOTEBOOK_QUEUE.claim(body.workerId));
       return job ? sendJson(res, 200, { ok: true, job }) : sendEmpty(res, 204);
     }
     const match = url.pathname.match(/^\/api\/v1\/notebook\/workers\/jobs\/([A-Za-z0-9_-]{1,100})\/(result|fail)$/);
     if (req.method === "POST" && match) {
       const body = await readJson(req);
-      const job = match[2] === "result"
+      const job = await mutateNotebookQueue(() => match[2] === "result"
         ? NOTEBOOK_QUEUE.complete(body.workerId, match[1], body)
-        : NOTEBOOK_QUEUE.fail(body.workerId, match[1], body.error);
+        : NOTEBOOK_QUEUE.fail(body.workerId, match[1], body.error));
       if (match[1] === NOTEBOOK_CHAT_WARMUP_JOB_ID) {
         NOTEBOOK_CHAT_WARMUP_JOB_ID = null;
         const readyLine = String(job.result?.stdout || "").split(/\r?\n/).find(line => line.startsWith("DREAM_CHAT_MODEL_READY:"));
@@ -941,6 +1148,11 @@ const server = http.createServer(async (req, res) => {
 
 server.keepAliveTimeout = 65000;
 server.headersTimeout = 66000;
-server.listen(PORT, "0.0.0.0", () => {
-  console.log("DREAM HOST v" + HOST_VERSION + " listening on 0.0.0.0:" + PORT);
+restoreNotebookQueue().then(() => {
+  server.listen(PORT, "0.0.0.0", () => {
+    console.log("DREAM HOST v" + HOST_VERSION + " listening on 0.0.0.0:" + PORT);
+  });
+}).catch(error => {
+  console.error("DREAM_NOTEBOOK_PERSISTENCE_STARTUP_FAILED", error.message);
+  process.exit(1);
 });
