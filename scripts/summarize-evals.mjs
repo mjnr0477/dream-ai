@@ -47,16 +47,63 @@ export function summarizeRows(rows) {
     }
   }
 
-  const provenanceFields = [
+  const nativeProvenanceFields = [
     "runId", "runStartedAt", "evaluationSet", "model", "checkpointSha256",
     "completedTrainingSteps", "runtimeDevice", "runtimeParameters",
     "tokenizer", "runtimeArchitecture"
   ];
-  const hasProvenance = rows.some(row =>
-    provenanceFields.some(field => row[field] !== undefined)
+  const applicationProvenanceFields = [
+    "evaluationSource", "runId", "runStartedAt", "evaluationSet",
+    "applicationOrigin", "applicationVersion", "runtimeProvider"
+  ];
+  const hasApplicationProvenance = rows.some(row =>
+    row.evaluationSource !== undefined ||
+    ["applicationOrigin", "applicationVersion", "runtimeProvider"].some(field => row[field] !== undefined)
   );
+  const nativeOnlyFields = [
+    "model", "checkpointSha256", "completedTrainingSteps", "runtimeDevice",
+    "runtimeParameters", "tokenizer", "runtimeArchitecture"
+  ];
+  const hasNativeSpecificProvenance = rows.some(row =>
+    nativeOnlyFields.some(field => row[field] !== undefined)
+  );
+  const hasNativeProvenance = hasNativeSpecificProvenance ||
+    (!hasApplicationProvenance && rows.some(row =>
+      nativeProvenanceFields.some(field => row[field] !== undefined)
+    ));
+  if (hasNativeProvenance && hasApplicationProvenance) {
+    throw new Error("Cannot combine native-model and full-application evaluation results.");
+  }
   let run = null;
-  if (hasProvenance) {
+  if (hasApplicationProvenance) {
+    const first = rows[0];
+    for (const [index, row] of rows.entries()) {
+      if (applicationProvenanceFields.some(field => row[field] === undefined)) {
+        throw new Error("Incomplete application evaluation provenance at row " + (index + 1));
+      }
+      let origin;
+      try { origin = new URL(row.applicationOrigin); } catch {}
+      if (
+        row.evaluationSource !== "full-application-chat" ||
+        typeof row.runId !== "string" || !row.runId ||
+        !Number.isFinite(Date.parse(row.runStartedAt)) ||
+        typeof row.evaluationSet !== "string" || !row.evaluationSet ||
+        !origin || origin.origin !== row.applicationOrigin ||
+        (origin.protocol !== "https:" && !(origin.protocol === "http:" &&
+          ["localhost", "127.0.0.1", "[::1]"].includes(origin.hostname))) ||
+        (row.applicationVersion !== null && typeof row.applicationVersion !== "string") ||
+        (row.runtimeProvider !== null && typeof row.runtimeProvider !== "string")
+      ) {
+        throw new Error("Invalid application evaluation provenance at row " + (index + 1));
+      }
+      if (applicationProvenanceFields.some(field => row[field] !== first[field])) {
+        throw new Error("Cannot combine different application evaluation runs in one summary.");
+      }
+    }
+    run = Object.fromEntries(applicationProvenanceFields.map(field => [field, first[field]]));
+  }
+  if (hasNativeProvenance) {
+    const provenanceFields = nativeProvenanceFields;
     const first = rows[0];
     for (const [index, row] of rows.entries()) {
       if (provenanceFields.some(field => row[field] === undefined || row[field] === null)) {
