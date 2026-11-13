@@ -113,7 +113,7 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   assert.ok(adapterSource.includes("Qwen/Qwen3-1.7B"));
   assert.ok(adapterSource.includes("DREAM_NOTEBOOK_ARTIFACT_TOKEN"));
   assert.ok(adapterSource.includes("candidate-not-active"));
-  assert.ok(adapterSource.includes("DREAM R2 progress"));
+  assert.ok(adapterSource.includes("dream-r2-progress-bundle-v1"));
   assert.ok(adapterSource.includes("PRODUCTION_ADAPTER_REPO"));
 
   const kaggleConnector = await fetch(baseUrl + "/notebook/kaggle-worker.ipynb");
