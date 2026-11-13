@@ -1031,7 +1031,7 @@ async function inspectZipIndex(artifact) {
     offset = nameEnd + extraLength + commentLength;
   }
   const metadataFiles = {};
-  for (const entry of entries.filter(item => /(?:adapter_config\\.json|DREAM-RECOVERY-MANIFEST\\.json)$/i.test(item.path))) {
+  for (const entry of entries.filter(item => item.path.toLowerCase().endsWith("adapter_config.json") || item.path.toLowerCase().endsWith("dream-recovery-manifest.json"))) {
     if (entry.compressed_bytes > 256 * 1024 || entry.size_bytes > 256 * 1024) continue;
     const localHeaderSize = 30;
     const localHeaderResponse = await ARTIFACT_R2_CLIENT.send(new GetObjectCommand({
