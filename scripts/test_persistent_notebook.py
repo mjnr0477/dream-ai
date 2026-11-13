@@ -141,10 +141,9 @@ class PersistentNotebookTests(unittest.TestCase):
         source = HOST.read_text(encoding="utf-8")
         self.assertIn("../training/dream_native_persistent_notebook.ipynb", source)
         start = source.find('url.pathname === "/notebook/training-template.ipynb"')
-        end = source.find('url.pathname === "/notebook/adapter-template.ipynb"')
         self.assertGreaterEqual(start, 0)
-        self.assertGreater(end, start)
-        self.assertIn("dream_native_persistent_notebook.ipynb", source[start:end])
+        self.assertIn("dream_native_persistent_notebook.ipynb", source[start:start + 700])
+        self.assertNotIn('url.pathname === "/notebook/adapter-template.ipynb"', source)
     def test_native_inference_loads_only_an_approved_r2_sft_checkpoint(self):
         source = NATIVE_WORKER.read_text(encoding="utf-8")
         for required in (
