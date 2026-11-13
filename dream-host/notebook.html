@@ -99,10 +99,11 @@
           <div class="dataset-actions">
             <button id="delete-dataset" class="button quiet" type="button" disabled>Delete downloaded file</button>
             <button id="import-training" class="button run-all" type="button" disabled>Load native DREAM training</button>
+            <button id="import-adapter-training" class="button quiet" type="button" disabled>Improve existing Qwen adapter</button>
             <a class="button quiet" href="/notebook/kaggle-worker.ipynb" download>Get Kaggle GPU connector</a>
           </div>
         </div>
-        <p id="dataset-status" class="helper" role="status">Training cells execute on the connected worker. Attach approved-records.jsonl as a private Kaggle Dataset. Native DREAM checkpoints and prepared corpus backups are stored in the private R2 vault.</p>
+        <p id="dataset-status" class="helper" role="status">Training cells execute in this notebook on the connected worker. Native training uses approved-records.jsonl; adapter improvement uses the four reviewed opt-in files (train.jsonl, validation.jsonl, manifest.json and audit-gate.json). Checkpoints are stored in private R2.</p>
       </section>
 
       <section id="cells" class="cells" aria-label="Notebook cells"></section>
