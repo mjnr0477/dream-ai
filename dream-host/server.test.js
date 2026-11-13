@@ -279,6 +279,7 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   assert.equal(warmupJob.notebookId, "dream-ai-chat-runtime");
   assert.ok(warmupJob.code.includes(MODEL));
   assert.ok(warmupJob.code.includes(ADAPTER));
+  assert.ok(warmupJob.code.includes("torchao"));
   assert.ok(warmupJob.code.includes("import json\nimport os"));
   const warmupResult = await fetch(baseUrl + "/api/v1/notebook/workers/jobs/" + warmupJob.id + "/result", {
     method: "POST",
