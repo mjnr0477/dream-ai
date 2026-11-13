@@ -74,7 +74,10 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
 
   const notebookPage = await fetch(baseUrl + "/notebook");
   assert.equal(notebookPage.status, 200);
-  assert.match(await notebookPage.text(), /DREAM NOTEBOOK/);
+  const notebookHtml = await notebookPage.text();
+  assert.match(notebookHtml, /DREAM NOTEBOOK/);
+  assert.match(notebookHtml, /Load native DREAM training/);
+  assert.match(notebookHtml, /Get Kaggle GPU connector/);
   assert.match(notebookPage.headers.get("content-security-policy"), /script-src 'self'/);
 
   const notebookScript = await fetch(baseUrl + "/notebook.js");
@@ -93,7 +96,7 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   assert.ok(trainingNotebook.cells.length >= 10);
   const nativeTrainingSource = trainingNotebook.cells
     .map(cell => Array.isArray(cell.source) ? cell.source.join("") : String(cell.source || ""))
-    .join("\\n");
+    .join("\n");
   assert.match(nativeTrainingSource, /native, from-scratch DREAM training workflow/i);
   assert.match(nativeTrainingSource, /dream-native-pretrain-checkpoint\\.pt/);
   assert.doesNotMatch(nativeTrainingSource, /PRODUCTION_ADAPTER_REPO|Qwen\\/Qwen3-1\\.7B/);
@@ -108,7 +111,6 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   assert.match(connectorSource, /DREAM_HOST_NOTEBOOK_WORKER_TOKEN/);
   assert.match(connectorSource, /DREAM_NOTEBOOK_ARTIFACT_TOKEN/);
   assert.match(connectorSource, /notebook_worker\\.py/);
-  assert.match(await notebookPage.text().then(() => ""), /^$/);
 
   const connectResponse = await fetch(baseUrl + "/api/v1/notebook/session", {
     method: "POST",
