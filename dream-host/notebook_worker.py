@@ -152,7 +152,12 @@ def child_environment(workspace: Path) -> dict[str, str]:
         "CUDA_HOME", "CUDA_PATH", "HF_HOME", "HUGGINGFACE_HUB_CACHE", "TRANSFORMERS_CACHE",
         "NVIDIA_VISIBLE_DEVICES",
         "NVIDIA_DRIVER_CAPABILITIES", "OMP_NUM_THREADS", "MKL_NUM_THREADS",
-        "PYTHONPATH", "CONDA_PREFIX", "VIRTUAL_ENV"
+        "PYTHONPATH", "CONDA_PREFIX", "VIRTUAL_ENV",
+        # Explicit, non-secret configuration for the persistent native training host.
+        "DREAM_REPO_DIR", "DREAM_REPO_BRANCH", "DREAM_CHECKPOINT_DIR", "DREAM_WORK_DIR",
+        "DREAM_APPROVED_RECORDS_PATH", "DREAM_SFT_TRAIN_PATH", "DREAM_SFT_VALIDATION_PATH",
+        "DREAM_NATIVE_TRAIN_STEPS", "DREAM_NATIVE_TRAIN_SECONDS",
+        "DREAM_NATIVE_SFT_STEPS", "DREAM_NATIVE_SFT_SECONDS"
     )
     environment = {key: os.environ[key] for key in allowed if key in os.environ}
     environment["DREAM_HOST_URL"] = HOST
