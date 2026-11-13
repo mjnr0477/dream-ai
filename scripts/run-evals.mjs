@@ -72,6 +72,9 @@ if (process.env.DREAM_MODEL_TOKEN) {
 const results = [];
 for (const item of selected) {
   const started = Date.now();
+  const conversation = item.messages
+    ? item.messages.map(message => ({ role: message.role, content: message.content }))
+    : [{ role: "user", content: item.prompt }];
   const response = await fetch(endpoint, {
     method: "POST",
     headers,
@@ -79,7 +82,7 @@ for (const item of selected) {
       model: modelName,
       messages: [
         { role: "system", content: "You are being evaluated as DREAM AI. Answer the user directly, accurately and transparently. Do not invent facts or claim actions you did not perform." },
-        { role: "user", content: item.prompt }
+        ...conversation
       ],
       temperature: 0
     }),
@@ -112,7 +115,8 @@ for (const item of selected) {
     id: item.id,
     category: item.category,
     language: item.language ?? null,
-    prompt: item.prompt,
+    prompt: conversation.filter(message => message.role === "user").at(-1).content,
+    messages: conversation,
     rubric: item.rubric,
     output: output.trim(),
     latencyMs: Date.now() - started,
