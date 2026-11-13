@@ -101,9 +101,10 @@
             <button id="import-training" class="button run-all" type="button" disabled>Load native DREAM training</button>
             <button id="import-adapter-training" class="button quiet" type="button" disabled>Improve existing Qwen adapter</button>
             <a class="button quiet" href="/notebook/kaggle-worker.ipynb" download>Get Kaggle GPU connector</a>
+            <a class="button primary" href="/notebook/chat-worker.ipynb" download>Get AI + notebook GPU connector</a>
           </div>
         </div>
-        <p id="dataset-status" class="helper" role="status">Training cells execute in this notebook on the connected worker. Native training uses approved-records.jsonl; adapter improvement uses the four reviewed opt-in files (train.jsonl, validation.jsonl, manifest.json and audit-gate.json). Checkpoints are stored in private R2.</p>
+        <p id="dataset-status" class="helper" role="status">Training cells execute here on the connected worker. Use the AI + notebook connector to keep Qwen chat and notebook execution online together; it needs DREAM_HOST_WORKER_TOKEN and HF_TOKEN in Kaggle Secrets. The Qwen chat model uses GPU memory, so stop its worker before starting a memory-intensive training run. Use the notebook-only connector for training-only sessions. Native training requires approved-records.jsonl; adapter improvement requires the four reviewed opt-in files. Checkpoints are stored in private R2.</p>
       </section>
 
       <section id="cells" class="cells" aria-label="Notebook cells"></section>
