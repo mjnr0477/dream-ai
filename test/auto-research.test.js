@@ -122,6 +122,21 @@ test("research context accepts only bounded encyclopedia source URLs and text", 
   assert.doesNotMatch(prepared.context, /attacker|javascript:/);
 });
 
+test("accepts only approved language-specific Wikipedia hosts", () => {
+  const prepared = buildResearchContext({
+    query: "Nini maana ya elimu?",
+    results: [
+      { title: "Elimu", url: "https://sw.wikipedia.org/wiki/Elimu", extract: "Elimu ni mchakato wa kujifunza." },
+      { title: "Spoofed host", url: "https://sw.wikipedia.org.attacker.example/wiki/Elimu", extract: "Must be excluded." },
+      { title: "Unsupported wiki language", url: "https://xx.wikipedia.org/wiki/Elimu", extract: "Must be excluded." }
+    ]
+  });
+  assert.equal(prepared.sources.length, 1);
+  assert.equal(prepared.sources[0].url, "https://sw.wikipedia.org/wiki/Elimu");
+  assert.match(prepared.context, /Elimu ni mchakato/);
+  assert.doesNotMatch(prepared.context, /Must be excluded/);
+});
+
 test("Google grounding retains secure publisher URLs returned by Google Search", () => {
   const prepared = buildResearchContext({
     query: "latest technology news",
