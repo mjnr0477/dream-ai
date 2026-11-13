@@ -709,6 +709,17 @@ const server = http.createServer(async (req, res) => {
       res.end(content);
       return;
     }
+    if (req.method === "GET" && url.pathname === "/notebook/chat-worker.ipynb") {
+      const content = await readFile(new URL("../training/dream_notebook_chat_worker.ipynb", import.meta.url));
+      res.writeHead(200, {
+        ...securityHeaders,
+        "content-type": "application/x-ipynb+json; charset=utf-8",
+        "content-disposition": 'attachment; filename="dream-notebook-chat-worker.ipynb"',
+        "cache-control": "no-store"
+      });
+      res.end(content);
+      return;
+    }
     if (req.method === "GET" && url.pathname === "/notebook.js") {
       return await sendStaticFile(res, "./notebook.js", "text/javascript; charset=utf-8");
     }
