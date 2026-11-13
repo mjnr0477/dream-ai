@@ -366,7 +366,9 @@ async function handleChat(req, res) {
     );
     const offlineSource = result.source === "dream-engine-unconfigured";
     const reply = offlineSource
-      ? buildOfflineResearchReply({ query: latestQuestion, sources: researchSources, mode })
+      ? (requestsGmail || requestsMeta
+          ? "DREAM AI's language-model worker is offline. No private account content has been analysed or returned. Reconnect this request when the model runtime is available."
+          : buildOfflineResearchReply({ query: latestQuestion, sources: researchSources, mode }))
       : result.reply;
     const responseSource = offlineSource
       ? (researchSources.length ? "public-research-fallback" : "offline-status")
@@ -388,11 +390,9 @@ async function handleChat(req, res) {
     });
   } catch (error) {
     console.error("DREAM AI request failed:", error.message);
-    const offlineReply = buildOfflineResearchReply({
-      query: latestQuestion,
-      sources: requestsGmail || requestsMeta ? [] : researchSources,
-      mode
-    });
+    const offlineReply = requestsGmail || requestsMeta
+      ? "DREAM AI's language-model worker is offline. No private account content has been analysed or returned. Reconnect this request when the model runtime is available."
+      : buildOfflineResearchReply({ query: latestQuestion, sources: researchSources, mode });
     return json(res, 200, {
       reply: offlineReply,
       mode,
