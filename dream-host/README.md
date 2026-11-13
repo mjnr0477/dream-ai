@@ -10,7 +10,7 @@ DREAM HOST is the first-party control plane for DREAM AI. It hosts the AI infere
 - Browser IndexedDB notebook storage; the free Render service's temporary filesystem is not used as permanent notebook storage.
 - Remembered browser sign-in uses a 30-day HttpOnly, Secure, SameSite=Strict cookie; the raw owner key is not saved in JavaScript storage or notebook exports. Use “Forget access” on shared devices.
 - Dataset tools download HTTPS files to the worker's temporary notebook workspace, scan /kaggle/input and the notebook dataset folder, and remove downloaded files.
-- One-click import of DREAM's existing reviewed, resumable adapter-training workflow; training creates a candidate adapter and never overwrites the active adapter.
+- One-click import of DREAM's native, from-scratch training workflow in the first-party notebook UI; native checkpoints and the prepared corpus are backed up to private R2.
 - Separate authenticated notebook job queue and a standalone Python notebook worker. It does not load the chat model into GPU memory.
 - Notebook code and output sizes, pending queue, queued-job wait time, worker heartbeats, retries and execution windows are bounded.
 - Notebook execution is owner-only and fails closed unless both distinct notebook owner and notebook worker tokens are configured.
@@ -88,6 +88,18 @@ Add both of these private environment variables to the DREAM HOST Render service
 - `DREAM_HOST_NOTEBOOK_WORKER_TOKEN`: a separate random secret used only by the notebook Python worker.
 
 Each value must be at least 32 characters and distinct from the other and from the existing chat `DREAM_HOST_WORKER_TOKEN` and `DREAM_HOST_CLIENT_TOKEN`. Do not place any token in the frontend source, a notebook cell, a public repository, or a notebook export.
+
+### Use Kaggle as the DREAM NOTEBOOK GPU worker
+
+The browser-based DREAM NOTEBOOK is the notebook we use to edit and run cells. Kaggle is only the connected compute machine; do not use a separate Kaggle training notebook as the main workflow.
+
+1. On Render, configure two distinct secrets: `DREAM_HOST_NOTEBOOK_TOKEN` for the browser owner and `DREAM_HOST_NOTEBOOK_WORKER_TOKEN` for the compute worker. Both must be at least 32 characters and must differ from the chat worker, client and artifact tokens.
+2. In Kaggle, create a notebook with GPU and Internet enabled. Add Kaggle Secrets named `DREAM_HOST_NOTEBOOK_WORKER_TOKEN` and `DREAM_NOTEBOOK_ARTIFACT_TOKEN`. The latter is the dedicated artifact API token already configured on Render; it is not an R2 S3 key.
+3. Import and run the one-cell connector notebook from `/notebook/kaggle-worker.ipynb`. Keep that cell running. It starts `notebook_worker.py`, not the Qwen chat inference worker.
+4. Open `/notebook` in another tab, connect with `DREAM_HOST_NOTEBOOK_TOKEN`, and choose **Load native DREAM training**. The cells shown there run on the connected Kaggle GPU.
+5. Attach the private Kaggle Dataset containing `approved-records.jsonl` to the GPU connector. The workflow checks its rights, provenance, privacy and human-review gates. It then backs up the exact prepared corpus and native checkpoint into the private R2 vault.
+
+The connector notebook is only a small worker launcher. The actual training cells, dataset checks, run history and notebook UI remain in DREAM NOTEBOOK. Do not run the Qwen chat worker in the same Kaggle GPU session while native training is running.
 
 ### Start an operator-owned notebook worker
 
