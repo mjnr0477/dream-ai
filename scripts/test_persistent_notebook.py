@@ -11,6 +11,7 @@ WORKER = ROOT / "dream-host" / "notebook_worker.py"
 INSTALLER = ROOT / "scripts" / "install-dream-notebook-worker.sh"
 UNIT = ROOT / "deploy" / "systemd" / "dream-notebook-worker.service"
 DOC = ROOT / "docs" / "PERMANENT_GPU_WORKER.md"
+HOST = ROOT / "dream-host" / "server.js""
 
 
 class PersistentNotebookTests(unittest.TestCase):
@@ -125,6 +126,21 @@ class PersistentNotebookTests(unittest.TestCase):
         self.assertIn("EnvironmentFile=/etc/dream-ai/notebook-worker.env", service)
         self.assertIn("ReadWritePaths=/opt/dream-ai /var/lib/dream-ai", service)
 
+    def test_notebook_worker_registration_does_not_start_legacy_hf_chat_warmup(self):
+        source = HOST.read_text(encoding="utf-8")
+        self.assertIn("DREAM_HOST_NOTEBOOK_CHAT_WARMUP", source)
+        self.assertIn("if (!NOTEBOOK_CHAT_WARMUP_ENABLED) return;", source)
+        self.assertIn("NOTEBOOK_QUEUE.status().workers.connected > 0 && NOTEBOOK_CHAT_WARMUP_ENABLED", source)
+        self.assertIn("native DREAM inference worker is not active yet", source)
+
+    def test_existing_notebook_training_template_serves_the_persistent_r2_notebook(self):
+        source = HOST.read_text(encoding="utf-8")
+        self.assertIn("../training/dream_native_persistent_notebook.ipynb", source)
+        start = source.find('url.pathname === "/notebook/training-template.ipynb"')
+        end = source.find('url.pathname === "/notebook/adapter-template.ipynb"')
+        self.assertGreaterEqual(start, 0)
+        self.assertGreater(end, start)
+        self.assertIn("dream_native_persistent_notebook.ipynb", source[start:end])
     def test_documentation_does_not_claim_gpu_or_model_migration_is_already_live(self):
         source = DOC.read_text(encoding="utf-8").casefold()
         self.assertIn("r2", source)
