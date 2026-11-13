@@ -955,6 +955,48 @@ const server = http.createServer(async (req, res) => {
 
 server.keepAliveTimeout = 65000;
 server.headersTimeout = 66000;
+async function logArtifactStoreInventory() {
+  const provider = R2_CONFIGURED ? "cloudflare-r2" : (ARTIFACT_STORE ? "filesystem" : "disabled");
+  if (!ARTIFACT_STORE) {
+    console.warn("DREAM_ARTIFACT_STORE_INVENTORY", JSON.stringify({
+      configured: false,
+      provider,
+      r2CredentialsConfigured: R2_CONFIGURED,
+      artifactAuthConfigured: ARTIFACT_STORAGE_CONFIGURED
+    }));
+    return;
+  }
+  try {
+    const rawPage = R2_CONFIGURED
+      ? await ARTIFACT_R2_CLIENT.send(new ListObjectsV2Command({
+          Bucket: R2_BUCKET,
+          Prefix: "metadata/",
+          MaxKeys: 1000
+        }))
+      : null;
+    const artifacts = await ARTIFACT_STORE.listArtifacts();
+    console.log("DREAM_ARTIFACT_STORE_INVENTORY", JSON.stringify({
+      configured: true,
+      provider,
+      artifactAuthConfigured: ARTIFACT_STORAGE_CONFIGURED,
+      metadataObjectsFirstPage: rawPage ? Number(rawPage.KeyCount || 0) : null,
+      metadataPageTruncated: rawPage ? Boolean(rawPage.IsTruncated) : null,
+      readableArtifactCount: artifacts.length,
+      artifacts: artifacts.map(({ name, sha256, size_bytes, created_at }) => ({
+        name, sha256, size_bytes, created_at
+      }))
+    }));
+  } catch (error) {
+    console.error("DREAM_ARTIFACT_STORE_INVENTORY_FAILED", JSON.stringify({
+      configured: true,
+      provider,
+      errorType: error?.name || "Error",
+      message: String(error?.message || "R2 inventory failed").slice(0, 240)
+    }));
+  }
+}
+
 server.listen(PORT, "0.0.0.0", () => {
   console.log("DREAM HOST v" + HOST_VERSION + " listening on 0.0.0.0:" + PORT);
+  void logArtifactStoreInventory();
 });
