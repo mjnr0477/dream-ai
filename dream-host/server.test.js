@@ -277,8 +277,8 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   assert.equal(warmupClaimResponse.status, 200);
   const warmupJob = (await warmupClaimResponse.json()).job;
   assert.equal(warmupJob.notebookId, "dream-ai-chat-runtime");
-  assert.match(warmupJob.code, /Qwen\\/Qwen3-1.7B/);
-  assert.match(warmupJob.code, /msjnr0477\\/dream-ai-adapter/);
+  assert.ok(warmupJob.code.includes(MODEL));
+  assert.ok(warmupJob.code.includes(ADAPTER));
   const warmupResult = await fetch(baseUrl + "/api/v1/notebook/workers/jobs/" + warmupJob.id + "/result", {
     method: "POST",
     headers: {
@@ -374,8 +374,8 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   assert.ok(claimedNotebookChatJob, "the notebook GPU worker should claim a user chat request");
   assert.equal(claimedNotebookChatJob.notebookId, "dream-ai-chat-runtime");
   assert.match(claimedNotebookChatJob.code, /_dream_chat_model.generate/);
-  assert.match(claimedNotebookChatJob.code, /Qwen\\/Qwen3-1.7B/);
-  assert.match(claimedNotebookChatJob.code, /msjnr0477\\/dream-ai-adapter/);
+  assert.ok(claimedNotebookChatJob.code.includes(MODEL));
+  assert.ok(claimedNotebookChatJob.code.includes(ADAPTER));
 
   const notebookChatResult = await fetch(baseUrl + "/api/v1/notebook/workers/jobs/" + claimedNotebookChatJob.id + "/result", {
     method: "POST",
