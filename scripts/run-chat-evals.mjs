@@ -61,6 +61,32 @@ function validateCases(cases) {
   }
 }
 
+export function selectEvaluationCases(cases, limit = DEFAULT_LIMIT) {
+  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) {
+    throw new Error("Evaluation limit must be an integer from 1 to " + MAX_LIMIT + ".");
+  }
+  validateCases(cases);
+  const groups = new Map();
+  for (const item of cases) {
+    if (!groups.has(item.category)) groups.set(item.category, []);
+    groups.get(item.category).push(item);
+  }
+  const categories = [...groups.keys()].sort((a, b) => a.localeCompare(b));
+  const selected = [];
+  for (let round = 0; selected.length < Math.min(limit, cases.length); round += 1) {
+    let added = false;
+    for (const category of categories) {
+      const item = groups.get(category)[round];
+      if (!item) continue;
+      selected.push(item);
+      added = true;
+      if (selected.length >= Math.min(limit, cases.length)) break;
+    }
+    if (!added) break;
+  }
+  return selected;
+}
+
 function retryDelay(response, attempt) {
   const fallback = [1500, 3000][attempt] ?? 3000;
   let value = "";
@@ -115,7 +141,7 @@ export async function runChatEvaluations({
 
   const runId = randomUUID();
   const runStartedAt = new Date().toISOString();
-  const selected = cases.slice(0, Math.min(limit, cases.length));
+  const selected = selectEvaluationCases(cases, limit);
   const results = [];
 
   for (const item of selected) {
