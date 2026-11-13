@@ -155,6 +155,7 @@ export async function runChatEvaluations({
       results.push({
         runId,
         runStartedAt,
+        evaluationSource: "full-application-chat",
         evaluationSet: process.env.DREAM_EVAL_SET || "core-v1",
         applicationOrigin: origin,
         applicationVersion: health.version || null,
