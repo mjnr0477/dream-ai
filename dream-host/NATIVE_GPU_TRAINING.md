@@ -34,7 +34,7 @@ The trainer:
 
 Persistent checkpoints and reports are stored on the host under `dream-host/training-state/`, not in the container filesystem. Run the command again to resume from the saved checkpoint. A resumed run must use the same source data, manifest, architecture and audit inputs; the training scripts reject changed identities.
 
-The default run limits are 2,000 additional pretraining steps and 1,000 additional SFT steps. Edit `dream-host/native-training.env` to change them or set a nonzero time budget. It is a manual, controlled training run—not a background process that consumes the GPU without limit.
+The first run performs 2,000 pretraining steps and 1,000 SFT steps. Later runs keep the pretraining checkpoint fixed by default and resume SFT with its saved optimizer state. Set `DREAM_NATIVE_CONTINUE_PRETRAINING=true` only when you deliberately want to continue base-model training; the pipeline then archives the old SFT checkpoint because its parent base has changed. Edit `dream-host/native-training.env` to change step counts or set a nonzero time budget. It is a manual, controlled training run—not a background process that consumes the GPU without limit.
 
 ## Review and publish
 
