@@ -80,6 +80,29 @@ class DreamAutoTrainingTests(unittest.TestCase):
         self.assertEqual(skipped["invalid_review_flags"], 1)
         self.assertEqual(skipped["missing_source_group"], 1)
 
+    def test_rejects_invalid_or_pre_consent_review_timestamps(self):
+        rows = fake_rows()
+        rows[0]["consented_at"] = "not-a-timestamp"
+        rows[1]["metadata"]["human_reviewed_at"] = "2026-11-07T12:00:00"
+        rows[2]["metadata"]["human_reviewed_at"] = "2026-11-06T12:00:00+00:00"
+
+        eligible, skipped = eligible_rows(rows)
+
+        self.assertEqual(len(eligible), 29)
+        self.assertEqual(skipped["invalid_consent_timestamp"], 1)
+        self.assertEqual(skipped["invalid_human_review_timestamp"], 1)
+        self.assertEqual(skipped["review_precedes_consent"], 1)
+
+    def test_accepts_zulu_review_timestamps(self):
+        rows = fake_rows()
+        rows[0]["consented_at"] = "2026-11-07T12:00:00Z"
+        rows[0]["metadata"]["human_reviewed_at"] = "2026-11-07T12:01:00Z"
+
+        eligible, skipped = eligible_rows(rows)
+
+        self.assertEqual(len(eligible), 32)
+        self.assertFalse(any(skipped.values()))
+
     def test_export_split_and_audit_produce_a_valid_training_gate(self):
         rows = fake_rows()
         eligible, skipped = eligible_rows(rows)

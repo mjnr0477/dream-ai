@@ -48,6 +48,8 @@ python data/review_candidates.py \
 
 Read the displayed exchange and its linked terms. Check that the contributor had the right to submit the content; check every answer for privacy, safety, correctness and quality. Do not approve a row merely because the user clicked the contribution button. Rejected or skipped examples are not eligible for training.
 
+The automatic training preflight additionally requires `consented_at` and the recorded human-review timestamp to be ISO-8601 values with an explicit timezone. A record is excluded if its human review predates consent.
+
 ## 4. Build leakage-aware training and validation splits
 
 ```sh
