@@ -98,19 +98,20 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
     .map(cell => Array.isArray(cell.source) ? cell.source.join("") : String(cell.source || ""))
     .join("\n");
   assert.match(nativeTrainingSource, /native, from-scratch DREAM training workflow/i);
-  assert.match(nativeTrainingSource, /dream-native-pretrain-checkpoint\\.pt/);
-  assert.doesNotMatch(nativeTrainingSource, /PRODUCTION_ADAPTER_REPO|Qwen\\/Qwen3-1\\.7B/);
+  assert.ok(nativeTrainingSource.includes("dream-native-pretrain-checkpoint.pt"));
+  assert.equal(nativeTrainingSource.includes("PRODUCTION_ADAPTER_REPO"), false);
+  assert.equal(nativeTrainingSource.includes("Qwen/Qwen3-1.7B"), false);
 
   const kaggleConnector = await fetch(baseUrl + "/notebook/kaggle-worker.ipynb");
   assert.equal(kaggleConnector.status, 200);
-  assert.match(kaggleConnector.headers.get("content-disposition"), /dream-notebook-kaggle-worker\\.ipynb/);
+  assert.ok(kaggleConnector.headers.get("content-disposition").includes("dream-notebook-kaggle-worker.ipynb"));
   const connectorNotebook = await kaggleConnector.json();
   const connectorSource = connectorNotebook.cells
     .map(cell => Array.isArray(cell.source) ? cell.source.join("") : String(cell.source || ""))
     .join("\\n");
   assert.match(connectorSource, /DREAM_HOST_NOTEBOOK_WORKER_TOKEN/);
   assert.match(connectorSource, /DREAM_NOTEBOOK_ARTIFACT_TOKEN/);
-  assert.match(connectorSource, /notebook_worker\\.py/);
+  assert.ok(connectorSource.includes("notebook_worker.py"));
 
   const connectResponse = await fetch(baseUrl + "/api/v1/notebook/session", {
     method: "POST",
