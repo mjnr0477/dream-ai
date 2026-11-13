@@ -200,8 +200,15 @@ body {
   }
   .topbar-right { gap: 5px; }
   .top-tag,
-  .appteka-button,
-  .support-button { display: none; }
+  .appteka-button { display: none; }
+  .support-button {
+    display: inline-flex;
+    flex: 0 0 auto;
+    min-height: 32px;
+    padding: 5px 8px;
+    font-size: 9px;
+    letter-spacing: 0;
+  }
   .share-app-button,
   .plugins-button,
   .icon-button {
