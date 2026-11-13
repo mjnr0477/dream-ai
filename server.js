@@ -14,7 +14,7 @@ import { runPublicResearch } from "./lib/dream-tools.js";
 import { shouldAutoResearch, buildResearchContext, buildResearchAttemptContext } from "./lib/auto-research.js";
 import { ClientConcurrencyLimiter } from "./lib/client-limiter.js";
 import { resolveModelConfig } from "./lib/model-provider.js";
-import { buildOfflineResearchReply } from "./lib/offline-research-reply.js";
+import { buildOfflineResearchReply, isOfflineGreetingQuery } from "./lib/offline-research-reply.js";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC_DIR = join(ROOT, "public");
@@ -331,7 +331,7 @@ async function handleChat(req, res) {
         privateAccountContext = [privateAccountContext, "Meta account retrieval failed. No private social account data was successfully retrieved. Tell the user to reconnect the relevant Meta account; do not infer or invent account contents."].filter(Boolean).join("\n\n");
       }
     }
-    if (!requestsGmail && !requestsMeta && shouldAutoResearch(latestQuestion, mode)) {
+    if (!requestsGmail && !requestsMeta && !isOfflineGreetingQuery(latestQuestion) && shouldAutoResearch(latestQuestion, mode)) {
       const researchQuery = latestQuestion.trim().replace(/\s+/g, " ").slice(0, 200);
       try {
         // Research current public sources as well as stable reference material.
