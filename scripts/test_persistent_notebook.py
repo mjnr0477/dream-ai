@@ -206,9 +206,9 @@ class PersistentNotebookTests(unittest.TestCase):
     def test_documentation_does_not_claim_gpu_or_model_migration_is_already_live(self):
         source = DOC.read_text(encoding="utf-8").casefold()
         self.assertIn("r2", source)
-        self.assertIn("owner-controlled", source)
-        self.assertIn("do not change the live model settings yet", source)
-        self.assertIn("no free, always-on gpu capacity", source)
+        self.assertIn("persistent nvidia machine", source)
+        self.assertIn("activate native inference only after evaluation", source)
+        self.assertIn("do not include always-on gpu capacity", source)
 
 
 if __name__ == "__main__":
