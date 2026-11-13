@@ -46,6 +46,7 @@ fi
 install -d -o dreamai -g dreamai -m 0700 \
   /var/lib/dream-ai \
   /var/lib/dream-ai/data \
+  /var/lib/dream-ai/data/prepared \
   /var/lib/dream-ai/checkpoints \
   /var/lib/dream-ai/logs
 chown -R dreamai:dreamai "${REPO_DIR}"
@@ -87,6 +88,7 @@ DREAM_NOTEBOOK_ARTIFACT_TOKEN=${ARTIFACT_TOKEN}
 DREAM_REPO_DIR=${REPO_DIR}
 DREAM_REPO_BRANCH=${BRANCH}
 DREAM_CHECKPOINT_DIR=/var/lib/dream-ai/checkpoints
+DREAM_PREPARED_DIR=/var/lib/dream-ai/data/prepared
 DREAM_WORK_DIR=/var/lib/dream-ai/logs
 DREAM_APPROVED_RECORDS_PATH=/var/lib/dream-ai/data/approved-records.jsonl
 DREAM_SFT_TRAIN_PATH=/var/lib/dream-ai/data/sft-train.jsonl
@@ -101,6 +103,7 @@ DREAM_HOST_NOTEBOOK_KERNEL_IDLE_SECONDS=86400
 EOF
 chmod 0600 /etc/dream-ai/notebook-worker.env
 unset NOTEBOOK_TOKEN ARTIFACT_TOKEN
+chown -R dreamai:dreamai "${REPO_DIR}/.venv"
 
 install -m 0644 "${REPO_DIR}/deploy/systemd/dream-notebook-worker.service" \
   /etc/systemd/system/dream-notebook-worker.service
