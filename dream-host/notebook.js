@@ -190,6 +190,7 @@
     el("scan-datasets").disabled = locked;
     el("delete-dataset").disabled = locked;
     el("import-training").disabled = locked;
+    el("import-adapter-training").disabled = locked;
   }
 
   function showOutput(container, output, errorText = "") {
@@ -685,6 +686,24 @@
     }
   }
 
+  async function importAdapterWorkflow() {
+    if (!authorized || running) return;
+    if (!window.confirm("Load the separate Qwen adapter-improvement workflow? It fine-tunes the existing adapter, not native DREAM. This replaces the open notebook, so export unsaved work first.")) return;
+    try {
+      const response = await fetch("/notebook/adapter-template.ipynb", {
+        credentials: "same-origin",
+        cache: "no-store"
+      });
+      if (!response.ok) throw new Error("The adapter-improvement workflow could not be loaded.");
+      const blob = await response.blob();
+      const file = new File([blob], "dream-adapter-improvement.ipynb", { type: "application/json" });
+      await importNotebook(file, true);
+      el("dataset-status").textContent = "Adapter-improvement workflow loaded. Attach the four reviewed opt-in files and set HF_TOKEN in the Kaggle GPU connector only if you intend to train this separate Qwen-backed adapter.";
+    } catch (error) {
+      showToast(error.message);
+    }
+  }
+
   async function init() {
     try {
       await loadNotebook();
@@ -701,6 +720,7 @@
     el("scan-datasets").addEventListener("click", scanDatasets);
     el("delete-dataset").addEventListener("click", deleteDataset);
     el("import-training").addEventListener("click", importTrainingWorkflow);
+    el("import-adapter-training").addEventListener("click", importAdapterWorkflow);
     el("notebook-list").addEventListener("change", event => {
       switchNotebook(event.target.value).catch(error => showToast(error.message));
     });
