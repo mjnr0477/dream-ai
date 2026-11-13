@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Run the reviewed native DREAM checkpoint as a persistent GPU chat worker.
+"""Run the reviewed native DREAM instruction checkpoint as a persistent GPU chat worker.
 
-No Transformers, PEFT, Kaggle or Hugging Face packages are used. The worker
-downloads one SHA-256-pinned instruction checkpoint from the existing DREAM R2
+The worker downloads one SHA-256-pinned checkpoint from the existing DREAM R2
 artifact API, validates it with model/runtime_checkpoint.py, and joins the
 existing DREAM HOST chat queue.
 """
