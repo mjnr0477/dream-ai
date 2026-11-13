@@ -1057,7 +1057,7 @@ async function logArtifactStoreInventory() {
       : null;
     const artifacts = await ARTIFACT_STORE.listArtifacts();
     const zipIndexes = R2_CONFIGURED
-      ? await Promise.all(artifacts.filter(item => /\\.zip$/i.test(item.name)).map(async item => {
+      ? await Promise.all(artifacts.filter(item => String(item.name || "").toLowerCase().endsWith(".zip")).map(async item => {
           try { return await inspectZipIndex(item); }
           catch (error) {
             return { name: item.name, zipIndex: "read-failed", error: String(error?.message || "ZIP index read failed").slice(0, 160) };
