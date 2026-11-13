@@ -77,7 +77,8 @@ test("evaluates through the full chat route and retains research diagnostics", a
   assert.ok(requests.every(item => item.url.endsWith("/api/chat")));
   assert.equal(requests[0].body.mode, "coding");
   assert.equal(requests[1].body.mode, "general");
-  assert.deepEqual(requests[0].body.messages, [{ role: "user", content: cases[0].prompt }]);
+  assert.deepEqual(requests[0].body.messages, [{ role: "user", content: cases[1].prompt }]);
+  assert.deepEqual(requests[1].body.messages, [{ role: "user", content: cases[0].prompt }]);
   assert.equal(run.results.length, 2);
   assert.equal(run.results[0].output, "function add(a, b) { return a + b; }");
   assert.equal(run.results[1].output, "56, because 7 groups of 8 make 56.");
