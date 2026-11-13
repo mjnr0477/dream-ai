@@ -255,7 +255,7 @@ export class NotebookQueue {
         updatedAt: job.updatedAt,
         result: job.result,
         error: job.error
-      })).slice(-500)
+      })).slice(-100)
     };
   }
 
@@ -263,7 +263,7 @@ export class NotebookQueue {
     if (!snapshot || snapshot.schema !== "dream-notebook-queue-v1" || !Array.isArray(snapshot.jobs)) {
       throw new NotebookQueueError("Persisted notebook queue has an unsupported format.", 503);
     }
-    if (snapshot.jobs.length > 500) {
+    if (snapshot.jobs.length > 100) {
       throw new NotebookQueueError("Persisted notebook queue exceeds the recovery limit.", 503);
     }
 
