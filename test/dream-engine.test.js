@@ -159,3 +159,20 @@ test("system prompt treats an empty research attempt as a retrieval result, not 
   assert.match(prompt, /do not send the user elsewhere as the default response/);
   assert.match(prompt, /connected public sources did not return enough usable evidence/);
 });
+
+test("answer-first policy maximizes helpful coverage without encouraging hallucinations or unsafe compliance", async () => {
+  const { buildSystemPrompt } = await import("../lib/dream-engine.js");
+  for (const mode of ["general", "coding", "learning", "research"]) {
+    const prompt = buildSystemPrompt(mode);
+    assert.match(prompt, /ANSWER-FIRST COVERAGE/);
+    assert.match(prompt, /every benign request/);
+    assert.match(prompt, /Do not end a benign response with a bare I do not know/);
+    assert.match(prompt, /answer the parts that can be supported/);
+    assert.match(prompt, /state that assumption briefly and proceed/);
+    assert.match(prompt, /When the accurate answer is no, explain why/);
+    assert.match(prompt, /continue with stable background knowledge and useful analysis/);
+    assert.match(prompt, /engineering goal, not omniscience/);
+    assert.match(prompt, /Never invent facts, sources, tool access, actions or certainty/);
+    assert.match(prompt, /Decline only the specific part that genuinely crosses a safety, privacy, rights or authorization boundary/);
+  }
+});
