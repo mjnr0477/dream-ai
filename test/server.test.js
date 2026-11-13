@@ -14,6 +14,7 @@ const modelRequests = [];
 let modelReply = "Test response from the DREAM model runtime.";
 let modelEngine = "dream-native-transformer";
 let modelHasCheckpoint = true;
+let modelHealthStatus = 200;
 let runtimeModelName = "dream-test-model";
 let holdModelResponses = false;
 const heldModelResponses = [];
@@ -36,6 +37,10 @@ before(async () => {
   base = `http://127.0.0.1:${port}`;
   model = http.createServer((req, res) => {
     if (req.method === "GET" && req.url === "/health") {
+      if (modelHealthStatus !== 200) {
+        res.writeHead(modelHealthStatus).end();
+        return;
+      }
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify(modelHasCheckpoint
         ? { ok: true, engine: modelEngine, model: runtimeModelName, completed_training_steps: 12, checkpoint_sha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", device: "cpu", parameters: 1000, tokenizer: "DreamByteTokenizer" }
@@ -765,4 +770,23 @@ test("Gmail account status is guest-scoped and private Gmail prompts bypass publ
   });
   assert.equal(disconnect.status, 200);
   assert.equal((await disconnect.json()).disconnected, false);
+});
+
+
+test("chat degrades to an honest offline status when the native runtime is unavailable", async () => {
+  const previous = modelHealthStatus;
+  modelHealthStatus = 503;
+  try {
+    const response = await postChat({
+      mode: "general",
+      messages: [{ role: "user", content: "Hello DREAM AI" }]
+    });
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.source, "offline-status");
+    assert.match(data.reply, /language-model worker is currently offline/i);
+    assert.match(data.reply, /public-source evidence/i);
+  } finally {
+    modelHealthStatus = previous;
+  }
 });
