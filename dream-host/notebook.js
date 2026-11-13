@@ -190,6 +190,7 @@
     el("scan-datasets").disabled = locked;
     el("delete-dataset").disabled = locked;
     el("import-training").disabled = locked;
+    el("import-adapter-training").disabled = locked;
   }
 
   function showOutput(container, output, errorText = "") {
@@ -330,7 +331,7 @@
         el("worker-detail").textContent = device + " · " + (data.workers.busy || 0) + " busy";
         statusLabel("Connected · " + count + " worker" + (count === 1 ? "" : "s"), "online");
       } else {
-        el("worker-detail").textContent = "No notebook worker is connected yet. Start an operator-owned worker.";
+        el("worker-detail").textContent = "No compute worker is connected. Start the Kaggle GPU connector to run notebook cells.";
         statusLabel("Connected · waiting for compute", "warning");
       }
       updateControls();
@@ -669,7 +670,7 @@
 
   async function importTrainingWorkflow() {
     if (!authorized || running) return;
-    if (!window.confirm("Load the reviewed DREAM AI adapter-training notebook? This replaces the currently open notebook, so export any unsaved work first.")) return;
+    if (!window.confirm("Load DREAM’s native from-scratch training workflow? This replaces the current notebook, so export any unsaved work first.")) return;
     try {
       const response = await fetch("/notebook/training-template.ipynb", {
         credentials: "same-origin",
@@ -677,9 +678,27 @@
       });
       if (!response.ok) throw new Error("The DREAM training workflow could not be loaded.");
       const blob = await response.blob();
-      const file = new File([blob], "dream-ai-reviewed-adapter-training.ipynb", { type: "application/json" });
+      const file = new File([blob], "dream-native-training.ipynb", { type: "application/json" });
       await importNotebook(file, true);
-      el("dataset-status").textContent = "Training workflow loaded. Review its dataset and approval gates before running any training cell.";
+      el("dataset-status").textContent = "Native DREAM workflow loaded. Start the Kaggle GPU connector, attach the reviewed corpus, then run the cells here.";
+    } catch (error) {
+      showToast(error.message);
+    }
+  }
+
+  async function importAdapterWorkflow() {
+    if (!authorized || running) return;
+    if (!window.confirm("Load the separate Qwen adapter-improvement workflow? It fine-tunes the existing adapter, not native DREAM. This replaces the open notebook, so export unsaved work first.")) return;
+    try {
+      const response = await fetch("/notebook/adapter-template.ipynb", {
+        credentials: "same-origin",
+        cache: "no-store"
+      });
+      if (!response.ok) throw new Error("The adapter-improvement workflow could not be loaded.");
+      const blob = await response.blob();
+      const file = new File([blob], "dream-adapter-improvement.ipynb", { type: "application/json" });
+      await importNotebook(file, true);
+      el("dataset-status").textContent = "Adapter-improvement workflow loaded. Attach the four reviewed opt-in files and set HF_TOKEN in the Kaggle GPU connector only if you intend to train this separate Qwen-backed adapter.";
     } catch (error) {
       showToast(error.message);
     }
@@ -701,6 +720,7 @@
     el("scan-datasets").addEventListener("click", scanDatasets);
     el("delete-dataset").addEventListener("click", deleteDataset);
     el("import-training").addEventListener("click", importTrainingWorkflow);
+    el("import-adapter-training").addEventListener("click", importAdapterWorkflow);
     el("notebook-list").addEventListener("change", event => {
       switchNotebook(event.target.value).catch(error => showToast(error.message));
     });

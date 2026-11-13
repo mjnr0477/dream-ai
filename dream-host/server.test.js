@@ -74,7 +74,11 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
 
   const notebookPage = await fetch(baseUrl + "/notebook");
   assert.equal(notebookPage.status, 200);
-  assert.match(await notebookPage.text(), /DREAM NOTEBOOK/);
+  const notebookHtml = await notebookPage.text();
+  assert.match(notebookHtml, /DREAM NOTEBOOK/);
+  assert.match(notebookHtml, /Load native DREAM training/);
+  assert.match(notebookHtml, /Improve existing Qwen adapter/);
+  assert.match(notebookHtml, /Get Kaggle GPU connector/);
   assert.match(notebookPage.headers.get("content-security-policy"), /script-src 'self'/);
 
   const notebookScript = await fetch(baseUrl + "/notebook.js");
@@ -91,6 +95,37 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   const trainingNotebook = await trainingTemplate.json();
   assert.equal(trainingNotebook.nbformat, 4);
   assert.ok(trainingNotebook.cells.length >= 10);
+  const nativeTrainingSource = trainingNotebook.cells
+    .map(cell => Array.isArray(cell.source) ? cell.source.join("") : String(cell.source || ""))
+    .join("\n");
+  assert.match(nativeTrainingSource, /native, from-scratch DREAM training workflow/i);
+  assert.ok(nativeTrainingSource.includes("dream-native-pretrain-checkpoint.pt"));
+  assert.equal(nativeTrainingSource.includes("PRODUCTION_ADAPTER_REPO"), false);
+  assert.equal(nativeTrainingSource.includes("Qwen/Qwen3-1.7B"), false);
+
+  const adapterTemplate = await fetch(baseUrl + "/notebook/adapter-template.ipynb");
+  assert.equal(adapterTemplate.status, 200);
+  const adapterNotebook = await adapterTemplate.json();
+  assert.equal(adapterNotebook.nbformat, 4);
+  const adapterSource = adapterNotebook.cells
+    .map(cell => Array.isArray(cell.source) ? cell.source.join("") : String(cell.source || ""))
+    .join("\n");
+  assert.ok(adapterSource.includes("Qwen/Qwen3-1.7B"));
+  assert.ok(adapterSource.includes("DREAM_NOTEBOOK_ARTIFACT_TOKEN"));
+  assert.ok(adapterSource.includes("candidate-not-active"));
+  assert.ok(adapterSource.includes("dream-r2-progress-bundle-v1"));
+  assert.ok(adapterSource.includes("PRODUCTION_ADAPTER_REPO"));
+
+  const kaggleConnector = await fetch(baseUrl + "/notebook/kaggle-worker.ipynb");
+  assert.equal(kaggleConnector.status, 200);
+  assert.ok(kaggleConnector.headers.get("content-disposition").includes("dream-notebook-kaggle-worker.ipynb"));
+  const connectorNotebook = await kaggleConnector.json();
+  const connectorSource = connectorNotebook.cells
+    .map(cell => Array.isArray(cell.source) ? cell.source.join("") : String(cell.source || ""))
+    .join("\\n");
+  assert.match(connectorSource, /DREAM_HOST_NOTEBOOK_WORKER_TOKEN/);
+  assert.match(connectorSource, /DREAM_NOTEBOOK_ARTIFACT_TOKEN/);
+  assert.ok(connectorSource.includes("notebook_worker.py"));
 
   const connectResponse = await fetch(baseUrl + "/api/v1/notebook/session", {
     method: "POST",

@@ -679,10 +679,31 @@ const server = http.createServer(async (req, res) => {
       return await sendStaticFile(res, "./notebook.html", "text/html; charset=utf-8");
     }
     if (req.method === "GET" && url.pathname === "/notebook/training-template.ipynb") {
-      const content = await readFile(new URL("../training/dream_ai_adapter_self_train_kaggle.ipynb", import.meta.url));
+      const content = await readFile(new URL("../training/dream_native_notebook.ipynb", import.meta.url));
       res.writeHead(200, {
         ...securityHeaders,
         "content-type": "application/x-ipynb+json; charset=utf-8",
+        "cache-control": "no-store"
+      });
+      res.end(content);
+      return;
+    }
+    if (req.method === "GET" && url.pathname === "/notebook/adapter-template.ipynb") {
+      const content = await readFile(new URL("../training/dream_adapter_improvement_notebook.ipynb", import.meta.url));
+      res.writeHead(200, {
+        ...securityHeaders,
+        "content-type": "application/x-ipynb+json; charset=utf-8",
+        "cache-control": "no-store"
+      });
+      res.end(content);
+      return;
+    }
+    if (req.method === "GET" && url.pathname === "/notebook/kaggle-worker.ipynb") {
+      const content = await readFile(new URL("../training/dream_notebook_kaggle_worker.ipynb", import.meta.url));
+      res.writeHead(200, {
+        ...securityHeaders,
+        "content-type": "application/x-ipynb+json; charset=utf-8",
+        "content-disposition": 'attachment; filename="dream-notebook-kaggle-worker.ipynb"',
         "cache-control": "no-store"
       });
       res.end(content);

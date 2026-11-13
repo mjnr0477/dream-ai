@@ -10,7 +10,7 @@ DREAM HOST is the first-party control plane for DREAM AI. It hosts the AI infere
 - Browser IndexedDB notebook storage; the free Render service's temporary filesystem is not used as permanent notebook storage.
 - Remembered browser sign-in uses a 30-day HttpOnly, Secure, SameSite=Strict cookie; the raw owner key is not saved in JavaScript storage or notebook exports. Use “Forget access” on shared devices.
 - Dataset tools download HTTPS files to the worker's temporary notebook workspace, scan /kaggle/input and the notebook dataset folder, and remove downloaded files.
-- One-click import of DREAM's existing reviewed, resumable adapter-training workflow; training creates a candidate adapter and never overwrites the active adapter.
+- One-click import of DREAM's native, from-scratch training workflow in the first-party notebook UI; native checkpoints and the prepared corpus are backed up to private R2.
 - Separate authenticated notebook job queue and a standalone Python notebook worker. It does not load the chat model into GPU memory.
 - Notebook code and output sizes, pending queue, queued-job wait time, worker heartbeats, retries and execution windows are bounded.
 - Notebook execution is owner-only and fails closed unless both distinct notebook owner and notebook worker tokens are configured.
@@ -88,6 +88,22 @@ Add both of these private environment variables to the DREAM HOST Render service
 - `DREAM_HOST_NOTEBOOK_WORKER_TOKEN`: a separate random secret used only by the notebook Python worker.
 
 Each value must be at least 32 characters and distinct from the other and from the existing chat `DREAM_HOST_WORKER_TOKEN` and `DREAM_HOST_CLIENT_TOKEN`. Do not place any token in the frontend source, a notebook cell, a public repository, or a notebook export.
+
+### Use Kaggle as the DREAM NOTEBOOK GPU worker
+
+The browser-based DREAM NOTEBOOK is the notebook we use to edit and run cells. Kaggle is only the connected compute machine; do not use a separate Kaggle training notebook as the main workflow.
+
+1. On Render, configure two distinct secrets: `DREAM_HOST_NOTEBOOK_TOKEN` for the browser owner and `DREAM_HOST_NOTEBOOK_WORKER_TOKEN` for the compute worker. Both must be at least 32 characters and must differ from the chat worker, client and artifact tokens.
+2. In Kaggle, create a notebook with GPU and Internet enabled. Add Kaggle Secrets named `DREAM_HOST_NOTEBOOK_WORKER_TOKEN` and `DREAM_NOTEBOOK_ARTIFACT_TOKEN`. The latter is the dedicated artifact API token already configured on Render; it is not an R2 S3 key. Add `HF_TOKEN` only if you intend to run the separate Qwen adapter-improvement workflow.
+3. Import and run the one-cell connector notebook from `/notebook/kaggle-worker.ipynb`. Keep that cell running. It starts `notebook_worker.py`, not the Qwen chat inference worker.
+4. Open `/notebook` in another tab, connect with `DREAM_HOST_NOTEBOOK_TOKEN`, and choose one of the two separate workflows:
+   - **Load native DREAM training** starts DREAM's own transformer from random initialization. It uses `approved-records.jsonl`, optionally followed by reviewed native SFT conversation files.
+   - **Improve existing Qwen adapter** fine-tunes the current Qwen3-1.7B LoRA adapter on the reviewed opt-in dataset. It saves candidate/progress artifacts separately and never overwrites the live adapter.
+5. Attach the correct private Kaggle Dataset to the GPU connector. Native pretraining needs `approved-records.jsonl`; the adapter path needs `train.jsonl`, `validation.jsonl`, `manifest.json`, and `audit-gate.json`. Native instruction tuning optionally uses `sft-train.jsonl` and `sft-validation.jsonl`.
+
+The connector notebook is only a small worker launcher. The actual training cells, dataset checks, run history and notebook UI remain in DREAM NOTEBOOK. Do not run the Qwen chat inference worker in the same Kaggle GPU session while either training workflow is running; it would compete for GPU memory.
+
+The separately archived `dream-qwen-adapter-checkpoint-2.zip` is a Qwen LoRA recovery artifact, not a native DREAM checkpoint. Its weights match the current adapter, but its Trainer optimizer state is not assumed compatible with the custom adapter-progress format. Native DREAM's from-scratch checkpoints use different filenames and are stored separately in R2.
 
 ### Start an operator-owned notebook worker
 

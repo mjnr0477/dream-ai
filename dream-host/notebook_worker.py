@@ -147,13 +147,20 @@ def detect_compute() -> dict[str, str]:
 def child_environment(workspace: Path) -> dict[str, str]:
     # Deliberately do not inherit DREAM_HOST_* tokens, HF_TOKEN, or other
     # operator environment variables into notebook code.
-    allowed = ("PATH", "LANG", "LC_ALL", "CUDA_VISIBLE_DEVICES", "LD_LIBRARY_PATH")
+    allowed = (
+        "PATH", "LANG", "LC_ALL", "CUDA_VISIBLE_DEVICES", "LD_LIBRARY_PATH",
+        "CUDA_HOME", "CUDA_PATH", "NVIDIA_VISIBLE_DEVICES",
+        "NVIDIA_DRIVER_CAPABILITIES", "OMP_NUM_THREADS", "MKL_NUM_THREADS",
+        "PYTHONPATH", "CONDA_PREFIX", "VIRTUAL_ENV"
+    )
     environment = {key: os.environ[key] for key in allowed if key in os.environ}
-    # Pass only an explicitly configured model-training secret to trusted
-    # notebook kernels. The DREAM HOST worker token remains excluded.
-    training_token = os.environ.get("DREAM_NOTEBOOK_HF_TOKEN", "").strip()
-    if training_token:
-        environment["DREAM_NOTEBOOK_HF_TOKEN"] = training_token
+    environment["DREAM_HOST_URL"] = HOST
+    # Pass only dedicated, explicitly configured secrets to trusted notebook
+    # kernels. Never pass DREAM_HOST_NOTEBOOK_WORKER_TOKEN or other HOST keys.
+    for key in ("DREAM_NOTEBOOK_HF_TOKEN", "DREAM_NOTEBOOK_ARTIFACT_TOKEN"):
+        value = os.environ.get(key, "").strip()
+        if value:
+            environment[key] = value
     environment["HOME"] = str(workspace)
     environment["TMPDIR"] = str(workspace)
     environment["PYTHONUNBUFFERED"] = "1"

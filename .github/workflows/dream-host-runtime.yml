@@ -9,6 +9,9 @@ on:
       - "dream-host/**"
       - "training/dream_ai_adapter_self_train_kaggle.ipynb"
       - "training/dream_train_kaggle.ipynb"
+      - "training/dream_native_notebook.ipynb"
+      - "training/dream_notebook_kaggle_worker.ipynb"
+      - "training/dream_adapter_improvement_notebook.ipynb"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/dream-host-runtime.yml"
@@ -70,6 +73,9 @@ jobs:
           for notebook in (
               Path("training/dream_ai_adapter_self_train_kaggle.ipynb"),
               Path("training/dream_train_kaggle.ipynb"),
+              Path("training/dream_native_notebook.ipynb"),
+              Path("training/dream_notebook_kaggle_worker.ipynb"),
+              Path("training/dream_adapter_improvement_notebook.ipynb"),
           ):
               document = json.loads(notebook.read_text(encoding="utf-8"))
               assert document.get("nbformat") == 4, notebook
