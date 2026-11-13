@@ -71,18 +71,19 @@ export function createR2StateStore({ client, bucket, commands, prefix = "dream-a
   }
 
   async function writeJson(key, value, maxBytes = 4 * 1024 * 1024) {
+    const keyPath = objectKey(key);
     const bytes = Buffer.from(JSON.stringify(value));
     if (!bytes.length || bytes.length > maxBytes) throw new R2StateStoreError("Persistent state exceeds the configured size limit.", 413);
     try {
       await client.send(new PutObjectCommand({
         Bucket: bucket,
-        Key: objectKey(key),
+        Key: keyPath,
         Body: bytes,
         ContentLength: bytes.length,
         ContentType: "application/json; charset=utf-8",
         CacheControl: "no-store"
       }));
-      return { key: objectKey(key), bytes: bytes.length };
+      return { key: keyPath, bytes: bytes.length };
     } catch {
       throw new R2StateStoreError("Persistent state could not be written to R2.", 503);
     }
