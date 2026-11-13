@@ -77,7 +77,7 @@
         <div class="studio-heading">
           <p class="eyebrow">DATA + TRAINING</p>
           <h2 id="studio-title">Dataset manager &amp; training studio</h2>
-          <p>Download datasets to the connected compute worker, inspect attached Kaggle datasets, and load DREAM's native from-scratch training workflow. The Kaggle notebook is only a GPU connector; training cells run here.</p>
+          <p>Download approved datasets to the persistent compute worker, inspect the host data folders, and load DREAM's native from-scratch training workflow. Training runs on the connected owner-controlled GPU host and checkpoints are stored in the existing R2 vault.</p>
         </div>
         <div class="dataset-grid">
           <div class="dataset-field">
@@ -99,12 +99,10 @@
           <div class="dataset-actions">
             <button id="delete-dataset" class="button quiet" type="button" disabled>Delete downloaded file</button>
             <button id="import-training" class="button run-all" type="button" disabled>Load native DREAM training</button>
-            <button id="import-adapter-training" class="button quiet" type="button" disabled>Improve existing Qwen adapter</button>
-            <a class="button quiet" href="/notebook/kaggle-worker.ipynb" download>Get Kaggle GPU connector</a>
-            <a class="button primary" href="/notebook/chat-worker.ipynb" download>Get DREAM AI + notebook connector</a>
+            <a class="button quiet" href="/notebook/permanent-gpu-setup.md">Persistent GPU setup guide</a>
           </div>
         </div>
-        <p id="dataset-status" class="helper" role="status">Training cells execute here on the connected worker. Use the single DREAM AI + notebook connector to run notebook cells and user chat on the same GPU session. It needs DREAM_HOST_NOTEBOOK_WORKER_TOKEN and HF_TOKEN in Kaggle Secrets; DREAM_NOTEBOOK_ARTIFACT_TOKEN is optional for R2 notebook files. DREAM HOST automatically loads the saved Qwen base model and adapter into the notebook runtime. Keep the connector running while users chat. Do not train while chat is active. Native training requires approved-records.jsonl; adapter improvement requires the four reviewed opt-in files. Checkpoints are stored in private R2.</p>
+        <p id="dataset-status" class="helper" role="status">Training cells execute on the connected persistent GPU worker. The worker uses the existing DREAM HOST notebook token and R2 artifact token. Native DREAM trains from its own architecture and restores verified checkpoints from the existing private R2 vault. Native chat inference is activated separately only after an instruction checkpoint passes evaluation and release approval.</p>
       </section>
 
       <section id="cells" class="cells" aria-label="Notebook cells"></section>

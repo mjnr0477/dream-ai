@@ -92,6 +92,7 @@ let NOTEBOOK_CHAT_MODEL_DEVICE = null;
 let NOTEBOOK_CHAT_MODEL_ERROR = "";
 let NOTEBOOK_CHAT_WARMUP_JOB_ID = null;
 const NOTEBOOK_CHAT_RUNTIME_ID = "dream-ai-chat-runtime";
+const NOTEBOOK_CHAT_WARMUP_ENABLED = /^(1|true|yes)$/i.test(String(process.env.DREAM_HOST_NOTEBOOK_CHAT_WARMUP || "").trim());
 
 const MAX_BODY_BYTES = 1024 * 1024;
 const rawQueueLimit = Number(process.env.DREAM_HOST_MAX_QUEUE || 30);
@@ -312,7 +313,7 @@ function statusSnapshot() {
   const notebookComputeOnline = notebook.workers.connected > 0;
   const activeWorker = ready.find(worker => typeof worker.metadata?.device === "string");
   const notebookDevice = notebook.workers.devices.find(item => typeof item.device === "string")?.device || null;
-  const modelReady = ready.length > 0 || (NOTEBOOK_CHAT_MODEL_READY && notebookComputeOnline);
+  const modelReady = ready.length > 0 || (NOTEBOOK_CHAT_WARMUP_ENABLED && NOTEBOOK_CHAT_MODEL_READY && notebookComputeOnline);
   const warmup = NOTEBOOK_CHAT_WARMUP_JOB_ID
     ? NOTEBOOK_QUEUE.getJob(NOTEBOOK_CHAT_WARMUP_JOB_ID)
     : null;
@@ -323,13 +324,14 @@ function statusSnapshot() {
     ok: true,
     modelConfigured: true,
     modelReady,
-    chatAvailable: ready.length > 0 || notebookComputeOnline,
+    chatAvailable: ready.length > 0 || (NOTEBOOK_CHAT_WARMUP_ENABLED && notebookComputeOnline),
+    notebookChatWarmupEnabled: NOTEBOOK_CHAT_WARMUP_ENABLED,
     modelLoading,
     modelError: NOTEBOOK_CHAT_MODEL_ERROR || null,
     model: MODEL_NAME,
     adapter: ADAPTER_NAME,
-    modelRuntime: ready.length > 0 ? "gpu-worker" : (notebookComputeOnline ? "dream-notebook" : "offline"),
-    device: activeWorker?.metadata?.device || (NOTEBOOK_CHAT_MODEL_READY ? NOTEBOOK_CHAT_MODEL_DEVICE : null) || notebookDevice,
+    modelRuntime: ready.length > 0 ? "gpu-worker" : (NOTEBOOK_CHAT_WARMUP_ENABLED && notebookComputeOnline ? "dream-notebook" : "offline"),
+    device: activeWorker?.metadata?.device || (NOTEBOOK_CHAT_WARMUP_ENABLED && NOTEBOOK_CHAT_MODEL_READY ? NOTEBOOK_CHAT_MODEL_DEVICE : null) || (ready.length > 0 ? notebookDevice : null),
     uptimeSeconds: Math.max(0, Math.floor((Date.now() - STARTED_AT) / 1000)),
     persistence: "in-memory",
     artifactStorage: ARTIFACT_STORAGE_CONFIGURED ? (R2_CONFIGURED ? "r2" : "filesystem") : "disabled",
@@ -409,6 +411,7 @@ function buildNotebookChatCode(payload) {
 }
 
 function scheduleNotebookChatWarmup() {
+  if (!NOTEBOOK_CHAT_WARMUP_ENABLED) return;
   if (NOTEBOOK_CHAT_MODEL_READY || NOTEBOOK_CHAT_WARMUP_JOB_ID || readyWorkers().length > 0) return;
   if (NOTEBOOK_QUEUE.status().workers.connected < 1) return;
   try {
@@ -517,13 +520,18 @@ async function handleChat(req, res) {
   const temperature = finiteNumber(body.temperature, 0.7, 0, 2);
   const topP = finiteNumber(body.top_p, 0.9, 0.01, 1);
   if (availableWorkers.length === 0) {
-    if (NOTEBOOK_QUEUE.status().workers.connected > 0) {
+    if (NOTEBOOK_QUEUE.status().workers.connected > 0 && NOTEBOOK_CHAT_WARMUP_ENABLED) {
       return await handleNotebookChat(res, MODEL_NAME, messages, maxTokens, temperature, topP);
     }
     return sendJson(
       res,
       503,
-      openAiError("No DREAM NOTEBOOK GPU runtime is connected. Start the DREAM AI + notebook GPU connector and retry.", "server_error"),
+      openAiError(
+        NOTEBOOK_QUEUE.status().workers.connected > 0
+          ? "DREAM NOTEBOOK is connected for training and notebook execution. A native DREAM inference worker is not active yet."
+          : "No DREAM inference GPU worker is connected.",
+        "server_error"
+      ),
       { "retry-after": "10" }
     );
   }
@@ -864,43 +872,21 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "GET" && url.pathname === "/notebook") {
       return await sendStaticFile(res, "./notebook.html", "text/html; charset=utf-8");
     }
+    if (req.method === "GET" && url.pathname === "/notebook/permanent-gpu-setup.md") {
+      const content = await readFile(new URL("../docs/PERMANENT_GPU_WORKER.md", import.meta.url));
+      res.writeHead(200, {
+        ...securityHeaders,
+        "content-type": "text/markdown; charset=utf-8",
+        "cache-control": "no-store"
+      });
+      res.end(content);
+      return;
+    }
     if (req.method === "GET" && url.pathname === "/notebook/training-template.ipynb") {
-      const content = await readFile(new URL("../training/dream_native_notebook.ipynb", import.meta.url));
+      const content = await readFile(new URL("../training/dream_native_persistent_notebook.ipynb", import.meta.url));
       res.writeHead(200, {
         ...securityHeaders,
         "content-type": "application/x-ipynb+json; charset=utf-8",
-        "cache-control": "no-store"
-      });
-      res.end(content);
-      return;
-    }
-    if (req.method === "GET" && url.pathname === "/notebook/adapter-template.ipynb") {
-      const content = await readFile(new URL("../training/dream_adapter_improvement_notebook.ipynb", import.meta.url));
-      res.writeHead(200, {
-        ...securityHeaders,
-        "content-type": "application/x-ipynb+json; charset=utf-8",
-        "cache-control": "no-store"
-      });
-      res.end(content);
-      return;
-    }
-    if (req.method === "GET" && url.pathname === "/notebook/kaggle-worker.ipynb") {
-      const content = await readFile(new URL("../training/dream_notebook_kaggle_worker.ipynb", import.meta.url));
-      res.writeHead(200, {
-        ...securityHeaders,
-        "content-type": "application/x-ipynb+json; charset=utf-8",
-        "content-disposition": 'attachment; filename="dream-notebook-kaggle-worker.ipynb"',
-        "cache-control": "no-store"
-      });
-      res.end(content);
-      return;
-    }
-    if (req.method === "GET" && url.pathname === "/notebook/chat-worker.ipynb") {
-      const content = await readFile(new URL("../training/dream_notebook_chat_worker.ipynb", import.meta.url));
-      res.writeHead(200, {
-        ...securityHeaders,
-        "content-type": "application/x-ipynb+json; charset=utf-8",
-        "content-disposition": 'attachment; filename="dream-notebook-chat-worker.ipynb"',
         "cache-control": "no-store"
       });
       res.end(content);

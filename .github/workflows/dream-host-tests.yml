@@ -9,6 +9,9 @@ on:
       - "package.json"
       - "lib/**"
       - "scripts/**"
+      - "training/dream_native_persistent_notebook.ipynb"
+      - "deploy/systemd/**"
+      - "docs/PERMANENT_GPU_WORKER.md"
   push:
     branches:
       - dream-host-runtime
@@ -46,4 +49,8 @@ jobs:
           node --check dream-host/notebook-core.js
           node --check dream-host/notebook.js
           node --test dream-host/*.test.js
-          python -m py_compile dream-host/notebook_worker.py
+          python -m py_compile dream-host/notebook_worker.py dream-host/native_inference_worker.py
+          python -m unittest scripts.test_persistent_notebook -v
+          for script in scripts/install-dream-notebook-worker.sh scripts/enable-dream-native-inference-worker.sh scripts/start-lightning-studio-worker.sh; do
+            bash -n "$script"
+          done
