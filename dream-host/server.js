@@ -80,6 +80,41 @@ const ARTIFACT_STORE = R2_CONFIGURED
 const ARTIFACT_STORAGE_CONFIGURED = Boolean(ARTIFACT_STORE)
   && ARTIFACT_TOKEN.length >= 32
   && ![WORKER_TOKEN, normalizeToken(CLIENT_TOKEN), NOTEBOOK_TOKEN, NOTEBOOK_WORKER_TOKEN].includes(ARTIFACT_TOKEN);
+function createTestMemoryNotebookStateStore() {
+  const records = new Map();
+  return {
+    async readJson(key, maxBytes = 4 * 1024 * 1024) {
+      const value = records.get(key);
+      if (value === undefined) return null;
+      const bytes = Buffer.from(JSON.stringify(value));
+      if (bytes.length > maxBytes) {
+        const error = new Error("Test state exceeds the configured size limit.");
+        error.status = 413;
+        throw error;
+      }
+      return JSON.parse(bytes.toString("utf8"));
+    },
+    async writeJson(key, value, maxBytes = 4 * 1024 * 1024) {
+      const bytes = Buffer.from(JSON.stringify(value));
+      if (bytes.length > maxBytes) {
+        const error = new Error("Test state exceeds the configured size limit.");
+        error.status = 413;
+        throw error;
+      }
+      records.set(key, JSON.parse(bytes.toString("utf8")));
+      return { key, bytes: bytes.length };
+    },
+    async list(prefix = "", maxKeys = 100) {
+      return [...records.keys()].filter(key => key.startsWith(prefix) && key.endsWith(".json")).slice(0, maxKeys);
+    },
+    async remove(key) {
+      records.delete(key);
+    }
+  };
+}
+
+const TEST_NOTEBOOK_STATE_ENABLED = process.env.NODE_ENV === "test"
+  && process.env.DREAM_HOST_NOTEBOOK_STATE_TEST_MODE === "true";
 const NOTEBOOK_STATE_STORE = ARTIFACT_STORAGE_CONFIGURED && R2_CONFIGURED
   ? createR2StateStore({
       client: ARTIFACT_R2_CLIENT,
@@ -87,7 +122,10 @@ const NOTEBOOK_STATE_STORE = ARTIFACT_STORAGE_CONFIGURED && R2_CONFIGURED
       prefix: "dream-ai-state/",
       commands: { GetObjectCommand, PutObjectCommand, ListObjectsV2Command, DeleteObjectCommand }
     })
-  : null;
+  : (TEST_NOTEBOOK_STATE_ENABLED ? createTestMemoryNotebookStateStore() : null);
+const NOTEBOOK_STORAGE_PROVIDER = R2_CONFIGURED && ARTIFACT_STORAGE_CONFIGURED
+  ? "cloudflare-r2"
+  : (TEST_NOTEBOOK_STATE_ENABLED ? "test-memory" : "unavailable");
 const NOTEBOOK_QUEUE_STATE_KEY = "notebook/queue.json";
 const NOTEBOOK_QUEUE_STATE_MAX_BYTES = 4 * 1024 * 1024;
 const NOTEBOOK_STORAGE_MAX_BYTES = 900 * 1024;
@@ -137,7 +175,7 @@ async function restoreNotebookQueue() {
     const result = NOTEBOOK_QUEUE.restore(saved);
     await persistNotebookQueue();
     console.log("DREAM_NOTEBOOK_PERSISTENCE_RESTORED", JSON.stringify({
-      provider: "cloudflare-r2",
+      provider: NOTEBOOK_STORAGE_PROVIDER,
       jobs: result.restoredJobs,
       pending: result.pending
     }));
@@ -933,7 +971,7 @@ async function handleNotebookClientRoute(req, res, url) {
     if (req.method === "GET" && url.pathname === "/api/v1/notebook/status") {
       return sendJson(res, 200, {
         ...NOTEBOOK_QUEUE.status(),
-        persistence: { provider: NOTEBOOK_STATE_STORE ? "cloudflare-r2" : "unavailable" }
+        persistence: { provider: NOTEBOOK_STORAGE_PROVIDER }
       });
     }
     if (req.method === "GET" && url.pathname === "/api/v1/notebook/notebooks") {
@@ -949,7 +987,7 @@ async function handleNotebookClientRoute(req, res, url) {
     if (req.method === "PUT" && notebookMatch) {
       const body = await readJson(req);
       const document = await writePersistentNotebook(notebookMatch[1], body);
-      return sendJson(res, 200, { ok: true, notebook: document, persistence: "cloudflare-r2" });
+      return sendJson(res, 200, { ok: true, notebook: document, persistence: NOTEBOOK_STORAGE_PROVIDER });
     }
     if (req.method === "POST" && url.pathname === "/api/v1/notebook/jobs") {
       const body = await readJson(req);
