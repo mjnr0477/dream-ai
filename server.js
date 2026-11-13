@@ -14,7 +14,7 @@ import { runPublicResearch } from "./lib/dream-tools.js";
 import { shouldAutoResearch, buildResearchContext, buildResearchAttemptContext } from "./lib/auto-research.js";
 import { ClientConcurrencyLimiter } from "./lib/client-limiter.js";
 import { resolveModelConfig } from "./lib/model-provider.js";
-import { logHuggingFaceZeroGpuQuota } from "./lib/huggingface-quota.js";
+import { buildOfflineResearchReply } from "./lib/offline-research-reply.js";
 
 const ROOT = fileURLToPath(new URL(".", import.meta.url));
 const PUBLIC_DIR = join(ROOT, "public");
@@ -299,6 +299,7 @@ async function handleChat(req, res) {
     let researchContext = "";
     let privateAccountContext = "";
     let automaticResearch = null;
+    let researchSources = [];
     const latestQuestion = messages.at(-1).content;
     const requestsGmail = isGmailRequest(latestQuestion);
     const requestsMeta = isMetaRequest(latestQuestion);
@@ -321,7 +322,7 @@ async function handleChat(req, res) {
         privateAccountContext = [privateAccountContext, "Meta account retrieval failed. No private social account data was successfully retrieved. Tell the user to reconnect the relevant Meta account; do not infer or invent account contents."].filter(Boolean).join("\n\n");
       }
     }
-    if (!requestsGmail && !requestsMeta && isDreamEngineConfigured(process.env) && shouldAutoResearch(latestQuestion, mode)) {
+    if (!requestsGmail && !requestsMeta && shouldAutoResearch(latestQuestion, mode)) {
       const researchQuery = latestQuestion.trim().replace(/\s+/g, " ").slice(0, 200);
       try {
         // Research current public sources as well as stable reference material.
@@ -329,6 +330,7 @@ async function handleChat(req, res) {
         // so the model can explain the actual retrieval result instead of guessing.
         const research = await runPublicResearch(researchQuery);
         const prepared = buildResearchContext(research);
+        researchSources = prepared.sources;
         researchContext = [
           prepared.context,
           buildResearchAttemptContext(research, { sourceCount: prepared.sources.length })
@@ -362,25 +364,41 @@ async function handleChat(req, res) {
     const result = await generateDreamReply(
       messages, mode, process.env, memoryContext, researchContext, privateAccountContext
     );
+    const offlineSource = result.source === "dream-engine-unconfigured";
+    const reply = offlineSource
+      ? buildOfflineResearchReply({ query: latestQuestion, sources: researchSources, mode })
+      : result.reply;
+    const responseSource = offlineSource
+      ? (researchSources.length ? "public-research-fallback" : "offline-status")
+      : result.source;
     let artifacts = null;
-    if (mode === "coding" || isAppBuildRequest(latestQuestion)) {
+    if (!offlineSource && (mode === "coding" || isAppBuildRequest(latestQuestion))) {
       try {
-        artifacts = parseCodeArtifactsIfPresent(result.reply);
+        artifacts = parseCodeArtifactsIfPresent(reply);
       } catch (error) {
         console.warn("DREAM coding artifact output was invalid:", error.message);
       }
     }
     return json(res, 200, {
-      reply: result.reply,
+      reply,
       mode,
-      source: result.source,
+      source: responseSource,
       ...(automaticResearch ? { autoResearch: automaticResearch } : {}),
       ...(artifacts ? { artifacts } : {})
     });
   } catch (error) {
     console.error("DREAM AI request failed:", error.message);
-    const publicError = SAFE_CHAT_ERRORS.has(error.message) ? error.message : "DREAM AI is temporarily unavailable. Please try again.";
-    return json(res, 502, { error: publicError });
+    const offlineReply = buildOfflineResearchReply({
+      query: latestQuestion,
+      sources: requestsGmail || requestsMeta ? [] : researchSources,
+      mode
+    });
+    return json(res, 200, {
+      reply: offlineReply,
+      mode,
+      source: (requestsGmail || requestsMeta || !researchSources.length) ? "offline-status" : "public-research-fallback",
+      ...(automaticResearch ? { autoResearch: automaticResearch } : {})
+    });
   } finally {
     activeChats -= 1;
   }
@@ -652,7 +670,6 @@ async function runStartupModelSmokeTest() {
 
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`DREAM AI listening on port ${PORT}`);
-  void logHuggingFaceZeroGpuQuota();
   try {
     const modelConfig = resolveModelConfig();
     console.info("DREAM_MODEL_CONFIGURATION", JSON.stringify({
