@@ -1,0 +1,28 @@
+# Self-hosted, CUDA-enabled worker for DREAM's own validated transformer.
+# Pinned to a CUDA 12.6 runtime for broader driver compatibility.
+FROM pytorch/pytorch:2.14.1-cuda12.6-cudnn9-runtime
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    DREAM_HOST_URL=https://dream-host-live.onrender.com \
+    DREAM_HOST_MODEL_NAME=dream-native-v1 \
+    DREAM_HOST_ADAPTER_NAME=none \
+    DREAM_NATIVE_CHECKPOINT_PATH=/var/lib/dream-ai/models/dream-native-instruct.pt
+
+WORKDIR /opt/dream
+
+RUN groupadd --system --gid 10001 dream \
+    && useradd --system --uid 10001 --gid dream --home-dir /home/dream dream \
+    && mkdir -p /opt/dream/model /opt/dream/dream-host /var/lib/dream-ai/models \
+    && chown -R dream:dream /var/lib/dream-ai
+
+COPY model/ /opt/dream/model/
+COPY dream-host/native_inference_worker.py /opt/dream/dream-host/native_inference_worker.py
+
+RUN python -m pip install --no-cache-dir "requests>=2.32,<3" \
+    && python -c "import torch, requests; print('PyTorch', torch.__version__, 'CUDA build', torch.version.cuda); print('requests', requests.__version__)"
+
+USER 10001:10001
+
+ENTRYPOINT ["python", "-u", "dream-host/native_inference_worker.py"]
