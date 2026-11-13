@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   normalizeAppOrigin,
   modeForEvaluationCategory,
+  selectEvaluationCases,
   runChatEvaluations
 } from "../scripts/run-chat-evals.mjs";
 
@@ -83,6 +84,19 @@ test("evaluates through the full chat route and retains research diagnostics", a
   assert.equal(run.results[0].humanScore, null);
   assert.ok(run.results[0].runId);
   assert.equal(run.results[0].applicationOrigin, "https://dream-ai-live.onrender.com");
+});
+
+test("selects one case per category before taking second examples", () => {
+  const expanded = [
+    { ...cases[0], id: "math-1" },
+    { ...cases[0], id: "math-2" },
+    { ...cases[0], id: "math-3" },
+    { ...cases[1], id: "coding-1" },
+    { ...cases[1], id: "coding-2" }
+  ];
+  const selected = selectEvaluationCases(expanded, 3);
+  assert.deepEqual(selected.map(item => item.id), ["coding-1", "math-1", "coding-2"]);
+  assert.deepEqual(new Set(selected.slice(0, 2).map(item => item.category)), new Set(["coding", "mathematics"]));
 });
 
 test("retries bounded 429 and 503 responses before scoring", async () => {
