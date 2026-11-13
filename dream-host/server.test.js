@@ -45,6 +45,8 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
     env: {
       ...process.env,
       PORT: String(port),
+      NODE_ENV: "test",
+      DREAM_HOST_NOTEBOOK_STATE_TEST_MODE: "true",
       DREAM_HOST_WORKER_TOKEN: workerToken,
       DREAM_HOST_CLIENT_TOKEN: clientToken,
       DREAM_HOST_NOTEBOOK_TOKEN: notebookToken,
