@@ -209,8 +209,11 @@ async function main() {
       try { return JSON.parse(line); }
       catch { throw new Error("Invalid JSON on evaluation line " + (index + 1)); }
     });
-  const requested = Number(process.env.DREAM_EVAL_LIMIT || DEFAULT_LIMIT);
-  const limit = Number.isInteger(requested) ? requested : DEFAULT_LIMIT;
+  const rawLimit = process.env.DREAM_EVAL_LIMIT;
+  const limit = rawLimit === undefined || rawLimit === "" ? DEFAULT_LIMIT : Number(rawLimit);
+  if (!Number.isInteger(limit) || limit < 1 || limit > MAX_LIMIT) {
+    throw new Error("DREAM_EVAL_LIMIT must be an integer from 1 to " + MAX_LIMIT + ".");
+  }
   const pauseMs = Number(process.env.DREAM_EVAL_PAUSE_MS || 1000);
   const timeoutMs = Number(process.env.DREAM_EVAL_TIMEOUT_MS || DEFAULT_TIMEOUT_MS);
 
