@@ -372,7 +372,7 @@ function notebookModelBootstrapCode() {
     "    import torch",
     "    _dream_chat_device = torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'unknown'",
     "print('DREAM_CHAT_MODEL_READY:' + str(_dream_chat_device))"
-  ].join("\\n");
+  ].join("\n");
 }
 
 function buildNotebookChatCode(payload) {
@@ -396,7 +396,7 @@ function buildNotebookChatCode(payload) {
     "if not _dream_content: raise RuntimeError('The saved DREAM AI model returned an empty answer.')",
     "_dream_result = {'content': _dream_content, 'promptTokens': _dream_prompt_tokens, 'completionTokens': int(_dream_generated.shape[-1]), 'device': _dream_chat_device}",
     "print('DREAM_CHAT_RESULT:' + json.dumps(_dream_result, ensure_ascii=False))"
-  ].join("\\n");
+  ].join("\n");
 }
 
 function scheduleNotebookChatWarmup() {
