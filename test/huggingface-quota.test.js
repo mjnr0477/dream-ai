@@ -23,6 +23,7 @@ test("Hugging Face quota checks ignore DREAM_MODEL_TOKEN", async () => {
 test("Hugging Face quota checks use only the dedicated HF_TOKEN", async () => {
   const logs = [];
   const authorizations = [];
+  const redirects = [];
   let calls = 0;
   const result = await logHuggingFaceZeroGpuQuota({
     env: {
@@ -32,6 +33,7 @@ test("Hugging Face quota checks use only the dedicated HF_TOKEN", async () => {
     fetchImpl: async (url, options) => {
       calls += 1;
       authorizations.push(options.headers.authorization);
+      redirects.push(options.redirect);
       if (String(url).endsWith("/api/whoami-v2")) {
         return { ok: true, status: 200, json: async () => ({ name: "test-user" }) };
       }
@@ -47,6 +49,7 @@ test("Hugging Face quota checks use only the dedicated HF_TOKEN", async () => {
   assert.equal(result, undefined);
   assert.equal(calls, 2);
   assert.deepEqual(authorizations, ["Bearer hf-dedicated-token", "Bearer hf-dedicated-token"]);
+  assert.deepEqual(redirects, ["error", "error"]);
   assert.equal(JSON.stringify(authorizations).includes("dream-model-service-secret"), false);
   assert.match(logs[0][1], /"authenticated":true/);
   assert.match(logs[1][1], /"remainingGpuSeconds":250/);
