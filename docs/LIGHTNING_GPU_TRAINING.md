@@ -11,24 +11,17 @@ Each job downloads the approved dataset and current adapter from the private mod
 ## One-time account setup
 
 1. Create or use a Lightning AI account and a Teamspace. Create a programmatic API key and note the Lightning User ID and Teamspace name.
-2. In GitHub, open the dream-ai repository settings, then Secrets and variables, Actions, and add these repository secrets:
+2. In GitHub repository settings, open Secrets and variables → Actions. Add these repository secrets:
    - LIGHTNING_API_KEY
    - LIGHTNING_USER_ID
    - LIGHTNING_TEAMSPACE
-   - HF_TOKEN (write access to the private msjnr0477/dream-ai-adapter model repository)
-3. Move the four files from DREAM's reviewed opt-in export into one directory: train.jsonl, validation.jsonl, manifest.json, and audit-gate.json. Run the migration helper once:
-
-   python -m pip install --upgrade huggingface_hub
-   python scripts/publish_dream_reviewed_training_data.py --source /path/to/reviewed-export
-
-The helper checks the audit gate and actual train/validation hashes, requires the model repository to be private, and uploads only to training-data/active. It does not submit a GPU job or change model weights.
-
-4. Merge this branch into main after reviewing it. Then open GitHub Actions, choose DREAM AI Lightning GPU training, and manually run it once. This tests the account, T4 job, data download and candidate upload path.
-5. Only after checking the Lightning account's remaining credits and billing settings, set the repository variable DREAM_AI_AUTO_TRAINING_ENABLED to true to enable one daily job. Leave it unset or false to keep the schedule off.
-
+   - HF_TOKEN with write access to the private msjnr0477/dream-ai-adapter model repository.
+3. If the four reviewed training files are not already in the private model repository, also add temporary secrets KAGGLE_USERNAME and KAGGLE_KEY (or KAGGLE_API_TOKEN). The workflow uses these once to copy the private reviewed dataset; no Kaggle GPU or notebook is started. If more than one eligible private dataset exists, set repository variable DREAM_AI_KAGGLE_DATASET to its exact owner/dataset-slug.
+4. Merge this branch into main after review. Open GitHub Actions → DREAM AI Lightning GPU training and run the workflow manually once. That run migrates the data if needed, then submits the T4 job.
+5. After the first successful migration, remove the temporary Kaggle API secrets. After confirming the T4 job and reviewing Lightning's available credits/billing, set repository variable DREAM_AI_AUTO_TRAINING_ENABLED to true to enable one daily job. Leave it unset or false to keep the schedule disabled.
 ## Important compute and cost boundary
 
-Lightning currently advertises up to 80 free GPU hours to start, depending on its credit terms, and shows additional GPU use as pay-as-you-go. This is limited trial compute, not unlimited or guaranteed permanent free hosting. Prices and free allocations can change. Check the Lightning billing/credits screen before enabling scheduled work.
+Lightning currently advertises up to 75 T4 GPU hours from its initial free credits (up to 30 credits), with additional GPU use billed pay-as-you-go. This is limited trial compute, not unlimited or guaranteed permanent free hosting. Prices and free allocations can change. Check the Lightning billing/credits screen before enabling scheduled work.
 
 The workflow keeps the daily schedule disabled unless the explicit repository variable DREAM_AI_AUTO_TRAINING_ENABLED=true is set. Manual dispatch is still possible. Each training update is limited to 240 seconds by default; model loading, evaluation and uploads add runtime beyond that training budget.
 
