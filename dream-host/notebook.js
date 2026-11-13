@@ -23,6 +23,7 @@
   let refreshHandle = null;
   let running = false;
   let saveTimer = null;
+  let cloudSyncComplete = false;
 
   function id(prefix) {
     const value = typeof crypto !== "undefined" && crypto.randomUUID
@@ -70,18 +71,78 @@
     return dbPromise;
   }
 
-  async function storeNotebook() {
+  async function saveNotebookLocally(document) {
     const db = await openDatabase();
-    notebook.modifiedAt = new Date().toISOString();
     await new Promise((resolve, reject) => {
       const transaction = db.transaction(STORE_NAME, "readwrite");
-      transaction.objectStore(STORE_NAME).put(notebook);
+      transaction.objectStore(STORE_NAME).put(document);
       transaction.oncomplete = resolve;
       transaction.onerror = () => reject(transaction.error || new Error("Notebook save failed."));
       transaction.onabort = () => reject(transaction.error || new Error("Notebook save was interrupted."));
     });
+  }
+
+  async function storeNotebook() {
+    const db = await openDatabase();
+    notebook.modifiedAt = new Date().toISOString();
+    await saveNotebookLocally(notebook);
     localStorage.setItem(ACTIVE_KEY, notebook.id);
-    el("save-state").textContent = "Saved in this browser";
+    if (authorized) {
+      try {
+        const saved = await api("/api/v1/notebook/notebooks/" + encodeURIComponent(notebook.id), {
+          method: "PUT",
+          body: JSON.stringify(notebook)
+        });
+        notebook.modifiedAt = saved.notebook?.modifiedAt || notebook.modifiedAt;
+        el("save-state").textContent = "Saved to DREAM Cloud";
+      } catch (error) {
+        el("save-state").textContent = "Browser saved · cloud sync failed";
+        throw error;
+      }
+    } else {
+      el("save-state").textContent = "Saved in this browser";
+    }
+    await updateNotebookList();
+  }
+
+  async function syncCloudNotebooks() {
+    if (cloudSyncComplete || !authorized) return;
+    const listing = await api("/api/v1/notebook/notebooks");
+    const entries = Array.isArray(listing.notebooks) ? listing.notebooks.slice(0, 50) : [];
+    const remoteDocuments = [];
+    for (const entry of entries) {
+      if (!entry || typeof entry.id !== "string" || !/^nb-[A-Za-z0-9_-]{1,100}$/.test(entry.id)) continue;
+      const response = await api("/api/v1/notebook/notebooks/" + encodeURIComponent(entry.id));
+      if (response.notebook && Array.isArray(response.notebook.cells)) {
+        remoteDocuments.push(response.notebook);
+        await saveNotebookLocally(response.notebook);
+      }
+    }
+
+    const local = notebook;
+    const matching = remoteDocuments.find(item => item.id === local.id);
+    const untouchedDefault = local.title === "Untitled notebook"
+      && local.cells.length === 1
+      && local.cells[0].source === 'print("DREAM NOTEBOOK is ready")\\n2 + 2';
+    let selected = local;
+    if (matching) {
+      selected = Date.parse(matching.modifiedAt || "") > Date.parse(local.modifiedAt || "") ? matching : local;
+    } else if (untouchedDefault && remoteDocuments.length) {
+      selected = remoteDocuments[0];
+    }
+
+    notebook = selected;
+    await saveNotebookLocally(notebook);
+    localStorage.setItem(ACTIVE_KEY, notebook.id);
+    if (selected === local || (matching && selected === local)) {
+      await api("/api/v1/notebook/notebooks/" + encodeURIComponent(notebook.id), {
+        method: "PUT",
+        body: JSON.stringify(notebook)
+      });
+    }
+    cloudSyncComplete = true;
+    el("save-state").textContent = "Synced with DREAM Cloud";
+    render();
     await updateNotebookList();
   }
 
@@ -322,6 +383,14 @@
       const data = await api("/api/v1/notebook/status");
       authorized = true;
       connectPanel.hidden = true;
+      if (!cloudSyncComplete) {
+        try {
+          await syncCloudNotebooks();
+        } catch (error) {
+          el("save-state").textContent = "Browser saved · cloud sync unavailable";
+          console.warn("DREAM NOTEBOOK cloud sync failed:", error.message);
+        }
+      }
       const count = Number(data.workers?.connected || 0);
       el("worker-count").textContent = String(count);
       el("queue-count").textContent = String(data.queue?.pending || 0);
