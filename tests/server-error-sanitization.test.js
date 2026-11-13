@@ -37,6 +37,8 @@ before(async () => {
     cwd: process.cwd(),
     env: {
       ...process.env,
+      DREAM_MODEL_PROVIDER: "native",
+      DREAM_MODEL_STARTUP_SMOKE_TEST: "false",
       PORT: String(port),
       DREAM_MODEL_URL: "http://invalid-runtime.example",
       DREAM_MODEL_NAME: "security-test-model"
