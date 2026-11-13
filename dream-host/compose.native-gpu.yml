@@ -1,0 +1,43 @@
+services:
+  dream-native-gpu-worker:
+    build:
+      context: ..
+      dockerfile: dream-host/Dockerfile.native-gpu
+    image: dream-ai/native-gpu-worker:0.1.0
+    container_name: dream-native-gpu-worker
+    init: true
+    restart: unless-stopped
+    user: "10001:10001"
+    env_file:
+      - native-gpu.env
+    environment:
+      DREAM_HOST_URL: https://dream-host-live.onrender.com
+      DREAM_HOST_MODEL_NAME: dream-native-v1
+      DREAM_HOST_ADAPTER_NAME: none
+      DREAM_NATIVE_CHECKPOINT_ARTIFACT: dream-native-sft-checkpoint.pt
+      DREAM_NATIVE_CHECKPOINT_PATH: /var/lib/dream-ai/models/dream-native-instruct.pt
+      DREAM_HOST_WORKER_ID: native-gpu-1
+    gpus: all
+    volumes:
+      - dream_native_models:/var/lib/dream-ai/models
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import torch,sys; sys.exit(0 if torch.cuda.is_available() else 1)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  dream_native_models:
+    name: dream-native-model-cache
