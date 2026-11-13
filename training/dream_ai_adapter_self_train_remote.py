@@ -31,7 +31,7 @@ if not HF_TOKEN:
 if MAX_TRAINING_SECONDS < 30 or MAX_TRAINING_SECONDS > 900:
     raise RuntimeError("DREAM_TRAINING_SECONDS must be between 30 and 900 seconds.")
 if not torch.cuda.is_available():
-    raise RuntimeError("No GPU is available. Select a Kaggle GPU accelerator before training.")
+    raise RuntimeError("No GPU is available on the selected Lightning worker.")
 
 for package in ("transformers", "peft", "accelerate", "safetensors", "huggingface_hub"):
     print(package, importlib.metadata.version(package))
@@ -267,7 +267,7 @@ if not trainable_parameters or trainable_count < 1:
     raise RuntimeError("No trainable adapter parameters were found. Refusing to run a no-op training cycle.")
 input_device = model.get_input_embeddings().weight.device
 if input_device.type != "cuda":
-    raise RuntimeError("The base model was not placed on the Kaggle GPU. Refusing to train on CPU.")
+    raise RuntimeError("The base model was not placed on the Lightning GPU. Refusing to train on CPU.")
 for parameter in trainable_parameters:
     if parameter.dtype != torch.float32:
         parameter.data = parameter.data.float()
