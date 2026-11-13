@@ -35,7 +35,7 @@ before(async () => {
   baseUrl = `http://127.0.0.1:${port}`;
   child = spawn(process.execPath, ["server.js"], {
     cwd: process.cwd(),
-    env: { ...process.env, PORT: String(port), DREAM_MODEL_URL: "", DREAM_MODEL_NAME: "" },
+    env: { ...process.env, DREAM_MODEL_PROVIDER: "native", DREAM_MODEL_STARTUP_SMOKE_TEST: "false", PORT: String(port), DREAM_MODEL_URL: "", DREAM_MODEL_NAME: "" },
     stdio: "ignore"
   });
   await waitForServer(baseUrl);
