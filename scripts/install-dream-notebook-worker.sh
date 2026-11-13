@@ -113,6 +113,8 @@ chown -R dreamai:dreamai "${REPO_DIR}/.venv"
 
 install -m 0644 "${REPO_DIR}/deploy/systemd/dream-notebook-worker.service" \
   /etc/systemd/system/dream-notebook-worker.service
+install -m 0644 "${REPO_DIR}/deploy/systemd/dream-native-inference-worker.service" \
+  /etc/systemd/system/dream-native-inference-worker.service
 systemctl daemon-reload
 systemctl enable --now dream-notebook-worker.service
 
