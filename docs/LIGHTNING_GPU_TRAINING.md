@@ -32,9 +32,13 @@ Lightning currently advertises up to 80 free GPU hours to start, depending on it
 
 The workflow keeps the daily schedule disabled unless the explicit repository variable DREAM_AI_AUTO_TRAINING_ENABLED=true is set. Manual dispatch is still possible. Each training update is limited to 240 seconds by default; model loading, evaluation and uploads add runtime beyond that training budget.
 
-## One-time migration still required
+## One-time dataset migration
 
-The existing reviewed dataset was attached to a private Kaggle Dataset. A different provider cannot automatically read Kaggle's private attachment. The four approved files must be copied out once and uploaded using the migration helper. If those files exist only in the Kaggle dataset, that one-time export is still needed. After they are in the private model repository, the Lightning worker does not use Kaggle notebooks, Kaggle GPU, or Kaggle API credentials.
+The workflow now checks the private model repository first. If the four reviewed files are already at the configured training-data path, it skips Kaggle completely. If they are missing, it can use the Kaggle dataset API once to transfer the reviewed files into the private model repository. This transfer runs on the GitHub Actions CPU runner; it does not start a Kaggle notebook or use a Kaggle GPU.
+
+For that one-time transfer, add temporary GitHub Actions secrets KAGGLE_USERNAME and KAGGLE_KEY (or KAGGLE_API_TOKEN). The workflow automatically finds the single private dataset owned by that account that contains all four expected files. If more than one matches, set the repository variable DREAM_AI_KAGGLE_DATASET to the exact owner/dataset-slug. The migration checks that the source dataset is private and that the audit gate and train/validation hashes match before uploading. After the first successful migration, remove the temporary Kaggle secrets. Future training jobs use Lightning for GPU compute and the private model repository for data/checkpoints; they do not call Kaggle.
+
+If the reviewed dataset is already available in a local directory instead, the separate upload helper remains available: python scripts/publish_dream_reviewed_training_data.py --source /path/to/reviewed-export
 
 ## Safety properties
 
