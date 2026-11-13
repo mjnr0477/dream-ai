@@ -902,7 +902,7 @@ const server = http.createServer(async (req, res) => {
     }
     if (req.method === "GET" && url.pathname === "/health/ready") {
       const snapshot = statusSnapshot();
-      return sendJson(res, snapshot.chatAvailable ? 200 : 503, snapshot, snapshot.chatAvailable ? {} : { "retry-after": "10" });
+      return sendJson(res, snapshot.modelReady ? 200 : 503, snapshot, snapshot.modelReady ? {} : { "retry-after": "10" });
     }
     if (req.method === "GET" && url.pathname === "/api/v1/status") {
       if (!requireToken(req, res, CLIENT_TOKEN)) return;
