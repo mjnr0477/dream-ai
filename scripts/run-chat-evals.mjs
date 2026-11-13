@@ -33,6 +33,7 @@ export function normalizeAppOrigin(value) {
 export function modeForEvaluationCategory(category) {
   if (category === "coding" || category === "debugging" || category === "security") return "coding";
   if (category === "teaching" || category === "planning" || category === "learning") return "learning";
+  if (category === "research-method" || category === "research") return "research";
   return "general";
 }
 
