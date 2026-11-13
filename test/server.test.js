@@ -75,6 +75,7 @@ before(async () => {
       ...process.env,
       PORT: String(port),
       DREAM_MODEL_PROVIDER: "native",
+      DREAM_MODEL_STARTUP_SMOKE_TEST: "false",
       DREAM_MODEL_URL: `http://127.0.0.1:${modelPort}/v1`,
       DREAM_MODEL_NAME: "dream-test-model",
       DREAM_MODEL_TOKEN: "",
