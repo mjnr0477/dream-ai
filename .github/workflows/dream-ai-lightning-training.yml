@@ -29,7 +29,7 @@ jobs:
       - name: Install and syntax-check the launcher
         run: |
           python -m pip install --disable-pip-version-check lightning-sdk
-          python -m py_compile scripts/launch_dream_ai_lightning.py scripts/publish_dream_reviewed_training_data.py
+          python -m py_compile training/dream_ai_adapter_self_train_remote.py scripts/launch_dream_ai_lightning.py scripts/publish_dream_reviewed_training_data.py
 
       - name: Submit bounded T4 training job
         env:
