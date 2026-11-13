@@ -14,6 +14,7 @@ fail() {
   exit 1
 }
 
+[[ "${1:-}" == "--approve-reviewed-candidate" ]] || fail "Publishing requires the explicit --approve-reviewed-candidate flag after review."
 [[ -f "$ENV_FILE" ]] || fail "Private file $ENV_FILE is missing."
 [[ -s "$CHECKPOINT" ]] || fail "Native SFT checkpoint is missing. Run scripts/train-native-dream-gpu.sh first."
 [[ -s "$RELEASE_GATE" ]] || fail "Technical release gate report is missing."
@@ -40,9 +41,9 @@ import json, sys
 report = json.load(open(sys.argv[1], encoding="utf-8"))
 if report.get("checkpoint_sha256") != sys.argv[2]:
     raise SystemExit("Release gate does not match the current checkpoint SHA-256.")
-if report.get("all_floating_tensors_finite") is not True or report.get("strict_state_dict_load") is not True:
-    raise SystemExit("The release gate did not validate all checkpoint tensors.")
-if not isinstance(report.get("completed_steps"), int) or report["completed_steps"] < 1:
+if report.get("technical_preflight_passed") is not True:
+    raise SystemExit("The technical checkpoint/evaluation release gate did not pass.")
+if not isinstance(report.get("completed_training_steps"), int) or report["completed_training_steps"] < 1:
     raise SystemExit("The checkpoint has no completed training steps.")
 PY
 
