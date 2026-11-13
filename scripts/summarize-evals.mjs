@@ -66,7 +66,6 @@ export function summarizeRows(rows) {
   if (hasNativeProvenance && hasApplicationProvenance) {
     throw new Error("Cannot combine native-model and full-application evaluation results.");
   }
-  const hasProvenance = hasNativeProvenance || hasApplicationProvenance;
   let run = null;
   if (hasApplicationProvenance) {
     const first = rows[0];
