@@ -71,19 +71,24 @@ PY
 
 [[ -t 0 ]] || die "Run this installer from an interactive terminal so tokens can be entered without being echoed."
 read -r -s -p "DREAM_HOST_NOTEBOOK_WORKER_TOKEN from dream-host-live: " NOTEBOOK_TOKEN </dev/tty
-printf '\n'
+printf '\\n'
+read -r -s -p "DREAM_HOST_WORKER_TOKEN from dream-host-live (for native inference after approval): " CHAT_WORKER_TOKEN </dev/tty
+printf '\\n'
 read -r -s -p "DREAM_HOST_ARTIFACT_TOKEN from dream-host-live (same value as DREAM_NOTEBOOK_ARTIFACT_TOKEN): " ARTIFACT_TOKEN </dev/tty
-printf '\n'
+printf '\\n'
 
 [[ "${NOTEBOOK_TOKEN}" =~ ^[A-Za-z0-9._+=/-]{32,}$ ]] || die "Notebook worker token must be at least 32 safe characters."
+[[ "${CHAT_WORKER_TOKEN}" =~ ^[A-Za-z0-9._+=/-]{32,}$ ]] || die "Chat worker token must be at least 32 safe characters."
 [[ "${ARTIFACT_TOKEN}" =~ ^[A-Za-z0-9._+=/-]{32,}$ ]] || die "Artifact token must be at least 32 safe characters."
-[[ "${NOTEBOOK_TOKEN}" != "${ARTIFACT_TOKEN}" ]] || die "Notebook worker and artifact tokens must be different."
+[[ "${NOTEBOOK_TOKEN}" != "${ARTIFACT_TOKEN}" && "${CHAT_WORKER_TOKEN}" != "${ARTIFACT_TOKEN}" && "${CHAT_WORKER_TOKEN}" != "${NOTEBOOK_TOKEN}" ]] || die "Notebook, chat-worker and artifact tokens must all be different."
 
 install -d -m 0700 /etc/dream-ai
 umask 077
 cat > /etc/dream-ai/notebook-worker.env <<EOF
 DREAM_HOST_URL=https://dream-host-live.onrender.com
 DREAM_HOST_NOTEBOOK_WORKER_TOKEN=${NOTEBOOK_TOKEN}
+DREAM_HOST_WORKER_TOKEN=${CHAT_WORKER_TOKEN}
+DREAM_HOST_ARTIFACT_TOKEN=${ARTIFACT_TOKEN}
 DREAM_HOST_NOTEBOOK_TRUSTED_MODE=1
 DREAM_NOTEBOOK_ARTIFACT_TOKEN=${ARTIFACT_TOKEN}
 DREAM_REPO_DIR=${REPO_DIR}
@@ -103,7 +108,7 @@ DREAM_HOST_NOTEBOOK_MAX_KERNELS=1
 DREAM_HOST_NOTEBOOK_KERNEL_IDLE_SECONDS=86400
 EOF
 chmod 0600 /etc/dream-ai/notebook-worker.env
-unset NOTEBOOK_TOKEN ARTIFACT_TOKEN
+unset NOTEBOOK_TOKEN CHAT_WORKER_TOKEN ARTIFACT_TOKEN
 chown -R dreamai:dreamai "${REPO_DIR}/.venv"
 
 install -m 0644 "${REPO_DIR}/deploy/systemd/dream-notebook-worker.service" \
