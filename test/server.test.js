@@ -766,3 +766,22 @@ test("Gmail account status is guest-scoped and private Gmail prompts bypass publ
   assert.equal(disconnect.status, 200);
   assert.equal((await disconnect.json()).disconnected, false);
 });
+
+
+test("chat degrades to an honest offline status when the native runtime is unavailable", async () => {
+  const previous = modelHasCheckpoint;
+  modelHasCheckpoint = false;
+  try {
+    const response = await postChat({
+      mode: "general",
+      messages: [{ role: "user", content: "Hello DREAM AI" }]
+    });
+    assert.equal(response.status, 200);
+    const data = await response.json();
+    assert.equal(data.source, "offline-status");
+    assert.match(data.reply, /language-model worker is currently offline/i);
+    assert.match(data.reply, /public-source evidence/i);
+  } finally {
+    modelHasCheckpoint = previous;
+  }
+});
