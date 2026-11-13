@@ -77,6 +77,7 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   const notebookHtml = await notebookPage.text();
   assert.match(notebookHtml, /DREAM NOTEBOOK/);
   assert.match(notebookHtml, /Load native DREAM training/);
+  assert.match(notebookHtml, /Improve existing Qwen adapter/);
   assert.match(notebookHtml, /Get Kaggle GPU connector/);
   assert.match(notebookPage.headers.get("content-security-policy"), /script-src 'self'/);
 
@@ -101,6 +102,19 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   assert.ok(nativeTrainingSource.includes("dream-native-pretrain-checkpoint.pt"));
   assert.equal(nativeTrainingSource.includes("PRODUCTION_ADAPTER_REPO"), false);
   assert.equal(nativeTrainingSource.includes("Qwen/Qwen3-1.7B"), false);
+
+  const adapterTemplate = await fetch(baseUrl + "/notebook/adapter-template.ipynb");
+  assert.equal(adapterTemplate.status, 200);
+  const adapterNotebook = await adapterTemplate.json();
+  assert.equal(adapterNotebook.nbformat, 4);
+  const adapterSource = adapterNotebook.cells
+    .map(cell => Array.isArray(cell.source) ? cell.source.join("") : String(cell.source || ""))
+    .join("\n");
+  assert.ok(adapterSource.includes("Qwen/Qwen3-1.7B"));
+  assert.ok(adapterSource.includes("DREAM_NOTEBOOK_ARTIFACT_TOKEN"));
+  assert.ok(adapterSource.includes("candidate-not-active"));
+  assert.ok(adapterSource.includes("DREAM R2 progress"));
+  assert.ok(adapterSource.includes("PRODUCTION_ADAPTER_REPO"));
 
   const kaggleConnector = await fetch(baseUrl + "/notebook/kaggle-worker.ipynb");
   assert.equal(kaggleConnector.status, 200);
