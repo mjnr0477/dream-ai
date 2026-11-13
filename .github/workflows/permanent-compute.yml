@@ -1,0 +1,41 @@
+name: DREAM persistent GPU worker checks
+
+on:
+  push:
+    branches: [dream-permanent-compute]
+  pull_request:
+    branches: [dream-host-runtime]
+
+jobs:
+  worker-and-notebook:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Compile persistent worker
+        run: python -m py_compile dream-host/notebook_worker.py
+      - name: Check launcher shell syntax
+        run: bash -n scripts/start-lightning-worker.sh
+      - name: Validate portable native notebook
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("training/dream_native_notebook.ipynb")
+          notebook = json.loads(path.read_text(encoding="utf-8"))
+          assert notebook["nbformat"] == 4 and notebook["cells"]
+          for index, cell in enumerate(notebook["cells"]):
+              assert cell["cell_type"] in ("code", "markdown")
+              source = "".join(cell["source"])
+              if cell["cell_type"] == "code":
+                  compile(source, f"{path}:cell-{index}", "exec")
+              assert "kaggle" not in source.lower(), f"Old Kaggle dependency in cell {index}"
+          worker = Path("dream-host/notebook_worker.py").read_text(encoding="utf-8")
+          assert "DREAM_NOTEBOOK_PERSISTENT_ROOT" in worker
+          assert "PERSISTENT_WORKSPACE_ROOT" in worker
+          print("Native notebook JSON/Python and persistent worker checks passed.")
+          PY
