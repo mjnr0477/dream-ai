@@ -161,8 +161,8 @@ test("same-origin JSON chat remains available without a connected model", async 
   });
   assert.equal(response.status, 200);
   const body = await response.json();
-  assert.equal(body.source, "dream-engine-unconfigured");
-  assert.match(body.reply, /model runtime is not connected/i);
+  assert.equal(body.source, "offline-status");
+  assert.match(body.reply, /language-model worker is currently offline/i);
 });
 
 test("public health hides checkpoint and hardware diagnostics", async () => {
