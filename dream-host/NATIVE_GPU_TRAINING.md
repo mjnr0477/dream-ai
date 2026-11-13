@@ -43,7 +43,7 @@ The trainer creates a candidate and reports in `dream-host/training-state/report
 After review, explicitly publish the candidate to the private R2 vault:
 
 ```sh
-bash scripts/publish-native-dream-checkpoint.sh
+bash scripts/publish-native-dream-checkpoint.sh --approve-reviewed-candidate
 ```
 
 The publisher rechecks the file hash against the release gate, uploads only to DREAM HOST's authenticated artifact API, and pins the returned hash in the local `dream-host/native-gpu.env`. It never exposes the raw R2 credentials.
