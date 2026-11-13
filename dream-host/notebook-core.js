@@ -240,6 +240,102 @@ export class NotebookQueue {
     return job ? this.publicJob(job) : null;
   }
 
+  snapshot() {
+    return {
+      schema: "dream-notebook-queue-v1",
+      savedAt: new Date(this.now()).toISOString(),
+      jobs: [...this.jobs.values()].map(job => ({
+        id: job.id,
+        notebookId: job.notebookId,
+        cellId: job.cellId,
+        code: job.code,
+        status: job.status,
+        attempts: job.attempts,
+        createdAt: job.createdAt,
+        updatedAt: job.updatedAt,
+        result: job.result,
+        error: job.error
+      })).slice(-500)
+    };
+  }
+
+  restore(snapshot) {
+    if (!snapshot || snapshot.schema !== "dream-notebook-queue-v1" || !Array.isArray(snapshot.jobs)) {
+      throw new NotebookQueueError("Persisted notebook queue has an unsupported format.", 503);
+    }
+    if (snapshot.jobs.length > 500) {
+      throw new NotebookQueueError("Persisted notebook queue exceeds the recovery limit.", 503);
+    }
+
+    const restored = new Map();
+    const pending = [];
+    for (const item of snapshot.jobs) {
+      if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+      if (typeof item.id !== "string" || !/^nbjob_[a-f0-9]{32}$/.test(item.id)) continue;
+      if (typeof item.notebookId !== "string" || !/^[A-Za-z0-9_-]{1,100}$/.test(item.notebookId)) continue;
+      if (typeof item.cellId !== "string" || !/^[A-Za-z0-9_-]{1,100}$/.test(item.cellId)) continue;
+      if (typeof item.code !== "string" || !item.code.trim() || item.code.length > this.maxCodeChars) continue;
+      if (!["queued", "running", "completed", "failed"].includes(item.status)) continue;
+      const created = Date.parse(item.createdAt);
+      const updated = Date.parse(item.updatedAt);
+      if (!Number.isFinite(created) || !Number.isFinite(updated)) continue;
+      const attempts = boundedInteger(item.attempts, 0, 0, this.maxAttempts);
+      let status = item.status;
+      let error = typeof item.error === "string" ? item.error.slice(0, 2000) : null;
+      if (status === "running") {
+        if (attempts < this.maxAttempts) {
+          status = "queued";
+          error = null;
+        } else {
+          status = "failed";
+          error = "Notebook host restarted while this job was running; retry limit reached.";
+        }
+      }
+      let result = null;
+      if (status === "completed" && item.result && typeof item.result === "object" && !Array.isArray(item.result)) {
+        const output = {};
+        let valid = true;
+        for (const key of ["stdout", "stderr", "display"]) {
+          const value = item.result[key] ?? "";
+          if (typeof value !== "string" || value.length > this.maxOutputChars) valid = false;
+          output[key] = typeof value === "string" ? value : "";
+        }
+        const count = Number(item.result.executionCount);
+        output.executionCount = Number.isInteger(count) && count >= 0 ? count : null;
+        if (valid) result = output;
+        else { status = "failed"; error = "Saved notebook output failed recovery validation."; }
+      } else if (status === "completed") {
+        status = "failed";
+        error = "Saved notebook result was missing or invalid.";
+      }
+      const job = {
+        id: item.id,
+        notebookId: item.notebookId,
+        cellId: item.cellId,
+        code: item.code,
+        status,
+        workerId: null,
+        attempts,
+        createdAt: new Date(created).toISOString(),
+        updatedAt: new Date(updated).toISOString(),
+        leaseExpiresAt: null,
+        result,
+        error
+      };
+      restored.set(job.id, job);
+      if (status === "queued") pending.push(job.id);
+    }
+
+    this.jobs = restored;
+    this.pending = pending;
+    for (const worker of this.workers.values()) {
+      worker.status = "idle";
+      worker.busyJobId = null;
+    }
+    this.sweep();
+    return { restoredJobs: this.jobs.size, pending: this.pending.length };
+  }
+
   status() {
     this.sweep();
     const now = this.now();
