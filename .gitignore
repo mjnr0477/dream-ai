@@ -18,3 +18,9 @@ data/sft-train.jsonl
 data/sft-validation.jsonl
 data/sft-split-manifest.json
 data/prepared/
+
+# Local self-hosted GPU credentials, datasets and resumable training state
+dream-host/native-gpu.env
+dream-host/native-training.env
+dream-host/native-training-data/
+dream-host/training-state/
