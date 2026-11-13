@@ -77,6 +77,7 @@ test("evaluates through the full chat route and retains research diagnostics", a
   assert.equal(run.results[0].autoResearchStatus, "sources-found");
   assert.equal(run.results[0].autoResearchSourceCount, 2);
   assert.equal(run.results[0].runtimeProvider, "native");
+  assert.equal(run.results[0].evaluationSource, "full-application-chat");
   assert.equal(run.results[0].humanScore, null);
   assert.ok(run.results[0].runId);
   assert.equal(run.results[0].applicationOrigin, "https://dream-ai-live.onrender.com");
