@@ -19,6 +19,7 @@ RUN groupadd --system --gid 10001 dream \
 
 COPY model/ /opt/dream/model/
 COPY dream-host/native_inference_worker.py /opt/dream/dream-host/native_inference_worker.py
+COPY scripts/train-native-dream-gpu-container.sh /opt/dream/scripts/train-native-dream-gpu-container.sh
 
 RUN python -m pip install --no-cache-dir "requests>=2.32,<3" \
     && python -c "import torch, requests; print('PyTorch', torch.__version__, 'CUDA build', torch.version.cuda); print('requests', requests.__version__)"
