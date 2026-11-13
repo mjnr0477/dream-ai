@@ -1,0 +1,29 @@
+[Unit]
+Description=DREAM AI native inference worker (R2-pinned CUDA checkpoint)
+Wants=network-online.target
+After=network-online.target dream-notebook-worker.service
+RequiresMountsFor=/var/lib/dream-ai/models
+
+[Service]
+Type=simple
+User=dreamai
+Group=dreamai
+WorkingDirectory=/opt/dream-ai
+EnvironmentFile=/etc/dream-ai/native-inference-worker.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/dream-ai/.venv/bin/python -u /opt/dream-ai/dream-host/native_inference_worker.py
+Restart=always
+RestartSec=8
+StartLimitIntervalSec=0
+KillSignal=SIGINT
+TimeoutStopSec=45
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ReadWritePaths=/opt/dream-ai /var/lib/dream-ai
+
+[Install]
+WantedBy=multi-user.target
