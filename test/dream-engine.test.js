@@ -15,6 +15,17 @@ test("system prompt directs capability use and gives accurate self-improvement e
   assert.match(prompt, /Never claim to be the best AI, superior to every other AI, omniscient or infallible without independent comparative evidence/);
 });
 
+test("system prompt prioritizes best-effort answers and avoids unnecessary refusals", async () => {
+  const { buildSystemPrompt } = await import("../lib/dream-engine.js");
+  const prompt = buildSystemPrompt("general", "", "Can you help me with a difficult question?");
+  assert.match(prompt, /Default to a useful, best-effort answer for every user question/);
+  assert.match(prompt, /Do not refuse, deflect or give a non-answer merely because/);
+  assert.match(prompt, /Use an answer-progress ladder before saying you cannot help/);
+  assert.match(prompt, /limit only the specific part that crosses the boundary/);
+  assert.match(prompt, /do not turn that into a blanket refusal/);
+  assert.match(prompt, /Never fabricate facts, citations, tool access, research or completed actions/);
+});
+
 test("system prompt guides structured reasoning, calibration and evidence checks", async () => {
   const { buildSystemPrompt } = await import("../lib/dream-engine.js");
   const prompt = buildSystemPrompt("general", "User prefers concise explanations");
