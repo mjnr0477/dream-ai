@@ -85,8 +85,9 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   const notebookScript = await fetch(baseUrl + "/notebook.js");
   assert.equal(notebookScript.status, 200);
   assert.match(notebookScript.headers.get("content-type"), /javascript/);
-  assert.match(await notebookScript.text(), /indexedDB/);
-  assert.match(await notebookScript.text(), /DREAM AI chat/);
+  const notebookScriptText = await notebookScript.text();
+  assert.match(notebookScriptText, /indexedDB/);
+  assert.match(notebookScriptText, /DREAM AI chat/);
 
   const notebookStyle = await fetch(baseUrl + "/notebook.css");
   assert.equal(notebookStyle.status, 200);
