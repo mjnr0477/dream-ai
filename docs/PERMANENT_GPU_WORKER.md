@@ -11,6 +11,39 @@ This migration keeps the existing DREAM HOST, DREAM NOTEBOOK and Cloudflare R2 a
 
 **Hardware boundary:** R2 is storage, not GPU compute. The current Render Free services are CPU web services. The installer must run on a persistent Linux machine that already has an NVIDIA GPU, a compatible driver and CUDA-enabled PyTorch. It is not designed for Android Termux or Render Free.
 
+## Use a temporary free GPU from Lightning AI Studio
+
+For a no-cost GPU run, Lightning AI currently advertises up to 80 free GPU hours to start with no credit card. Its pricing page lists a single NVIDIA T4 (16 GB VRAM) with up to 75 free hours. The free tier has one active Studio and a four-hour restart requirement. Phone verification is required for the free GPU hours and Lightning says its service is not available in every country, so access from Kenya must be confirmed by the account's own signup flow. Do not add a payment card, purchase credits, or enable pay-as-you-go. If a T4 is not explicitly offered as free in the account, stop.
+
+Official information: https://studio.lightning.ai/pricing/ and https://platform.lightning.ai/studio.
+
+This is temporary GPU capacity, not an always-on dedicated GPU. The persistent part is the workspace in the Studio's persistent storage plus DREAM's existing R2 corpus/checkpoint backups. The notebook worker reconnects when started again, and native training resumes from the last verified R2 checkpoint.
+
+1. Create a free Lightning AI Studio account and complete the required verification. Select a single T4 only when the Studio shows it is included in the free allowance.
+2. Clone the open feature/dream-permanent-gpu-worker branch into the Studio terminal:
+
+```sh
+git clone --depth 1 --branch feature/dream-permanent-gpu-worker https://github.com/mjnr0477/dream-ai.git ~/dream-ai
+cd ~/dream-ai
+```
+
+3. In Lightning Studio's private environment/secrets settings, add only these two existing secrets copied directly from the Render dream-host-live environment. Never paste them into ChatGPT or commit them to GitHub:
+
+- DREAM_HOST_NOTEBOOK_WORKER_TOKEN
+- DREAM_NOTEBOOK_ARTIFACT_TOKEN — use the existing DREAM_HOST_ARTIFACT_TOKEN value.
+
+4. Start the GPU connector in the terminal:
+
+```sh
+bash scripts/start-lightning-studio-worker.sh
+```
+
+The launcher checks that CUDA is really available, checks the existing DREAM HOST, authenticates to the existing R2 vault and lists artifact names/sizes without printing secrets. It then starts the existing notebook worker. Do not call it connected until the DREAM NOTEBOOK status shows the Lightning GPU device.
+
+The launcher stores training data, reports and local checkpoints under the Studio's persistent HOME workspace. The native notebook continues to back up the prepared corpus and checkpoints to R2 with SHA-256 and size verification. The worker's authentication token is not passed into notebook code; only the separate R2 artifact token is passed to the trusted notebook kernel.
+
+The free Studio must be restarted every four hours. After a restart, choose the GPU Studio again if the free service has returned to CPU, open its terminal and rerun the same launcher. Your files and R2 checkpoints persist, but the Python kernel's in-memory variables do not; reopen the notebook and rerun its setup cell before resuming. Free GPU credits are finite and can vary by account/region. Stop when the free allowance is used; do not let the account move to paid usage.
+
 ## Install the persistent notebook/GPU connection
 
 1. On the Linux NVIDIA host, verify that `nvidia-smi` works and that the Python environment you will use reports `torch.cuda.is_available() == True`.
