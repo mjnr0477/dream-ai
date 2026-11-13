@@ -343,8 +343,7 @@ function statusSnapshot() {
       ready: ready.length,
       idle: ready.filter(worker => worker.status === "idle").length,
       busy: ready.filter(worker => worker.status === "busy").length
-    },
-    notebookWorkers: notebook.workers
+    }
   };
 }
 
