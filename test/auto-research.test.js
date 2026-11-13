@@ -60,6 +60,14 @@ test("routes static factual questions in supported non-English languages to rese
   }
 });
 
+test("detects CJK factual and current questions without requiring spaces", () => {
+  assert.equal(shouldAutoResearch("北京今天有什么新闻？"), true);
+  assert.equal(shouldAutoResearch("请解释人工智能。"), true);
+  assert.equal(shouldAutoResearch("今日のニュースは何ですか？"), true);
+  assert.equal(shouldAutoResearch("오늘 어떤 뉴스가 있나요?"), true);
+  assert.equal(shouldAutoResearch("请写一个关于今天的故事。"), false);
+});
+
 test("localized creative prompts and greetings do not trigger unnecessary research", () => {
   assert.equal(shouldAutoResearch("Andika hadithi kuhusu leo"), false);
   assert.equal(shouldAutoResearch("Bhala indaba emayelana nezindaba zanamuhla"), false);
