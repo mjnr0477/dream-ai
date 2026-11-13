@@ -38,6 +38,34 @@ services:
       retries: 3
       start_period: 60s
 
+  dream-native-gpu-trainer:
+    profiles:
+      - training
+    build:
+      context: ..
+      dockerfile: dream-host/Dockerfile.native-gpu
+    image: dream-ai/native-gpu-worker:0.1.0
+    container_name: dream-native-gpu-trainer
+    init: true
+    restart: "no"
+    user: "${DREAM_NATIVE_UID:-1000}:${DREAM_NATIVE_GID:-1000}"
+    env_file:
+      - native-training.env
+    environment:
+      DREAM_NATIVE_DATA_DIR: /data
+      DREAM_NATIVE_TRAIN_DIR: /var/lib/dream-ai/training
+    gpus: all
+    volumes:
+      - ./native-training-data:/data:ro
+      - ./training-state:/var/lib/dream-ai/training
+    entrypoint:
+      - bash
+      - /opt/dream/scripts/train-native-dream-gpu-container.sh
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
 volumes:
   dream_native_models:
     name: dream-native-model-cache
