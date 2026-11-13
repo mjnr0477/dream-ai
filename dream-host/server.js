@@ -127,7 +127,7 @@ const NOTEBOOK_STORAGE_PROVIDER = R2_CONFIGURED && ARTIFACT_STORAGE_CONFIGURED
   ? "cloudflare-r2"
   : (TEST_NOTEBOOK_STATE_ENABLED ? "test-memory" : "unavailable");
 const NOTEBOOK_QUEUE_STATE_KEY = "notebook/queue.json";
-const NOTEBOOK_QUEUE_STATE_MAX_BYTES = 4 * 1024 * 1024;
+const NOTEBOOK_QUEUE_STATE_MAX_BYTES = 16 * 1024 * 1024;
 const NOTEBOOK_STORAGE_MAX_BYTES = 900 * 1024;
 const NOTEBOOK_QUEUE = new NotebookQueue({
   maxQueue: process.env.DREAM_HOST_NOTEBOOK_MAX_QUEUE,
@@ -152,6 +152,7 @@ function mutateNotebookQueue(operation) {
   const run = notebookMutationChain.catch(() => {}).then(async () => {
     const before = NOTEBOOK_QUEUE.snapshot();
     const value = operation();
+    if (value === null || value === undefined) return value;
     try {
       await persistNotebookQueue();
       return value;
@@ -181,7 +182,7 @@ async function restoreNotebookQueue() {
     }));
   } else {
     await persistNotebookQueue();
-    console.log("DREAM_NOTEBOOK_PERSISTENCE_INITIALIZED", JSON.stringify({ provider: "cloudflare-r2" }));
+    console.log("DREAM_NOTEBOOK_PERSISTENCE_INITIALIZED", JSON.stringify({ provider: NOTEBOOK_STORAGE_PROVIDER }));
   }
 }
 
