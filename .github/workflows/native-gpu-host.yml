@@ -1,0 +1,54 @@
+name: DREAM native GPU host checks
+
+on:
+  push:
+    branches: [dream-native-gpu-host]
+  pull_request:
+    branches: [dream-host-runtime]
+
+jobs:
+  validate-native-gpu-host:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Check shell scripts
+        run: |
+          bash -n scripts/start-native-gpu-host.sh
+          bash -n scripts/train-native-dream-gpu.sh
+          bash -n scripts/train-native-dream-gpu-container.sh
+          bash -n scripts/publish-native-dream-checkpoint.sh
+
+      - name: Validate native GPU Compose contract
+        run: |
+          python -m pip install --disable-pip-version-check PyYAML
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+
+          path = Path("dream-host/compose.native-gpu.yml")
+          config = yaml.safe_load(path.read_text(encoding="utf-8"))
+          services = config["services"]
+          worker = services["dream-native-gpu-worker"]
+          trainer = services["dream-native-gpu-trainer"]
+
+          assert worker["restart"] == "unless-stopped"
+          assert worker["gpus"] == "all"
+          assert "dream_native_models:/var/lib/dream-ai/models" in worker["volumes"]
+          assert worker["read_only"] is True
+          assert not worker.get("ports")
+          assert trainer["profiles"] == ["training"]
+          assert trainer["gpus"] == "all"
+          assert "./training-state:/var/lib/dream-ai/training" in trainer["volumes"]
+          assert "./native-training-data:/data:ro" in trainer["volumes"]
+          assert trainer["restart"] == "no"
+          print("Native GPU worker and persistent training profile validated.")
+          PY
+
+      - name: Validate Compose interpolation and env-file references
+        run: |
+          cp dream-host/native-gpu.env.example dream-host/native-gpu.env
+          cp dream-host/native-training.env.example dream-host/native-training.env
+          docker compose --project-directory "$PWD/dream-host" -f "$PWD/dream-host/compose.native-gpu.yml" config --quiet
