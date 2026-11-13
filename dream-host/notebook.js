@@ -339,8 +339,8 @@
         el("worker-detail").textContent = device + " · " + (data.workers.busy || 0) + " busy · DREAM AI chat " + (chatReady ? "ready" : "offline");
         statusLabel("Notebook connected · AI chat " + (chatReady ? "ready" : "offline"), chatReady ? "online" : "warning");
       } else {
-        el("worker-detail").textContent = "No notebook compute worker is connected. DREAM AI chat runs on a separate model worker.";
-        statusLabel("Connected · waiting for compute", "warning");
+        el("worker-detail").textContent = "Notebook compute offline · DREAM AI chat " + (chatReady ? "ready" : "offline; separate model worker required");
+        statusLabel("Notebook offline · AI chat " + (chatReady ? "ready" : "offline"), chatReady ? "online" : "warning");
       }
       updateControls();
       return true;
