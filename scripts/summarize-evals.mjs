@@ -56,13 +56,21 @@ export function summarizeRows(rows) {
     "evaluationSource", "runId", "runStartedAt", "evaluationSet",
     "applicationOrigin", "applicationVersion", "runtimeProvider"
   ];
-  const hasNativeProvenance = rows.some(row =>
-    nativeProvenanceFields.some(field => row[field] !== undefined)
-  );
   const hasApplicationProvenance = rows.some(row =>
     row.evaluationSource !== undefined ||
     ["applicationOrigin", "applicationVersion", "runtimeProvider"].some(field => row[field] !== undefined)
   );
+  const nativeOnlyFields = [
+    "model", "checkpointSha256", "completedTrainingSteps", "runtimeDevice",
+    "runtimeParameters", "tokenizer", "runtimeArchitecture"
+  ];
+  const hasNativeSpecificProvenance = rows.some(row =>
+    nativeOnlyFields.some(field => row[field] !== undefined)
+  );
+  const hasNativeProvenance = hasNativeSpecificProvenance ||
+    (!hasApplicationProvenance && rows.some(row =>
+      nativeProvenanceFields.some(field => row[field] !== undefined)
+    ));
   if (hasNativeProvenance && hasApplicationProvenance) {
     throw new Error("Cannot combine native-model and full-application evaluation results.");
   }
