@@ -13,7 +13,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-NOTEBOOK = ROOT / "training" / "dream_ai_adapter_self_train_kaggle.ipynb"
+NOTEBOOK = ROOT / "training" / "dream_adapter_improvement_notebook.ipynb"
 REQUIRED_FILES = ("train.jsonl", "validation.jsonl", "manifest.json", "audit-gate.json")
 KERNEL_SLUG = "dream-ai-autonomous-adapter-training"
 
@@ -126,7 +126,7 @@ def build_kernel_metadata(username: str, dataset_id: str) -> dict:
     return {
         "id": f"{username.strip()}/{KERNEL_SLUG}",
         "title": "DREAM AI Autonomous Adapter Training",
-        "code_file": "dream_ai_adapter_self_train_kaggle.ipynb",
+        "code_file": "dream_adapter_improvement_notebook.ipynb",
         "language": "python",
         "kernel_type": "notebook",
         "is_private": "true",
@@ -139,12 +139,43 @@ def build_kernel_metadata(username: str, dataset_id: str) -> dict:
     }
 
 
-def configure_kaggle_credentials(username: str, key: str) -> None:
-    if not username.strip() or not key.strip():
-        raise ValueError("KAGGLE_USERNAME and KAGGLE_KEY GitHub Actions secrets are required.")
-    # Kaggle's current Settings page issues API tokens, not legacy username/key pairs.
-    # The current Kaggle CLI expects these in KAGGLE_API_TOKEN.
-    os.environ["KAGGLE_API_TOKEN"] = key.strip()
+def configure_kaggle_credentials(username: str, api_token: str) -> None:
+    if not username.strip() or not api_token.strip():
+        raise ValueError("KAGGLE_USERNAME and KAGGLE_API_TOKEN are required.")
+    os.environ["KAGGLE_API_TOKEN"] = api_token.strip()
+
+
+def classify_kernel_status(status: str) -> str:
+    """Fail closed when Kaggle reports a state the launcher cannot recognize."""
+    value = str(status or "").strip().lower()
+    if any(word in value for word in ("running", "queued", "initializing", "starting")):
+        return "active"
+    if any(word in value for word in ("complete", "succeeded", "success")):
+        return "complete"
+    if any(word in value for word in ("error", "failed", "cancelled", "canceled", "timed out")):
+        return "failed"
+    return "unknown"
+
+
+def get_kernel_status(kernel_id: str) -> str | None:
+    """Return None only for a confirmed missing kernel; propagate other API failures."""
+    probe = subprocess.run(
+        ["kaggle", "kernels", "status", kernel_id],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+    )
+    output = (probe.stdout or "").strip()
+    if probe.returncode == 0:
+        if not output:
+            raise RuntimeError("Kaggle returned an empty kernel status; refusing to launch.")
+        return output
+    if re.search(r"not found|does not exist|no such kernel|404", output, re.IGNORECASE):
+        return None
+    raise RuntimeError(
+        "Could not verify the existing Kaggle kernel status; refusing to submit a duplicate run. "
+        + (output[-1000:] if output else "Kaggle status request failed without details.")
+    )
 
 
 def run(command: list[str], *, capture: bool = False) -> subprocess.CompletedProcess[str]:
@@ -169,19 +200,29 @@ def run(command: list[str], *, capture: bool = False) -> subprocess.CompletedPro
         raise RuntimeError(message) from exc
 
 
-def launch() -> int:
+def launch(*, force_retry: bool = False) -> int:
     username = os.environ.get("KAGGLE_USERNAME", "").strip()
-    key = os.environ.get("KAGGLE_KEY", "").strip()
+    api_token = os.environ.get("KAGGLE_API_TOKEN", "").strip() or os.environ.get("KAGGLE_KEY", "").strip()
     dataset_id = os.environ.get("DREAM_AI_KAGGLE_DATASET", "").strip()
-    if not username or not key:
-        missing = [name for name, value in (("KAGGLE_USERNAME", username), ("KAGGLE_KEY", key)) if not value]
+    if not username or not api_token:
+        missing = []
+        if not username:
+            missing.append("KAGGLE_USERNAME")
+        if not api_token:
+            missing.append("KAGGLE_API_TOKEN")
         print("WAITING_FOR_SETUP: missing " + ", ".join(missing))
         print("No training was started and no model files were changed.")
+        write_step_summary(
+            "## DREAM AI automatic GPU training\n\n"
+            "**Status: WAITING FOR ONE-TIME SETUP**\n\n"
+            "Add GitHub repository secrets KAGGLE_USERNAME and KAGGLE_API_TOKEN. "
+            "No Kaggle job was submitted.\n"
+        )
         return 0
 
     if not NOTEBOOK.is_file():
         raise FileNotFoundError(f"Training notebook not found: {NOTEBOOK}")
-    configure_kaggle_credentials(username, key)
+    configure_kaggle_credentials(username, api_token)
 
     own_datasets = run(
         ["kaggle", "datasets", "list", "--mine", "--csv", "--page-size", "100"],
@@ -252,7 +293,7 @@ def launch() -> int:
     kernel_id = metadata["id"]
     with tempfile.TemporaryDirectory(prefix="dream-ai-kaggle-") as temp:
         workdir = Path(temp)
-        notebook_name = "dream_ai_adapter_self_train_kaggle.ipynb"
+        notebook_name = "dream_adapter_improvement_notebook.ipynb"
         (workdir / notebook_name).write_bytes(NOTEBOOK.read_bytes())
         (workdir / "kernel-metadata.json").write_text(
             json.dumps(metadata, indent=2) + "\n", encoding="utf-8"
@@ -261,28 +302,28 @@ def launch() -> int:
         # The current Kaggle CLI runs a notebook when it is first pushed.
         # Cell 1 checks HF_TOKEN before loading a model or starting training.
         # The owner can add that Kaggle Secret after this first registration run.
-        probe = subprocess.run(
-            ["kaggle", "kernels", "status", kernel_id],
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        )
-        if probe.returncode != 0:
+        status = get_kernel_status(kernel_id)
+        if status is None:
             print("CREATING_PRIVATE_KAGGLE_KERNEL")
             run([
                 "kaggle", "kernels", "push", "--path", str(workdir),
                 "--accelerator", "NvidiaTeslaT4", "--timeout", "3600",
             ])
-            print("ACTION_REQUIRED: open this Kaggle notebook and add Kaggle Secret HF_TOKEN.")
-            print("The initial run stops at the notebook token check if the secret is absent.")
-            print("Then rerun this GitHub workflow to start training.")
+            print("KAGGLE_TRAINING_LAUNCH: FIRST_RUN_SUBMITTED")
+            print("The private kernel reads HF_TOKEN and DREAM_NOTEBOOK_ARTIFACT_TOKEN from Kaggle Secrets.")
             return 0
 
-        status = probe.stdout.strip()
+        status_class = classify_kernel_status(status)
         print("KAGGLE_KERNEL_STATUS:", status)
-        if re.search(r"running|queued|initializing", status, flags=re.IGNORECASE):
-            print("SKIPPED: this Kaggle kernel is already active.")
+        if status_class == "active":
+            print("SKIPPED: the Kaggle GPU kernel is already active.")
             return 0
+        if status_class == "failed" and not force_retry:
+            print("AUTOMATIC_RETRY_PAUSED: the last Kaggle run failed or was cancelled.")
+            print("Review the private Kaggle run logs, fix the cause, then manually dispatch with force_retry=true.")
+            return 0
+        if status_class == "unknown":
+            raise RuntimeError("Kaggle returned an unrecognized kernel status; refusing to burn GPU quota.")
 
         print("DATASET_PREFLIGHT: PASSED")
         print("KAGGLE_KERNEL: private training notebook selected; identifier omitted from public logs.")
@@ -299,11 +340,17 @@ def launch() -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="test helper logic without Kaggle credentials")
+    parser.add_argument("--force-retry", action="store_true", help="retry a failed Kaggle run after human review")
     args = parser.parse_args()
     if args.check:
         metadata = build_kernel_metadata("test-user", "test-user/test-dataset")
         assert metadata["is_private"] == "true"
         assert metadata["dataset_sources"] == ["test-user/test-dataset"]
+        assert metadata["code_file"] == "dream_adapter_improvement_notebook.ipynb"
+        assert classify_kernel_status("KernelWorkerStatus.RUNNING") == "active"
+        assert classify_kernel_status("KernelWorkerStatus.COMPLETE") == "complete"
+        assert classify_kernel_status("KernelWorkerStatus.ERROR") == "failed"
+        assert classify_kernel_status("some-new-status") == "unknown"
         sample = (
             "name,size\ntrain.jsonl,10\nvalidation.jsonl,10\n"
             "manifest.json,10\naudit-gate.json,10\n"
@@ -347,7 +394,7 @@ def main() -> int:
         print("LAUNCHER SELF-CHECK: PASSED")
         return 0
     try:
-        return launch()
+        return launch(force_retry=args.force_retry)
     except (OSError, ValueError, RuntimeError, subprocess.CalledProcessError) as exc:
         print(f"AUTONOMOUS_LAUNCH_BLOCKED: {exc}", file=sys.stderr)
         return 1
