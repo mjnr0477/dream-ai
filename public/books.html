@@ -4,49 +4,134 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#080b14">
-<meta name="description" content="Explore books connected to DREAM AI. Find titles on Amazon and support independent publishing.">
-<title>DREAM AI Books</title>
+<meta name="description" content="Discover books by Mathias Simiyu. Browse every title and continue to Amazon for available editions and checkout.">
+<meta name="robots" content="index,follow">
+<title>Subscribe & Books · DREAM AI</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 :root{color-scheme:dark;font-family:"DM Sans",sans-serif;background:#080b14;color:#edf1fb}
-*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% 0%,#1b2540 0,transparent 52%),#080b14}
-main{width:min(960px,calc(100% - 32px));margin:0 auto;padding:30px 0 64px}
-header{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:52px}
-.brand{font:700 18px "Space Grotesk",sans-serif;letter-spacing:.04em;color:#f5f3ff;text-decoration:none}.brand span{color:#a994ff}
-a{color:inherit}.back{color:#b8c3d8;text-decoration:none;font-size:13px}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% 0%,#1b2540 0,transparent 52%),#080b14}
+a{color:inherit}
+main{width:min(1060px,calc(100% - 32px));margin:0 auto;padding:24px 0 56px}
+header{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:48px}
+.brand{font:700 18px "Space Grotesk",sans-serif;letter-spacing:.04em;color:#f5f3ff;text-decoration:none}
+.brand span{color:#a994ff}
+.header-actions{display:flex;align-items:center;gap:15px}
+.back{color:#b8c3d8;text-decoration:none;font-size:12px}
 .eyebrow{font-size:10px;letter-spacing:.2em;color:#a994ff;font-weight:700}
 h1{font:600 clamp(34px,7vw,58px)/1.05 "Space Grotesk",sans-serif;letter-spacing:-.045em;margin:12px 0}
-.lead{color:#aab5c9;max-width:620px;line-height:1.7;font-size:14px}
-.actions{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0 34px}
+h1 span{color:#b6a8ff}
+.lead{color:#aab5c9;max-width:670px;line-height:1.7;font-size:14px}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0 28px}
 .action{display:inline-flex;align-items:center;justify-content:center;padding:11px 16px;border-radius:10px;text-decoration:none;font-weight:700;font-size:12px;background:#a994ff;color:#111322}
 .action.secondary{background:#151d2e;border:1px solid #303c55;color:#e6eaf5}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:22px}
-.book{padding:19px;border:1px solid #27334b;border-radius:15px;background:linear-gradient(145deg,#151d2e,#0e1422);display:flex;flex-direction:column;min-height:190px}
-.book h2{font:600 19px "Space Grotesk",sans-serif;margin:0 0 9px}.book p{font-size:12px;line-height:1.6;color:#9eabc1;margin:0 0 15px}
-.book a{margin-top:auto;text-decoration:none;color:#c5b8ff;font-size:12px;font-weight:700}
-.note{margin-top:28px;padding:15px;border-left:2px solid #8d7bea;background:#111827;color:#9eabc1;font-size:11px;line-height:1.6}
-footer{margin-top:35px;color:#71809a;font-size:11px}
-@media(max-width:520px){header{margin-bottom:38px}.book{min-height:160px}}
+.catalogue-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:26px 0 12px}
+.catalogue-bar h2{margin:0;font:600 18px "Space Grotesk",sans-serif}
+.count{color:#8391a8;font-size:11px}
+.search{width:100%;max-width:330px;min-height:40px;padding:9px 12px;border:1px solid #303d57;border-radius:10px;background:#101827;color:#edf1fb;font:inherit;font-size:12px}
+.search::placeholder{color:#73819a}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;margin-top:14px}
+.book{padding:17px;border:1px solid #27334b;border-radius:14px;background:linear-gradient(145deg,#151d2e,#0e1422);display:flex;flex-direction:column;min-height:142px;transition:transform .15s ease,border-color .15s ease}
+.book:hover{transform:translateY(-2px);border-color:#766bb0}
+.book h3{font:600 16px/1.35 "Space Grotesk",sans-serif;margin:0 0 8px;color:#f2f3fb}
+.book p{font-size:11px;line-height:1.55;color:#91a0b8;margin:0 0 14px}
+.book a{margin-top:auto;align-self:flex-start;text-decoration:none;color:#c5b8ff;font-size:11px;font-weight:700}
+.book a:hover{text-decoration:underline}
+.empty{display:none;grid-column:1/-1;padding:22px;border:1px dashed #35425c;border-radius:12px;color:#95a3ba;text-align:center;font-size:12px}
+.note{margin-top:25px;padding:14px 16px;border-left:2px solid #8d7bea;background:#111827;color:#9eabc1;font-size:11px;line-height:1.65}
+footer{margin-top:26px;color:#71809a;font-size:10px;line-height:1.6}
+@media(max-width:620px){
+ main{padding-top:17px}
+ header{margin-bottom:34px}
+ .header-actions{gap:10px}
+ .back{font-size:11px}
+ .catalogue-bar{align-items:stretch;flex-direction:column}
+ .search{max-width:none}
+ .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ .book{padding:13px;min-height:145px}
+ .book h3{font-size:14px}
+}
+@media(max-width:380px){.grid{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.book{transition:none}.book:hover{transform:none}}
 </style>
 </head>
-<body><main>
-<header><a class="brand" href="/">DREAM<span> AI</span></a><a class="back" href="/">← Back to DREAM AI</a></header>
-<section>
-<p class="eyebrow">DREAM AI · BOOKS</p>
-<h1>Choose a book.<br><span style="color:#b6a8ff">Buy on Amazon.</span></h1>
-<p class="lead">Tap a title, then tap <strong>Buy on Amazon</strong>. Amazon opens the book page or a title search so readers can choose an available edition, check the price and complete their purchase securely on Amazon.</p>
-<div class="actions">
-<a class="action" href="https://www.amazon.com/s?k=Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Buy / browse all books on Amazon ↗</a>
-</div>
+<body>
+<main>
+<header>
+  <a class="brand" href="/" aria-label="DREAM AI home">DREAM<span> AI</span></a>
+  <nav class="header-actions" aria-label="Page navigation">
+    <a class="back" href="https://www.amazon.com/author/mathiassimiyu" target="_blank" rel="noopener noreferrer">Amazon Author Page ↗</a>
+    <a class="back" href="/">← Back to DREAM AI</a>
+  </nav>
+</header>
+<section aria-labelledby="page-title">
+  <p class="eyebrow">DREAM AI · SUBSCRIBE & BOOKS</p>
+  <h1 id="page-title">Explore the books.<br><span>Buy on Amazon.</span></h1>
+  <p class="lead">Discover books by Mathias Simiyu. Choose a title to open its Amazon Books search, check the available edition and price, and complete your purchase securely on Amazon.</p>
+  <div class="actions">
+    <a class="action" href="https://www.amazon.com/author/mathiassimiyu" target="_blank" rel="noopener noreferrer">Browse Mathias Simiyu on Amazon ↗</a>
+    <a class="action secondary" href="https://www.amazon.com/s?k=Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Search all books on Amazon ↗</a>
+  </div>
 </section>
-<section class="grid" aria-label="Books">
-<article class="book"><h2>Break the Chain</h2><p>Open the Amazon listing using the ASIN supplied.</p><a href="https://www.amazon.com/dp/B0FQXVD7N10" target="_blank" rel="noopener noreferrer">Buy on Amazon ↗</a></article>
-<article class="book"><h2>Fulfill Your Purpose</h2><p>ISBN 9798233517723 · Search Amazon editions.</p><a href="https://www.amazon.com/s?k=Fulfill+Your+Purpose+9798233517723" target="_blank" rel="noopener noreferrer">Buy on Amazon ↗</a></article>
-<article class="book"><h2>Brain Code Patternode</h2><p>ISBN 9798233746963 · Search Amazon editions.</p><a href="https://www.amazon.com/s?k=Brain+Code+Patternode+9798233746963" target="_blank" rel="noopener noreferrer">Buy on Amazon ↗</a></article>
-<article class="book"><h2>Stay Awake</h2><p>Find available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Stay+Awake+Mathias+Simiyu" target="_blank" rel="noopener noreferrer">Buy on Amazon ↗</a></article>
-<article class="book"><h2>Money</h2><p>Find available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Money+Mathias+Simiyu" target="_blank" rel="noopener noreferrer">Buy on Amazon ↗</a></article>
+<section aria-labelledby="catalogue-title">
+  <div class="catalogue-bar">
+    <div><h2 id="catalogue-title">The book collection</h2><span class="count" id="book-count" aria-live="polite">23 titles</span></div>
+    <label class="sr-only" for="book-search" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">Search titles</label>
+    <input class="search" id="book-search" type="search" placeholder="Search these titles…" autocomplete="off">
+  </div>
+  <div class="grid" id="book-grid">
+    <article class="book" data-title="The Architecture of Human Nature"><h3>The Architecture of Human Nature</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=The+Architecture+of+Human+Nature+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
+    <article class="book" data-title="Men Resist Death"><h3>Men Resist Death</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Men+Resist+Death+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
+    <article class="book" data-title="Beyond Dimensions"><h3>Beyond Dimensions</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Beyond+Dimensions+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
+    <article class="book" data-title="New World"><h3>New World</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=New+World+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
+    <article class="book" data-title="Break the Chain"><h3>Break the Chain</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Break+the+Chain+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
+    <article class="book" data-title="Humanity Outweigh Materialism"><h3>Humanity Outweigh Materialism</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Humanity+Outweigh+Materialism+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
+    <article class="book" data-title="Money"><h3>Money</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Money+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
+    <article class="book" data-title="Before You Call Her Wife"><h3>Before You Call Her Wife</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Before+You+Call+Her+Wife+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
+    <article class="book" data-title="The Environment Shape You"><h3>The Environment Shape You</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=The+Environment+Shape+You+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
+    <article class="book" data-title="Stay Awake"><h3>Stay Awake</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Stay+Awake+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
+    <article class="book" data-title="Fulfill Your Purpose"><h3>Fulfill Your Purpose</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Fulfill+Your+Purpose+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
+    <article class="book" data-title="Seduction"><h3>Seduction</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Seduction+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
+    <article class="book" data-title="Brain Code Patternode"><h3>Brain Code Patternode</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Brain+Code+Patternode+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
+    <article class="book" data-title="The Naked Species"><h3>The Naked Species</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=The+Naked+Species+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
+    <article class="book" data-title="Optional Death"><h3>Optional Death</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Optional+Death+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
+    <article class="book" data-title="Love Triangle"><h3>Love Triangle</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Love+Triangle+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
+    <article class="book" data-title="Silent Master"><h3>Silent Master</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Silent+Master+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
+    <article class="book" data-title="Beyond Labels"><h3>Beyond Labels</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Beyond+Labels+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
+    <article class="book" data-title="Won In Mind"><h3>Won In Mind</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Won+In+Mind+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
+    <article class="book" data-title="Last Book"><h3>Last Book</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Last+Book+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
+    <article class="book" data-title="Fast, Easy, Simple And First Million Dollars"><h3>Fast, Easy, Simple And First Million Dollars</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Fast+Easy+Simple+And+First+Million+Dollars+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
+    <article class="book" data-title="Education Is Not The Key"><h3>Education Is Not The Key</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Education+Is+Not+The+Key+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
+    <article class="book" data-title="Football"><h3>Football</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Football+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
+    <p class="empty" id="empty-state">No titles match your search.</p>
+  </div>
 </section>
-<p class="note">Amazon handles product listings, prices, editions, regional availability and checkout. Break the Chain opens the ASIN you supplied. Other titles open Amazon searches using their titles and, where known, ISBNs; if a result is missing, the exact product page or marketplace listing still needs confirmation.</p>
-<footer>Amazon handles all purchases, subscriptions and payments. DREAM AI does not collect book payment details.</footer>
-</main></body></html>
+<p class="note">Every book link on this page stays on Amazon. Amazon controls the editions, availability, prices, delivery options and checkout. A title opens an Amazon Books search so readers can choose the correct available edition; the Amazon Author Page is also linked above.</p>
+<footer>This is the books section reached from DREAM AI's Subscribe link. It is not an in-app book checkout or a paid DREAM AI subscription. All book purchases are completed on Amazon; DREAM AI does not collect payment details.</footer>
+</main>
+<script>
+(() => {
+  const search = document.querySelector("#book-search");
+  const cards = [...document.querySelectorAll(".book")];
+  const count = document.querySelector("#book-count");
+  const empty = document.querySelector("#empty-state");
+  if (!search || !count || !empty) return;
+  function filterBooks() {
+    const term = search.value.trim().toLocaleLowerCase();
+    let visible = 0;
+    for (const card of cards) {
+      const match = card.dataset.title.toLocaleLowerCase().includes(term);
+      card.hidden = !match;
+      if (match) visible += 1;
+    }
+    count.textContent = term ? visible + " of " + cards.length + " titles" : cards.length + " titles";
+    empty.style.display = visible ? "none" : "block";
+  }
+  search.addEventListener("input", filterBooks);
+})();
+</script>
+</body>
+</html>
