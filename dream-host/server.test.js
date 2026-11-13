@@ -79,13 +79,14 @@ test("DREAM HOST validates workers and delivers a real queued chat completion", 
   assert.match(notebookHtml, /Load native DREAM training/);
   assert.match(notebookHtml, /Improve existing Qwen adapter/);
   assert.match(notebookHtml, /Get Kaggle GPU connector/);
-  assert.match(notebookHtml, /Get AI \\+ notebook GPU connector/);
+  assert.match(notebookHtml, /Get AI \+ notebook GPU connector/);
   assert.match(notebookPage.headers.get("content-security-policy"), /script-src 'self'/);
 
   const notebookScript = await fetch(baseUrl + "/notebook.js");
   assert.equal(notebookScript.status, 200);
   assert.match(notebookScript.headers.get("content-type"), /javascript/);
   assert.match(await notebookScript.text(), /indexedDB/);
+  assert.match(await notebookScript.text(), /DREAM AI chat/);
 
   const notebookStyle = await fetch(baseUrl + "/notebook.css");
   assert.equal(notebookStyle.status, 200);
