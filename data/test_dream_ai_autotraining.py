@@ -19,6 +19,7 @@ from prepare_dream_ai_autotraining import eligible_rows
 from audit_corpus import audit
 from verify_dream_ai_sft_audits import verify_audit_reports
 from review_candidates import candidate_problem
+from dream_ai_supabase_guard import validate_dream_ai_supabase_url
 
 REVIEW_FLAGS = (
     "rights_confirmed",
@@ -62,6 +63,38 @@ def fake_rows():
             },
         })
     return rows
+
+
+class DreamSupabaseBoundaryTests(unittest.TestCase):
+    def test_accepts_and_normalizes_a_dedicated_project_url(self):
+        self.assertEqual(
+            validate_dream_ai_supabase_url(" https://dream-ai-learning.supabase.co/ "),
+            "https://dream-ai-learning.supabase.co",
+        )
+
+    def test_rejects_known_other_product_projects(self):
+        for project_ref in (
+            "ldpcawixzxcolbmakrfc",
+            "lzmrvalonsxtapigtjcx",
+        ):
+            with self.subTest(project_ref=project_ref):
+                with self.assertRaisesRegex(ValueError, "non-DREAM"):
+                    validate_dream_ai_supabase_url(
+                        f"https://{project_ref}.supabase.co"
+                    )
+
+    def test_rejects_non_project_or_ambiguous_urls(self):
+        for value in (
+            "http://dream-ai-learning.supabase.co",
+            "https://dream-ai-learning.supabase.co.attacker.example",
+            "https://user:password@dream-ai-learning.supabase.co",
+            "https://dream-ai-learning.supabase.co:443",
+            "https://dream-ai-learning.supabase.co/rest/v1",
+            "https://dream-ai-learning.supabase.co?apikey=secret",
+        ):
+            with self.subTest(value=value):
+                with self.assertRaises(ValueError):
+                    validate_dream_ai_supabase_url(value)
 
 
 class DreamAutoTrainingTests(unittest.TestCase):
