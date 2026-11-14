@@ -1,4 +1,4 @@
-name: DREAM AI legacy training trigger (retired)
+name: DREAM AI legacy adapter training trigger (retired)
 
 on:
   workflow_dispatch:
@@ -10,8 +10,8 @@ jobs:
   retired:
     runs-on: ubuntu-latest
     steps:
-      - name: Explain the replacement workflow
+      - name: Explain retirement
         run: |
-          echo "This legacy launcher has been retired to prevent duplicate adapter-training jobs."
-          echo "Use the DREAM AI autonomous adapter training workflow instead."
+          echo "This legacy adapter-training trigger is retired."
+          echo "It does not install external CLIs, access remote training stores, or submit GPU jobs."
           echo "No training was started and no model files were changed."
