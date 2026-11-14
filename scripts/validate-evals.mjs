@@ -16,7 +16,18 @@ for (const [index, line] of rows.entries()) {
     !item ||
     typeof item.id !== "string" ||
     typeof item.category !== "string" ||
-    typeof item.prompt !== "string" ||
+    (Object.hasOwn(item, "prompt") === Object.hasOwn(item, "messages")) ||
+    (Object.hasOwn(item, "prompt") &&
+      (typeof item.prompt !== "string" || !item.prompt.trim() || item.prompt.length > 8000)) ||
+    (Object.hasOwn(item, "messages") &&
+      (!Array.isArray(item.messages) ||
+       item.messages.length < 3 || item.messages.length > 15 || item.messages.length % 2 !== 1 ||
+       item.messages.some((message, messageIndex) =>
+         !message ||
+         message.role !== (messageIndex % 2 === 0 ? "user" : "assistant") ||
+         typeof message.content !== "string" ||
+         !message.content.trim() ||
+         message.content.length > 8000))) ||
     !Array.isArray(item.rubric) ||
     item.rubric.length < 1 ||
     item.rubric.some(point => typeof point !== "string" || !point.trim()) ||
