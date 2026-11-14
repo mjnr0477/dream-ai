@@ -1,32 +1,9 @@
-# DREAM AI — automatic GPU training
+# DREAM AI autonomous adapter training — retired
 
-## What runs automatically
+The scheduled adapter-training workflow has been retired. It no longer launches third-party GPU jobs, uploads training data to an external model repository, or modifies adapter candidates.
 
-- GitHub Actions checks the private Kaggle training kernel once per day (09:15 East Africa time).
-- If the previous run is queued or running, it does not submit another GPU job.
-- If the previous run completed, the next scheduled run submits another bounded adapter-improvement cycle.
-- If a run failed or was cancelled, automatic retries pause. Review the private Kaggle logs, fix the cause, then manually dispatch the workflow with `force_retry=true`.
-- Each scheduled cycle allows up to 60 minutes of optimizer training and up to 120 minutes for the complete Kaggle run, including model loading, evaluation and verified R2 checkpoint upload. The notebook restores the matching adapter, optimizer and RNG progress from DREAM HOST's private R2 vault, verifies hashes, then saves a new resumable checkpoint and candidate.
-- The live chat adapter is not overwritten. Candidates require review and are never promoted automatically.
+No training is currently being performed by this workflow. The last preflight stopped before training because the dedicated DREAM AI data source and required compute credentials were not available.
 
-Training only starts when the private Kaggle account dataset contains exactly one `train.jsonl`, `validation.jsonl`, `manifest.json` and `audit-gate.json`, and the notebook's consent, rights, privacy, human-review and evaluation checks pass.
+Do not re-enable this schedule by adding provider tokens. A future training implementation must use the native DREAM architecture on a verified operator-controlled GPU, read only human-approved records, enforce one total session budget of at most five minutes, preserve optimizer/RNG checkpoints on persistent storage, and keep all outputs candidate-only.
 
-## One-time credentials
-
-Add these as **GitHub repository Actions secrets** in `mjnr0477/dream-ai`:
-
-- `KAGGLE_USERNAME`: the Kaggle account username.
-- `KAGGLE_API_TOKEN`: a current Kaggle API token from https://www.kaggle.com/settings/api.
-
-The private Kaggle notebook must also have these Kaggle Secrets configured once, before its first GPU run:
-
-- `HF_TOKEN`: access to the private DREAM adapter repository.
-- `DREAM_NOTEBOOK_ARTIFACT_TOKEN`: access to the private DREAM HOST R2 artifact vault.
-
-Do not put tokens in the repository, notebook source, workflow YAML or chat.
-
-## Limits
-
-This is automatic and resumable, not a permanently running free GPU. The scheduled controller talks directly to Kaggle's API; it does not require the interactive DREAM NOTEBOOK page or its browser connector to remain open. Kaggle controls free GPU availability and enforces quota and session limits. The permanent assets are the private training data, verified R2 checkpoints, optimizer/RNG state, candidate history and scheduler. When Kaggle stops a session, a later scheduled run can restore the last checkpoint that finished uploading.
-
-GitHub scheduled workflows run from the repository's default branch. GitHub may disable scheduled workflows in a public repository after 60 days without repository activity, so the schedule needs occasional activity or re-enabling in Actions.
+The previous adapter and any existing checkpoints remain untouched. A successful GitHub Actions workflow or synthetic CI smoke test is not evidence that DREAM has trained or improved.

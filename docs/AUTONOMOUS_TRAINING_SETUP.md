@@ -1,34 +1,28 @@
-# DREAM AI autonomous training trigger
+# DREAM AI automated training — retired
 
-This workflow checks once per day and can submit the existing reviewed adapter-training notebook to Kaggle. It does not run a permanent GPU worker: Kaggle starts a bounded notebook job when GPU quota is available. The notebook's existing four-minute optimizer budget, v3 contributor-consent checks, exact dataset hashes and candidate-only uploads remain in force. The production adapter is never overwritten or automatically promoted.
+**Status as of 2026-11-14: no scheduled third-party training workflow is active.**
 
-## One-time GitHub configuration
+The previous scheduled adapter-training triggers have been retired. They depended on external GPU accounts and private model-store credentials, and did not provide a permanent, owner-controlled DREAM runtime.
 
-In the `mjnr0477/dream-ai` repository, open **Settings → Secrets and variables → Actions** and add these repository secrets:
+The latest preflight checks confirmed that:
+- the Kaggle launcher stopped because its API token was not configured; no GPU job was submitted;
+- the adapter-training workflow skipped data preparation because a dedicated DREAM AI Supabase project was not configured;
+- no active Hugging Face Jobs were present;
+- the connected Supabase account did not contain a dedicated DREAM AI project.
 
-- `KAGGLE_USERNAME`: your Kaggle username.
-- `KAGGLE_KEY`: your Kaggle API key. Generate it in Kaggle account settings and keep it private.
+These checks did not read or reuse the Mariona, Dream Education, or Teacher databases. Do not configure another application's URL or service-role key for DREAM AI.
 
-You normally do **not** need to set a dataset variable. The launcher searches datasets owned by your authenticated Kaggle account, filters for private datasets, and selects the only one containing exactly one each of `train.jsonl`, `validation.jsonl`, `manifest.json` and `audit-gate.json`. It stops if none or more than one matching dataset exists.
+## Current training policy
 
-Only when more than one matching private dataset exists, add this optional repository variable:
+Do not restore a scheduled external-provider workflow as a workaround. Training may resume only when all of the following are true:
 
-- `DREAM_AI_KAGGLE_DATASET`: the exact private Kaggle Dataset ID in `owner/dataset-slug` form.
+1. A genuinely connected, operator-controlled CUDA GPU is verified at runtime.
+2. The exact pretraining and/or SFT corpus has passed human rights/licensing, privacy, quality and training-consent review.
+3. Source-group-isolated train, validation and held-out test splits are bound to complete manifests and audit hashes.
+4. A single session-wide time budget limits all training stages to no more than five minutes.
+5. Checkpoints preserve optimizer and RNG state on persistent storage, and candidate outputs remain separate from production.
+6. Checkpoint integrity, held-out evaluation and independent release review pass before any candidate is promoted.
 
-The dataset must have passed DREAM's human review/audit pipeline. Do not upload raw conversations, account identifiers, passwords, API keys or unreviewed contributions.
+The native DREAM trainers are in `model/train.py` and `model/sft.py`. Their individual `--max-seconds` flags are not, by themselves, a shared session-wide budget. A bounded native session controller and a verified persistent GPU host are still required before unattended training can be enabled.
 
-## One-time Kaggle setup
-
-The first workflow run creates the private Kaggle notebook and submits its first run. If `HF_TOKEN` is not yet attached, the notebook stops at its initial token check before loading the model or training. Open **DREAM AI Autonomous Adapter Training** in Kaggle, then use **Add-ons → Secrets** to add `HF_TOKEN` with a Hugging Face token that can write to the private `msjnr0477/dream-ai-adapter` repository. Kaggle's CLI does not expose secret creation, so this one-time step must be done in Kaggle's UI.
-
-After adding the secret, run the workflow once from **GitHub → Actions → DREAM AI autonomous training trigger → Run workflow**. Later daily runs will submit the notebook automatically when the dataset and credentials are available.
-
-## What it does and does not do
-
-- Missing Kaggle credentials or no eligible private dataset: exits safely without starting training.
-- Missing or duplicate required dataset files: blocks the run.
-- Existing Kaggle run still active: skips launching a second one.
-- Successful notebook run: stores a new candidate under `candidates/` and training progress separately in the private Hugging Face repository.
-- Production: unchanged. Candidate promotion remains a separate release decision after broad independent evaluation.
-
-This is scheduled job orchestration, not continuous 24/7 GPU training. Kaggle quotas and GPU availability remain platform-controlled. The workflow must not be used to bypass the dataset's approval gates.
+CI's tiny synthetic CPU pretraining/SFT smoke tests verify code paths only. They are not real model training and must not be reported as GPU progress.
