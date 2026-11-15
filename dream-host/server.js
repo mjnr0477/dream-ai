@@ -11,6 +11,7 @@ import {
   S3Client
 } from "@aws-sdk/client-s3";
 import { NotebookQueue } from "./notebook-core.js";
+import { resolveRuntimeStatus } from "./runtime-status.js";
 import { getArtifact, listArtifacts, putArtifact } from "./artifact-store.js";
 import { createR2ArtifactStore } from "./r2-artifact-store.js";
 import { createR2StateStore } from "./r2-state-store.js";
@@ -500,8 +501,14 @@ function statusSnapshot() {
   const notebook = NOTEBOOK_QUEUE.status();
   const notebookComputeOnline = notebook.workers.connected > 0;
   const activeWorker = ready.find(worker => typeof worker.metadata?.device === "string");
-  const notebookDevice = notebook.workers.devices.find(item => typeof item.device === "string")?.device || null;
-  const modelReady = ready.length > 0 || (NOTEBOOK_CHAT_WARMUP_ENABLED && NOTEBOOK_CHAT_MODEL_READY && notebookComputeOnline);
+  const runtimeStatus = resolveRuntimeStatus({
+    readyWorkerCount: ready.length,
+    notebookComputeOnline,
+    notebookChatWarmupEnabled: NOTEBOOK_CHAT_WARMUP_ENABLED,
+    notebookChatModelReady: NOTEBOOK_CHAT_MODEL_READY,
+    activeWorkerDevice: activeWorker?.metadata?.device,
+    notebookChatModelDevice: NOTEBOOK_CHAT_MODEL_DEVICE
+  });
   const warmup = NOTEBOOK_CHAT_WARMUP_JOB_ID
     ? NOTEBOOK_QUEUE.getJob(NOTEBOOK_CHAT_WARMUP_JOB_ID)
     : null;
@@ -511,15 +518,15 @@ function statusSnapshot() {
     version: HOST_VERSION,
     ok: true,
     modelConfigured: true,
-    modelReady,
-    chatAvailable: ready.length > 0 || (NOTEBOOK_CHAT_WARMUP_ENABLED && notebookComputeOnline),
+    modelReady: runtimeStatus.modelReady,
+    chatAvailable: runtimeStatus.chatAvailable,
     notebookChatWarmupEnabled: NOTEBOOK_CHAT_WARMUP_ENABLED,
     modelLoading,
     modelError: NOTEBOOK_CHAT_MODEL_ERROR || null,
     model: MODEL_NAME,
     adapter: ADAPTER_NAME,
-    modelRuntime: ready.length > 0 ? "gpu-worker" : (NOTEBOOK_CHAT_WARMUP_ENABLED && notebookComputeOnline ? "dream-notebook" : "offline"),
-    device: activeWorker?.metadata?.device || (NOTEBOOK_CHAT_WARMUP_ENABLED && NOTEBOOK_CHAT_MODEL_READY ? NOTEBOOK_CHAT_MODEL_DEVICE : null) || (ready.length > 0 ? notebookDevice : null),
+    modelRuntime: runtimeStatus.modelRuntime,
+    device: runtimeStatus.device,
     uptimeSeconds: Math.max(0, Math.floor((Date.now() - STARTED_AT) / 1000)),
     persistence: "in-memory",
     notebookPersistence: NOTEBOOK_STORAGE_PROVIDER,
