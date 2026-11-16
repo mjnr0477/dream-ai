@@ -136,7 +136,7 @@ test("Google News RSS returns dated headlines, publisher names and report excerp
   assert.equal(news.title, "Kenya technology update");
   assert.equal(news.url, "https://news.google.com/rss/articles/CBMiPlatformNewsTest");
   assert.equal(news.publisher, "Example Publisher");
-  assert.equal(news.publishedAt, publishedAt.toISOString());
+  assert.equal(news.publishedAt, new Date(Math.floor(publishedAt.getTime() / 1000) * 1000).toISOString());
   assert.equal(news.snippet, "Publisher: Example Publisher — Details from the report & the published announcement.");
 });
 
