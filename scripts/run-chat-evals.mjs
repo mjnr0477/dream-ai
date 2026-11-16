@@ -51,8 +51,26 @@ function validateCases(cases) {
     if (typeof item.category !== "string" || !item.category.trim()) {
       throw new Error("Missing category for " + item.id);
     }
-    if (typeof item.prompt !== "string" || !item.prompt.trim() || item.prompt.length > 8000) {
+    const hasPrompt = Object.hasOwn(item, "prompt");
+    const hasMessages = Object.hasOwn(item, "messages");
+    if (hasPrompt === hasMessages) {
+      throw new Error("Evaluation case must contain either prompt or messages for " + item.id);
+    }
+    if (hasPrompt && (typeof item.prompt !== "string" || !item.prompt.trim() || item.prompt.length > 8000)) {
       throw new Error("Invalid prompt for " + item.id);
+    }
+    if (hasMessages) {
+      const messages = item.messages;
+      if (!Array.isArray(messages) || messages.length < 3 || messages.length > 15 || messages.length % 2 !== 1) {
+        throw new Error("Invalid multi-turn message count for " + item.id);
+      }
+      for (const [messageIndex, message] of messages.entries()) {
+        const expectedRole = messageIndex % 2 === 0 ? "user" : "assistant";
+        if (!message || message.role !== expectedRole ||
+            typeof message.content !== "string" || !message.content.trim() || message.content.length > 8000) {
+          throw new Error("Invalid multi-turn message sequence for " + item.id);
+        }
+      }
     }
     if (!Array.isArray(item.rubric) || item.rubric.length === 0 ||
         item.rubric.some(point => typeof point !== "string" || !point.trim())) {
@@ -145,6 +163,9 @@ export async function runChatEvaluations({
   const results = [];
 
   for (const item of selected) {
+    const conversation = item.messages
+      ? item.messages.map(message => ({ role: message.role, content: message.content }))
+      : [{ role: "user", content: item.prompt }];
     let response;
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt += 1) {
       const started = Date.now();
@@ -154,7 +175,7 @@ export async function runChatEvaluations({
           headers: { "content-type": "application/json", accept: "application/json" },
           body: JSON.stringify({
             mode: modeForEvaluationCategory(item.category),
-            messages: [{ role: "user", content: item.prompt }]
+            messages: conversation
           }),
           signal: AbortSignal.timeout(timeoutMs)
         });
@@ -191,7 +212,8 @@ export async function runChatEvaluations({
         category: item.category,
         language: item.language ?? null,
         mode: modeForEvaluationCategory(item.category),
-        prompt: item.prompt,
+        prompt: conversation.filter(message => message.role === "user").at(-1).content,
+        messages: conversation,
         rubric: item.rubric,
         output: payload.reply.trim(),
         source: payload.source || null,

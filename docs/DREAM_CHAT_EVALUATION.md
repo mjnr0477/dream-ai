@@ -10,7 +10,7 @@ Use `scripts/run-chat-evals.mjs` when measuring what a user actually receives. I
 DREAM_APP_URL=https://dream-ai-live.onrender.com DREAM_EVAL_LIMIT=12 npm run eval:chat
 ```
 
-The evaluator defaults to 12 cases, selected round-robin across categories before taking second examples, and waits 3.5 seconds between cases. Increase the limit after the first pass. The core set currently contains 79 cases across 32 categories, including everyday assistance, health information, Kenyan legal information, business, relationships, careers, controversial-but-safe analysis, coding, research and 14 multilingual groups. Run the full set with `DREAM_EVAL_LIMIT=100`.
+The evaluator defaults to 12 cases, selected round-robin across categories before taking second examples, and waits 3.5 seconds between cases. Increase the limit after the first pass. The core set currently contains 80 cases across 32 categories, including everyday assistance, health information, Kenyan legal information, business, relationships, careers, controversial-but-safe analysis, coding, research and 14 multilingual groups. Run the full set with `DREAM_EVAL_LIMIT=100`.
 
 ## African and multilingual pass
 
@@ -22,6 +22,12 @@ Optional controls:
 
 - `DREAM_EVAL_PAUSE_MS`: delay between calls; default 3500, range 0–10000.
 - `DREAM_EVAL_TIMEOUT_MS`: per-request timeout; default 90000, range 1000–120000.
+
+## Multi-turn coverage
+
+A case may contain either a single `prompt` or a synthetic `messages` transcript. Multi-turn transcripts must alternate user and assistant messages, start and end with a user message, and contain at most 15 messages. Both the full-application and direct-model evaluators send the complete transcript and retain it in the unscored result so reviewers can inspect whether DREAM preserved earlier constraints.
+
+The core set includes a multi-turn context-following case. These transcripts are authored benchmark fixtures, not private user conversations, and must never be copied into training data.
 
 The application URL must be an HTTPS origin. HTTP is accepted only for localhost/loopback testing. Do not put credentials, tokens, a path, query string or fragment in the URL.
 

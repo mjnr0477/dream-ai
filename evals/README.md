@@ -6,7 +6,7 @@ Dataset sizes below are verified against the checked-in JSONL files on this bran
 
 | Dataset | Cases | Coverage | Review status |
 |---|---:|---|---|
-| `core-v1` | 71 | Reasoning, mathematics, coding, teaching, safety, tool honesty, multilingual prompts and other general capabilities | Rubric-based; outputs require human scoring |
+| `core-v1` | 80 | Reasoning, mathematics, coding, teaching, safety, tool honesty, multilingual prompts and other general capabilities | Rubric-based; outputs require human scoring |
 | `african-languages-v1` | 20 | Two cases each for Kiswahili, Yoruba, Hausa, Amharic, Igbo, Somali, Kinyarwanda, Luganda, Zulu and Xhosa | All 20 cases are `pending_native_review` |
 
 The core set also includes two prompts each for Arabic, Hindi, Chinese, Japanese, Korean, French, Spanish, Portuguese, Kiswahili, Yoruba, Hausa, Amharic, Bengali and Russian. These are coverage prompts, not a validated proficiency certification.
