@@ -10,6 +10,7 @@ import argparse
 import json
 import os
 import re
+from datetime import datetime, timezone
 import sys
 import urllib.error
 import urllib.parse
@@ -131,13 +132,31 @@ def latest_candidate_parent(base_url: str, key: str) -> str:
     return ""
 
 
+def parse_aware_timestamp(value: object) -> datetime | None:
+    """Parse an ISO-8601 timestamp only when it carries an explicit UTC offset."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    normalized = value.strip()
+    if normalized.endswith("Z"):
+        normalized = normalized[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(normalized)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        return None
+    return parsed.astimezone(timezone.utc)
+
+
 def eligible_rows(rows: list[dict]) -> tuple[list[dict], dict]:
     valid = []
     skipped = {
         "not_explicit_v3_approved": 0,
         "missing_review_metadata": 0,
         "missing_source_group": 0,
-        "missing_human_review_timestamp": 0,
+        "invalid_consent_timestamp": 0,
+        "invalid_human_review_timestamp": 0,
+        "review_precedes_consent": 0,
         "missing_content_fingerprint": 0,
         "invalid_review_flags": 0,
     }
@@ -150,6 +169,10 @@ def eligible_rows(rows: list[dict]) -> tuple[list[dict], dict]:
             or not row.get("reviewed_at")
         ):
             skipped["not_explicit_v3_approved"] += 1
+            continue
+        consented_at = parse_aware_timestamp(row.get("consented_at"))
+        if consented_at is None:
+            skipped["invalid_consent_timestamp"] += 1
             continue
         metadata = row.get("metadata")
         if isinstance(metadata, str):
@@ -164,8 +187,12 @@ def eligible_rows(rows: list[dict]) -> tuple[list[dict], dict]:
             skipped["missing_source_group"] += 1
             continue
         reviewed_at = metadata.get("human_reviewed_at") or row.get("reviewed_at")
-        if not isinstance(reviewed_at, str) or not reviewed_at.strip():
-            skipped["missing_human_review_timestamp"] += 1
+        human_reviewed_at = parse_aware_timestamp(reviewed_at)
+        if human_reviewed_at is None:
+            skipped["invalid_human_review_timestamp"] += 1
+            continue
+        if human_reviewed_at < consented_at:
+            skipped["review_precedes_consent"] += 1
             continue
         if not re.fullmatch(r"[a-f0-9]{64}", str(row.get("content_sha256", ""))):
             skipped["missing_content_fingerprint"] += 1
