@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 
 const root = new URL("../", import.meta.url);
 const read = path => readFile(new URL(path, root), "utf8");
-const recordCount = source => source.split(/\\r?\\n/).filter(line => line.trim()).length;
+const recordCount = source => source.split(/\r?\n/).filter(line => line.trim()).length;
 
 test("evaluation documentation counts match the checked-in JSONL sets", async () => {
   const [core, african, readme, chatGuide] = await Promise.all([
