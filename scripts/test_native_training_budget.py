@@ -65,9 +65,9 @@ class NativeTrainingOrchestrationContractTests(unittest.TestCase):
 
     def test_pretraining_and_sft_receive_the_identical_deadline(self):
         pretrain_start = self.script.index("python model/train.py \\")
-        pretrain_end = self.script.index('\\n[[ -s "$PRETRAIN" ]]', pretrain_start)
+        pretrain_end = self.script.index('\n[[ -s "$PRETRAIN" ]]', pretrain_start)
         sft_start = self.script.index("python model/sft.py \\")
-        sft_end = self.script.index('\\n\\n[[ -s "$SFT" ]]', sft_start)
+        sft_end = self.script.index('\n\n[[ -s "$SFT" ]]', sft_start)
         pretrain = self.script[pretrain_start:pretrain_end]
         sft = self.script[sft_start:sft_end]
         argument = '--deadline-monotonic "$SESSION_DEADLINE"'
