@@ -43,5 +43,52 @@ class NativeTrainingBudgetTests(unittest.TestCase):
                     seconds_remaining(deadline, now=now)
 
 
+
+class NativeTrainingOrchestrationContractTests(unittest.TestCase):
+    """Guard the shell controller against accidentally restarting the clock."""
+
+    @classmethod
+    def setUpClass(cls):
+        from pathlib import Path
+        cls.script = Path(__file__).with_name(
+            "train-native-dream-gpu-container.sh"
+        ).read_text(encoding="utf-8")
+
+    def test_one_deadline_is_created_only_after_both_audits(self):
+        audit = self.script.index("python model/audit_corpus.py")
+        split = self.script.index("python model/prepare_corpus.py")
+        deadline_line = 'SESSION_DEADLINE="$(python "$BUDGET_HELPER" deadline --seconds "$SESSION_BUDGET_SECONDS")"'
+        deadline = self.script.index(deadline_line)
+        self.assertEqual(self.script.count(deadline_line), 1)
+        self.assertLess(audit, split)
+        self.assertLess(split, deadline)
+
+    def test_pretraining_and_sft_receive_the_identical_deadline(self):
+        pretrain_start = self.script.index("python model/train.py \\")
+        pretrain_end = self.script.index('\\n[[ -s "$PRETRAIN" ]]', pretrain_start)
+        sft_start = self.script.index("python model/sft.py \\")
+        sft_end = self.script.index('\\n\\n[[ -s "$SFT" ]]', sft_start)
+        pretrain = self.script[pretrain_start:pretrain_end]
+        sft = self.script[sft_start:sft_end]
+        argument = '--deadline-monotonic "$SESSION_DEADLINE"'
+        self.assertIn(argument, pretrain)
+        self.assertIn(argument, sft)
+        self.assertEqual(self.script.count(argument), 2)
+
+    def test_sft_is_deferred_when_pretraining_consumes_the_budget(self):
+        remaining_check = self.script.index(
+            "if (( REMAINING_SESSION_SECONDS <= 0 )); then"
+        )
+        sft_start = self.script.index("python model/sft.py \\")
+        defer_block = self.script[remaining_check:sft_start]
+        self.assertLess(remaining_check, sft_start)
+        self.assertIn("SFT is safely deferred", defer_block)
+        self.assertIn("exit 0", defer_block)
+
+    def test_independent_per_stage_time_budgets_are_not_reintroduced(self):
+        self.assertNotIn("DREAM_NATIVE_PRETRAIN_MAX_SECONDS", self.script)
+        self.assertNotIn("DREAM_NATIVE_SFT_MAX_SECONDS", self.script)
+        self.assertNotIn("--max-seconds", self.script)
+
 if __name__ == "__main__":
     unittest.main()
