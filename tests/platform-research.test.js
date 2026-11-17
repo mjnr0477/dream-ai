@@ -127,7 +127,11 @@ test("Europe PMC returns biomedical abstracts with publication provenance", asyn
 });
 
 test("Google News RSS returns dated headlines, publisher names and report excerpts", async () => {
-  const xml = '<rss><channel><item><title>Kenya technology update</title><link>https://news.google.com/rss/articles/CBMiPlatformNewsTest</link><pubDate>Sun, 08 Nov 2026 10:00:00 GMT</pubDate><source url="https://publisher.example">Example Publisher</source><description>Details from the report &amp; the published announcement.</description></item></channel></rss>';
+  // Keep the fixture inside the production seven-day freshness window so this
+  // deterministic parser test does not go stale as calendar time advances.
+  const publishedAt = new Date(Date.now() - 60 * 60 * 1000);
+  const pubDate = publishedAt.toUTCString();
+  const xml = '<rss><channel><item><title>Kenya technology update</title><link>https://news.google.com/rss/articles/CBMiPlatformNewsTest</link><pubDate>' + pubDate + '</pubDate><source url="https://publisher.example">Example Publisher</source><description>Details from the report &amp; the published announcement.</description></item></channel></rss>';
   const { fetchImpl, requests } = captureFetch(() => textResponse(xml));
   const result = await searchPlatformSources("Kenya technology", fetchImpl, {});
   assert.ok(requests.some(item => item.url.hostname === "news.google.com"));
@@ -135,7 +139,7 @@ test("Google News RSS returns dated headlines, publisher names and report excerp
   assert.equal(news.title, "Kenya technology update");
   assert.equal(news.url, "https://news.google.com/rss/articles/CBMiPlatformNewsTest");
   assert.equal(news.publisher, "Example Publisher");
-  assert.equal(news.publishedAt, "2026-11-08T10:00:00.000Z");
+  assert.equal(news.publishedAt, publishedAt.toISOString());
   assert.equal(news.snippet, "Publisher: Example Publisher — Details from the report & the published announcement.");
 });
 
