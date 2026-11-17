@@ -21,6 +21,11 @@ jobs:
           bash -n scripts/train-native-dream-gpu-container.sh
           bash -n scripts/publish-native-dream-checkpoint.sh
 
+      - name: Test shared five-minute training budget
+        run: |
+          python -m py_compile scripts/native_training_budget.py model/train.py model/sft.py
+          python scripts/test_native_training_budget.py
+
       - name: Validate native GPU Compose contract
         run: |
           python -m pip install --disable-pip-version-check PyYAML

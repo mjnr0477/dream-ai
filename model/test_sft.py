@@ -4,6 +4,7 @@ import json
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -746,6 +747,53 @@ class DreamSFTTests(unittest.TestCase):
                     result.stderr
                 )
 
+
+
+    def test_expired_shared_deadline_does_not_overwrite_sft_checkpoint(self):
+        train_path = self.root / "shared-deadline-train.jsonl"
+        val_path = self.root / "shared-deadline-validation.jsonl"
+        self.write_records(train_path, "shared-deadline-train")
+        self.write_records(val_path, "shared-deadline-validation")
+        output = self.root / "dream-shared-deadline-sft.pt"
+
+        first = run_with_sft_gate([
+            sys.executable, str(SCRIPT),
+            "--checkpoint", str(self.base),
+            "--train-data", str(train_path),
+            "--validation-data", str(val_path),
+            "--pretraining-manifest", str(self.manifest),
+            "--pretraining-test-data", str(self.test_data),
+            "--out", str(output),
+            "--steps", "1", "--batch-size", "2",
+            "--grad-accum-steps", "1", "--eval-every", "100",
+            "--eval-batches", "1", "--checkpoint-every", "100"
+        ], capture_output=True, text=True, timeout=120)
+        self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+        original_hash = hashlib.sha256(output.read_bytes()).hexdigest()
+        original = torch.load(output, map_location="cpu", weights_only=True)
+
+        expired = run_with_sft_gate([
+            sys.executable, str(SCRIPT),
+            "--checkpoint", str(self.base),
+            "--train-data", str(train_path),
+            "--validation-data", str(val_path),
+            "--pretraining-manifest", str(self.manifest),
+            "--pretraining-test-data", str(self.test_data),
+            "--out", str(output),
+            "--steps", "1", "--batch-size", "2",
+            "--grad-accum-steps", "1", "--eval-every", "100",
+            "--eval-batches", "1", "--checkpoint-every", "100",
+            "--resume", str(output),
+            "--deadline-monotonic", str(time.monotonic() - 1)
+        ], capture_output=True, text=True, timeout=120)
+        self.assertEqual(expired.returncode, 0, expired.stdout + expired.stderr)
+        self.assertIn("deadline_reached_before_optimizer_step", expired.stdout)
+        self.assertEqual(hashlib.sha256(output.read_bytes()).hexdigest(), original_hash)
+        unchanged = torch.load(output, map_location="cpu", weights_only=True)
+        self.assertEqual(
+            unchanged["sft_training"]["completed_steps"],
+            original["sft_training"]["completed_steps"]
+        )
 
 if __name__ == "__main__":
     unittest.main()

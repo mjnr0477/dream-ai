@@ -310,7 +310,9 @@ def main():
     parser.add_argument("--resume", default="", help="Resume from a DREAM checkpoint")
     parser.add_argument("--checkpoint-every", type=int, default=500)
     parser.add_argument("--max-seconds", type=float, default=0.0,
-                        help="Stop at a completed optimizer step and save a resumable checkpoint; 0 disables the time limit.")
+                        help="Stop at a completed optimizer step and save a resumable checkpoint; 0 disables the local time limit.")
+    parser.add_argument("--deadline-monotonic", type=float, default=0.0,
+                        help="Absolute shared time.monotonic deadline for this and subsequent DREAM training stages.")
     parser.add_argument("--steps", type=int, default=2000)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--grad-accum-steps", type=int, default=1,
@@ -384,6 +386,10 @@ def main():
         raise SystemExit("max-grad-norm must be finite and positive.")
     if not math.isfinite(args.max_seconds) or args.max_seconds < 0:
         raise SystemExit("max-seconds must be finite and non-negative.")
+    if not math.isfinite(args.deadline_monotonic) or args.deadline_monotonic < 0:
+        raise SystemExit("deadline-monotonic must be finite and non-negative.")
+    if args.deadline_monotonic > 0 and args.max_seconds > 0:
+        raise SystemExit("Use either max-seconds or the shared deadline, not both.")
 
     def file_sha256(path):
         digest = hashlib.sha256()
@@ -499,6 +505,7 @@ def main():
             "steps": args.steps,
             "completed_steps": completed_steps,
             "max_seconds": args.max_seconds,
+            "deadline_monotonic": args.deadline_monotonic,
             "stop_reason": stop_reason,
             "seed": args.seed,
             "corpus": str(Path(args.data)),
@@ -548,8 +555,19 @@ def main():
         print(f"Saved DREAM checkpoint at step {completed_steps}: {output}")
 
     final_step = start_step + args.steps
-    training_started_at = time.monotonic()
+    training_deadline = (
+        args.deadline_monotonic
+        if args.deadline_monotonic > 0
+        else (time.monotonic() + args.max_seconds if args.max_seconds > 0 else None)
+    )
     for step in range(start_step + 1, final_step + 1):
+        if training_deadline is not None and time.monotonic() >= training_deadline:
+            print(json.dumps({
+                "stop_reason": "deadline_reached_before_optimizer_step",
+                "completed_steps": start_step if step == start_step + 1 else step - 1,
+                "configured_deadline_monotonic": training_deadline
+            }))
+            break
         model.train()
         optimizer.zero_grad(set_to_none=True)
         micro_losses = []
@@ -567,8 +585,7 @@ def main():
         optimizer.step()
 
         time_budget_reached = (
-            args.max_seconds > 0
-            and time.monotonic() - training_started_at >= args.max_seconds
+            training_deadline is not None and time.monotonic() >= training_deadline
         )
         if (
             step == start_step + 1
@@ -593,7 +610,8 @@ def main():
             print(json.dumps({
                 "stop_reason": "time_budget",
                 "completed_steps": step,
-                "configured_max_seconds": args.max_seconds
+                "configured_max_seconds": args.max_seconds,
+                "configured_deadline_monotonic": training_deadline
             }))
             break
 

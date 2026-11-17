@@ -1,8 +1,10 @@
 """End-to-end smoke tests for DREAM's own training/checkpoint pipeline."""
+import hashlib
 import json
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -520,6 +522,46 @@ class DreamTrainingSmokeTests(unittest.TestCase):
                         rejected.stderr
                     )
 
+
+
+    def test_expired_shared_deadline_does_not_overwrite_checkpoint(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "train.txt").write_text(
+                "DREAM shared-deadline training sample with varied words. " * 12,
+                encoding="utf-8"
+            )
+            (root / "validation.txt").write_text(
+                "Independent shared-deadline validation material. " * 12,
+                encoding="utf-8"
+            )
+            checkpoint = root / "dream-shared-deadline.pt"
+            first = self.run_training(root, checkpoint)
+            self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
+            original_hash = hashlib.sha256(checkpoint.read_bytes()).hexdigest()
+            original = __import__("torch").load(
+                checkpoint, map_location="cpu", weights_only=True
+            )
+
+            expired = self.run_training(
+                root, checkpoint, create_manifest=False,
+                extra=(
+                    "--resume", str(checkpoint),
+                    "--deadline-monotonic", str(time.monotonic() - 1)
+                )
+            )
+            self.assertEqual(expired.returncode, 0, expired.stdout + expired.stderr)
+            self.assertIn("deadline_reached_before_optimizer_step", expired.stdout)
+            self.assertEqual(
+                hashlib.sha256(checkpoint.read_bytes()).hexdigest(), original_hash
+            )
+            unchanged = __import__("torch").load(
+                checkpoint, map_location="cpu", weights_only=True
+            )
+            self.assertEqual(
+                unchanged["training"]["completed_steps"],
+                original["training"]["completed_steps"]
+            )
 
 if __name__ == "__main__":
     unittest.main()

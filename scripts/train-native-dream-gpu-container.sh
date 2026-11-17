@@ -3,6 +3,7 @@ set -Eeuo pipefail
 
 DATA_DIR="${DREAM_NATIVE_DATA_DIR:-/data}"
 STATE_DIR="${DREAM_NATIVE_TRAIN_DIR:-/var/lib/dream-ai/training}"
+BUDGET_HELPER="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/native_training_budget.py"
 PREPARED="$STATE_DIR/prepared"
 CHECKPOINTS="$STATE_DIR/checkpoints"
 REPORTS="$STATE_DIR/reports"
@@ -44,6 +45,15 @@ python model/prepare_corpus.py \
   --input "$DATA_DIR/approved-records.jsonl" \
   --output "$PREPARED"
 
+# Start one monotonic deadline only after rights/privacy/quality audits and
+# deterministic source-group-isolated splits have passed.
+SESSION_BUDGET_SECONDS="$(python "$BUDGET_HELPER" validate --seconds "${DREAM_NATIVE_SESSION_MAX_SECONDS:-300}")"
+SESSION_DEADLINE="$(python "$BUDGET_HELPER" deadline --seconds "$SESSION_BUDGET_SECONDS")"
+remaining_session_seconds() {
+  python "$BUDGET_HELPER" remaining --deadline "$SESSION_DEADLINE"
+}
+printf 'DREAM native training session budget: %s seconds (shared by pretraining and SFT).\n' "$SESSION_BUDGET_SECONDS"
+
 if [[ ! -s "$PRETRAIN" || "${DREAM_NATIVE_CONTINUE_PRETRAINING:-false}" == "true" ]]; then
   PRETRAIN_ARGS=()
   if [[ -s "$PRETRAIN" ]]; then
@@ -56,7 +66,7 @@ if [[ ! -s "$PRETRAIN" || "${DREAM_NATIVE_CONTINUE_PRETRAINING:-false}" == "true
     --corpus-manifest "$PREPARED/manifest.json" \
     --out "$PRETRAIN" \
     --steps "${DREAM_NATIVE_PRETRAIN_STEPS:-2000}" \
-    --max-seconds "${DREAM_NATIVE_PRETRAIN_MAX_SECONDS:-0}" \
+    --deadline-monotonic "$SESSION_DEADLINE" \
     --checkpoint-every 100 \
     --eval-every 100 \
     --eval-batches 5 \
@@ -66,6 +76,7 @@ if [[ ! -s "$PRETRAIN" || "${DREAM_NATIVE_CONTINUE_PRETRAINING:-false}" == "true
     --tokenizer bpe \
     --vocab-size 1024 \
     "${PRETRAIN_ARGS[@]}"
+  [[ -s "$PRETRAIN" ]] || fail "The shared deadline expired before the first pretraining checkpoint could be saved; no checkpoint was fabricated."
 else
   printf '%s\n' "Keeping the existing native DREAM pretraining checkpoint; SFT will continue from its saved state."
 fi
@@ -78,6 +89,13 @@ python model/evaluate.py \
   --data "$PREPARED/test.txt" \
   --batches 20 \
   --out "$REPORTS/pretrain-evaluation.json"
+
+REMAINING_SESSION_SECONDS="$(remaining_session_seconds)"
+if (( REMAINING_SESSION_SECONDS <= 0 )); then
+  printf '%s\n' "The shared five-minute budget was consumed by native pretraining. SFT is safely deferred to the next resumable session."
+  exit 0
+fi
+printf 'Remaining shared training budget before SFT: %s seconds.\n' "$REMAINING_SESSION_SECONDS"
 
 SFT_ARGS=()
 if [[ -s "$SFT" ]]; then
@@ -106,13 +124,18 @@ python model/sft.py \
   --pretraining-test-data "$PREPARED/test.txt" \
   --out "$SFT" \
   --steps "${DREAM_NATIVE_SFT_STEPS:-1000}" \
-  --max-seconds "${DREAM_NATIVE_SFT_MAX_SECONDS:-0}" \
+  --deadline-monotonic "$SESSION_DEADLINE" \
   --checkpoint-every 100 \
   --eval-every 100 \
   --eval-batches 5 \
   --batch-size 2 \
   --grad-accum-steps 4 \
   "${SFT_ARGS[@]}"
+
+[[ -s "$SFT" ]] || {
+  printf '%s\n' "The shared deadline expired before an SFT optimizer step. No SFT checkpoint was created; the resumable pretraining checkpoint remains intact."
+  exit 0
+}
 
 python model/audit_checkpoint.py \
   --checkpoint "$SFT" \
