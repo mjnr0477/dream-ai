@@ -127,7 +127,8 @@ test("Europe PMC returns biomedical abstracts with publication provenance", asyn
 });
 
 test("Google News RSS returns dated headlines, publisher names and report excerpts", async () => {
-  const publishedAt = new Date(Date.now() - 60 * 60 * 1000);
+  // RSS pubDate has whole-second precision; align the expected ISO value.
+  const publishedAt = new Date(Math.floor((Date.now() - 60 * 60 * 1000) / 1000) * 1000);
   const publishedAtIso = publishedAt.toISOString();
   const xml = `<rss><channel><item><title>Kenya technology update</title><link>https://news.google.com/rss/articles/CBMiPlatformNewsTest</link><pubDate>${publishedAt.toUTCString()}</pubDate><source url="https://publisher.example">Example Publisher</source><description>Details from the report &amp; the published announcement.</description></item></channel></rss>`;
   const { fetchImpl, requests } = captureFetch(() => textResponse(xml));
