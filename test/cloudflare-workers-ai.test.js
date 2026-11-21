@@ -77,9 +77,10 @@ test("DREAM runtime reports Cloudflare as configured without pretending a live i
   assert.equal(isDreamEngineConfigured(env), true);
   const status = await getDreamRuntimeStatus(env);
   assert.equal(status.configured, true);
-  assert.equal(status.ready, true);
+  assert.equal(status.ready, false);
   assert.equal(status.status, "configured");
   assert.equal(status.provider, "cloudflare-workers-ai");
+  assert.equal(status.verification, "not-tested");
 });
 
 test("DREAM chat uses Cloudflare Workers AI without calling a native runtime health endpoint", async () => {
