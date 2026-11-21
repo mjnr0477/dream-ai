@@ -131,7 +131,7 @@ test("Google News RSS returns dated headlines, publisher names and report excerp
   // A fixed November 8 timestamp silently became stale as the calendar moved on.
   const publishedAt = new Date(Date.now() - 60 * 60 * 1000);
   const pubDate = publishedAt.toUTCString();
-  const expectedPublishedAt = publishedAt.toISOString();
+  const expectedPublishedAt = new Date(pubDate).toISOString();
   const xml = '<rss><channel><item><title>Kenya technology update</title><link>https://news.google.com/rss/articles/CBMiPlatformNewsTest</link><pubDate>' + pubDate + '</pubDate><source url="https://publisher.example">Example Publisher</source><description>Details from the report &amp; the published announcement.</description></item></channel></rss>';
   const { fetchImpl, requests } = captureFetch(() => textResponse(xml));
   const result = await searchPlatformSources("Kenya technology", fetchImpl, {});
