@@ -65,6 +65,9 @@ jobs:
           python -m py_compile
           data/import_oasst1_candidates.py
           data/import_oasst1_sft_candidates.py
+          data/import_wikidata_candidates.py
+      - name: Test Wikidata CC0 candidate importer
+        run: python -m unittest discover -s data -p 'test_wikidata_candidate_importer.py' -v
       - name: Compile DREAM opt-in pipeline tools
         run: >-
           python -m py_compile
