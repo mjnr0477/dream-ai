@@ -288,7 +288,9 @@ def export_candidates(
 ) -> dict:
     output = Path(output_path)
     report = Path(report_path) if report_path is not None else output.with_name(output.name + ".report.json")
-    if output.absolute() == report.absolute():
+    # Resolve dot segments and existing symlinked parents before comparing destinations.
+    # Otherwise e.g. "out/../candidates.jsonl" and "candidates.jsonl" can alias.
+    if output.resolve(strict=False) == report.resolve(strict=False):
         raise ValueError("candidate output and report must use different paths")
 
     candidates, summary = collect_candidates(
