@@ -172,6 +172,29 @@ class WikidataCandidateImporterTests(unittest.TestCase):
             self.assertNotIn("Kenya", report_text)
             self.assertNotIn("Nairobi", report_text)
 
+    def test_export_rejects_normalized_path_alias_before_fetch(self):
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp) / "wikidata-candidates.jsonl"
+            report_path = Path(temp) / "nested" / ".." / "wikidata-candidates.jsonl"
+            fetch_calls = []
+
+            def fetcher(limit, offset, timeout):
+                fetch_calls.append((limit, offset, timeout))
+                return [binding()]
+
+            with self.assertRaisesRegex(ValueError, "different paths"):
+                importer.export_candidates(
+                    output,
+                    report_path,
+                    max_rows=2,
+                    page_size=2,
+                    collection_date="2026-11-23",
+                    page_fetcher=fetcher,
+                )
+
+            self.assertEqual(fetch_calls, [])
+            self.assertFalse(output.exists())
+
     def test_failed_fetch_does_not_replace_existing_candidate_output(self):
         with tempfile.TemporaryDirectory() as temp:
             output = Path(temp) / "wikidata-candidates.jsonl"
