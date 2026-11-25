@@ -293,6 +293,14 @@ def export_candidates(
     if output.resolve(strict=False) == report.resolve(strict=False):
         raise ValueError("candidate output and report must use different paths")
 
+    # Validate both destinations before network access or either write. In particular,
+    # a symlinked report must not be discovered only after the candidate file is replaced.
+    for label, path in (("candidate output", output), ("report", report)):
+        if path.is_symlink():
+            raise ValueError(f"refusing to replace symlink {label}: {path.name}")
+        if path.exists() and not path.is_file():
+            raise ValueError(f"{label} destination must be a regular file")
+
     candidates, summary = collect_candidates(
         max_rows=max_rows,
         page_size=page_size,
