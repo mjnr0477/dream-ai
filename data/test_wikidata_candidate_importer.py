@@ -195,6 +195,37 @@ class WikidataCandidateImporterTests(unittest.TestCase):
             self.assertEqual(fetch_calls, [])
             self.assertFalse(output.exists())
 
+    def test_export_rejects_symlink_destinations_before_fetch(self):
+        for symlink_target in ("candidate", "report"):
+            with self.subTest(symlink_target=symlink_target), tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                target = root / "protected-target.json"
+                target.write_text("keep this file\\n", encoding="utf-8")
+                symlink = root / f"{symlink_target}.jsonl"
+                symlink.symlink_to(target)
+                output = symlink if symlink_target == "candidate" else root / "candidates.jsonl"
+                report_path = symlink if symlink_target == "report" else root / "report.json"
+                fetch_calls = []
+
+                def fetcher(limit, offset, timeout):
+                    fetch_calls.append((limit, offset, timeout))
+                    return [binding()]
+
+                with self.assertRaisesRegex(ValueError, "symlink"):
+                    importer.export_candidates(
+                        output,
+                        report_path,
+                        max_rows=2,
+                        page_size=2,
+                        collection_date="2026-11-25",
+                        page_fetcher=fetcher,
+                    )
+
+                self.assertEqual(fetch_calls, [])
+                self.assertEqual(target.read_text(encoding="utf-8"), "keep this file\\n")
+                self.assertFalse((root / "candidates.jsonl").exists())
+                self.assertFalse((root / "report.json").exists())
+
     def test_failed_fetch_does_not_replace_existing_candidate_output(self):
         with tempfile.TemporaryDirectory() as temp:
             output = Path(temp) / "wikidata-candidates.jsonl"
