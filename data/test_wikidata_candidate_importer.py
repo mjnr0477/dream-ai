@@ -115,10 +115,15 @@ class WikidataCandidateImporterTests(unittest.TestCase):
         self.assertEqual(opener.call_count, 1)
 
     def test_pagination_deduplicates_and_preserves_country_group_isolation(self):
-        pages = [
-            [binding(), binding(country="Q1033", capital="Q1861", country_label="Nigeria", capital_label="Abuja")],
-            [binding(), binding(capital="Q1748", capital_label="Mombasa")],
+        first_page = [
+            binding(),
+            binding(country="Q1033", capital="Q1861", country_label="Nigeria", capital_label="Abuja"),
         ]
+        second_page = [
+            binding(),
+            binding(capital="Q1748", capital_label="Mombasa"),
+        ]
+        pages = [first_page, second_page]
         calls = []
 
         def fetcher(limit, offset, timeout):
@@ -136,6 +141,24 @@ class WikidataCandidateImporterTests(unittest.TestCase):
         self.assertEqual(summary["pages"], 2)
         self.assertEqual(summary["scanned_rows"], 4)
         self.assertEqual(summary["duplicate_statements"], 1)
+        page_manifest = summary["page_manifest"]
+        self.assertEqual(
+            [(page["page"], page["offset"], page["limit"], page["returned_rows"]) for page in page_manifest],
+            [(1, 0, 2, 2), (2, 2, 2, 2)],
+        )
+        self.assertEqual(
+            page_manifest[0]["query_sha256"],
+            hashlib.sha256(importer.build_query(2, 0).encode("utf-8")).hexdigest(),
+        )
+        expected_bindings_hash = hashlib.sha256(
+            json.dumps(first_page, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        ).hexdigest()
+        self.assertEqual(page_manifest[0]["bindings_sha256"], expected_bindings_hash)
+        for page in page_manifest:
+            for field in ("query_sha256", "bindings_sha256"):
+                digest = page[field]
+                self.assertEqual(len(digest), 64)
+                self.assertTrue(all(char in "0123456789abcdef" for char in digest))
         self.assertEqual(len(records), 3)
         kenya_groups = {
             row["source_group"] for row in records
@@ -164,6 +187,8 @@ class WikidataCandidateImporterTests(unittest.TestCase):
             raw = output.read_bytes()
             record = json.loads(raw.decode("utf-8").splitlines()[0])
             self.assertEqual(report["output_sha256"], hashlib.sha256(raw).hexdigest())
+            self.assertEqual(len(report["page_manifest"]), 1)
+            self.assertEqual(report["page_manifest"][0]["returned_rows"], 1)
             self.assertIs(report["training_approved"], False)
             self.assertIs(report["human_review_required"], True)
             for flag in importer.REVIEW_FLAGS:
