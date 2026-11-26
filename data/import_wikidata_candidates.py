@@ -211,6 +211,7 @@ def collect_candidates(
     seen_ids: set[str] = set()
     scanned_rows = 0
     pages = 0
+    page_manifest: list[dict] = []
     rejected_invalid_binding = 0
     duplicate_statements = 0
 
@@ -221,6 +222,19 @@ def collect_candidates(
             raise ValueError("page fetcher returned an invalid bindings collection")
         if len(bindings) > limit:
             raise ValueError("page fetcher returned more rows than requested")
+        canonical_bindings = json.dumps(
+            bindings, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+        ).encode("utf-8")
+        page_manifest.append({
+            "page": pages + 1,
+            "offset": scanned_rows,
+            "limit": limit,
+            "returned_rows": len(bindings),
+            "query_sha256": hashlib.sha256(
+                build_query(limit, scanned_rows).encode("utf-8")
+            ).hexdigest(),
+            "bindings_sha256": hashlib.sha256(canonical_bindings).hexdigest(),
+        })
         pages += 1
         scanned_rows += len(bindings)
 
@@ -246,6 +260,7 @@ def collect_candidates(
         "collection_date": collected,
         "query_template_sha256": query_sha256,
         "pages": pages,
+        "page_manifest": page_manifest,
         "scanned_rows": scanned_rows,
         "candidate_records": len(candidates),
         "rejected_invalid_binding": rejected_invalid_binding,
