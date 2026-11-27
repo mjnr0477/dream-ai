@@ -168,3 +168,19 @@ The splitter applies the validation fraction to distinct source groups (not indi
 
 
 **Privacy note:** interactive review prints candidate content for human inspection. Clear the review-cell outputs before sharing or saving a notebook copy that should not retain candidate text. The decision ledger itself stores IDs and decisions, not record text.
+
+
+## Wikidata CC0 candidate acquisition
+
+Wikidata's official licensing policy releases structured data in its main, Property, Lexeme and EntitySchema namespaces under CC0; text in other namespaces is under CC BY-SA. DREAM's importer uses only structured sovereign-state capital (`P36`) statements and English entity labels through the current Wikidata Query Service v2 endpoint. It does not ingest article or discussion text. See the [Wikidata licensing policy](https://www.wikidata.org/wiki/Wikidata:Licensing) and [current SPARQL API documentation](https://www.wikidata.org/wiki/Wikidata:SPARQL_query_service/API).
+
+Run a bounded, candidate-only export:
+
+```sh
+python data/import_wikidata_candidates.py \
+  --max-rows 200 --page-size 50 \
+  --output /tmp/wikidata-capital-candidates.jsonl \
+  --report /tmp/wikidata-capital-candidates.report.json
+```
+
+The importer uses `https://query-next.wikidata.org/sparql`, records the query-template and output SHA-256 hashes plus a text-free per-page manifest (page offset/limit/row count, exact query hash and canonical bindings hash), uses a descriptive User-Agent, paginates sequentially, and fails without publishing a partial file when a request or response fails. The report contains counts and hashes, not candidate text. The output is not an approved corpus: all four DREAM review flags are written as `false`, every record remains pending human rights, privacy, quality and training review, and no approval is inferred from CC0. All capital statements for one country share one source-group ID so later train/validation/test splitting cannot separate them. The bounded English-label sample is not a complete or independently verified gazetteer; reviewers must check each statement's accuracy and suitability.

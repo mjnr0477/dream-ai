@@ -1,6 +1,6 @@
 {
   "schema": "dream-keyless-source-catalog-v1",
-  "catalog_updated": "2026-11-09",
+  "catalog_updated": "2026-11-23",
   "policy": {
     "user_supplied_source_api_keys_required": false,
     "anonymous_public_read_only_by_default": true,
@@ -239,18 +239,17 @@
     {
       "id": "wikidata",
       "name": "Wikidata",
-      "endpoint": "https://www.wikidata.org/w/api.php",
+      "endpoint": "https://query-next.wikidata.org/sparql",
       "category": "structured_knowledge",
       "access": "anonymous_read",
-      "integration_status": "already_connected",
+      "integration_status": "candidate_importer_available",
       "returns": [
-        "public entity records",
-        "labels",
-        "descriptions",
-        "structured statements"
+        "bounded English labels for sovereign-state entities",
+        "P36 capital statements and entity identifiers",
+        "per-country source-group identifiers and provenance metadata"
       ],
-      "training_status": "candidate_after_privacy_quality_and_provenance_checks",
-      "license_note": "Wikidata structured data is released under CC0; keep attribution/provenance metadata and screen for personal or sensitive data.",
+      "training_status": "unapproved_candidate_only_requires_human_review",
+      "license_note": "Wikidata's official policy releases structured data under CC0; this importer queries only structured sovereign-state capital statements and English entity labels, not article/discussion text. Every exported record remains unapproved and requires human rights, privacy, quality and DREAM training review; CC0 does not establish factual accuracy or training suitability.",
       "terms_url": "https://www.wikidata.org/wiki/Wikidata:Licensing"
     },
     {
