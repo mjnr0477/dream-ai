@@ -91,6 +91,65 @@ test("evaluates through the full chat route and retains research diagnostics", a
   assert.equal(run.results[0].applicationOrigin, "https://dream-ai-live.onrender.com");
 });
 
+test("sends and records a complete multi-turn conversation", async () => {
+  const transcript = [
+    { role: "user", content: "I have 30 minutes each evening for a five-day biology revision plan. I struggle with photosynthesis." },
+    { role: "assistant", content: "Use 10 minutes of recall, 15 minutes of concept work and 5 minutes of practice each day, using your textbook and paper notes." },
+    { role: "user", content: "Keep five days and 30 minutes daily. Make the first 10 minutes every day photosynthesis recall, and assume I have no internet. Revise the plan." }
+  ];
+  let requestBody;
+  const run = await runChatEvaluations({
+    appUrl: "https://dream-ai-live.onrender.com",
+    cases: [{
+      id: "context-multiturn-test",
+      category: "context-following",
+      messages: transcript,
+      rubric: ["Retains the five-day and 30-minute constraints"]
+    }],
+    limit: 1,
+    pauseMs: 0,
+    fetchImpl: async (url, options = {}) => {
+      if (String(url).endsWith("/api/health")) return jsonResponse({ ok: true, modelReady: true });
+      requestBody = JSON.parse(options.body);
+      return jsonResponse({ reply: "Here is your revised five-day plan." });
+    }
+  });
+
+  assert.deepEqual(requestBody.messages, transcript);
+  assert.equal(run.results[0].prompt, transcript[2].content);
+  assert.deepEqual(run.results[0].messages, transcript);
+});
+
+test("rejects ambiguous or malformed multi-turn evaluation cases before network access", async () => {
+  const transcript = [
+    { role: "user", content: "First turn." },
+    { role: "assistant", content: "Prior answer." },
+    { role: "user", content: "Follow-up." }
+  ];
+  const noNetwork = async () => { throw new Error("must not fetch"); };
+  await assert.rejects(
+    runChatEvaluations({
+      appUrl: "https://dream-ai-live.onrender.com",
+      cases: [{ ...cases[0], messages: transcript }],
+      fetchImpl: noNetwork
+    }),
+    /either prompt or messages/
+  );
+  await assert.rejects(
+    runChatEvaluations({
+      appUrl: "https://dream-ai-live.onrender.com",
+      cases: [{
+        id: "bad-multiturn",
+        category: "context-following",
+        messages: [{ role: "assistant", content: "Wrong first role." }, { role: "user", content: "Follow-up." }, { role: "assistant", content: "Wrong final role." }],
+        rubric: ["Must reject malformed role order"]
+      }],
+      fetchImpl: noNetwork
+    }),
+    /multi-turn message sequence/
+  );
+});
+
 test("selects one case per category before taking second examples", () => {
   const expanded = [
     { ...cases[0], id: "math-1" },
