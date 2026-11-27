@@ -23,6 +23,7 @@ sys.path.insert(0, str(ROOT / "model"))
 from dream_ai_optin_pipeline import export_optin_rows, prepare_sft_splits, write_jsonl
 from audit_corpus import audit
 from verify_dream_ai_sft_audits import verify_audit_reports
+from dream_ai_supabase_guard import validate_dream_ai_supabase_url
 
 MIN_RECORDS = 32
 MIN_SOURCE_GROUPS = 8
@@ -57,6 +58,7 @@ def get_json(url: str, key: str, range_header: str | None = None):
 
 
 def fetch_all(base_url: str, key: str, table: str, query: dict, page_size: int = 1000):
+    base_url = validate_dream_ai_supabase_url(base_url)
     rows = []
     offset = 0
     while True:

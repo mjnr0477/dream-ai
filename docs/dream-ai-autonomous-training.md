@@ -32,10 +32,12 @@ Kaggle API-pushed kernels do not inherit interactive notebook secrets reliably. 
 
 Only a person can confirm the source rights and inspect the actual exchange for private information, errors and quality. A user's Share with AI action submits an example for review; it does not grant automatic training approval.
 
-Run this command in a trusted local environment after setting these two environment variables privately:
+Run this command in a trusted local environment only after a **dedicated DREAM AI Supabase project** has been provisioned. Set these two values privately, and make sure the URL and service-role key come from that same DREAM AI project:
 
-- DREAM_AI_SUPABASE_URL=https://ldpcawixzxcolbmakrfc.supabase.co
-- DREAM_AI_SUPABASE_SERVICE_ROLE_KEY=<the Dream education project service-role key>
+- `DREAM_AI_SUPABASE_URL=https://<dedicated-dream-ai-project-ref>.supabase.co`
+- `DREAM_AI_SUPABASE_SERVICE_ROLE_KEY=<service-role-key-from-that-same-project>`
+
+Never use the Dream Education or Mariona Supabase project or their credentials. The review, sync and scheduled-training scripts now reject those known non-DREAM project references before making a request.
 
 Then run:
 
