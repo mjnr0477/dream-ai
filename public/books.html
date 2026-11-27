@@ -40,6 +40,17 @@ h1 span{color:#b6a8ff}
 .book p{font-size:11px;line-height:1.55;color:#91a0b8;margin:0 0 14px}
 .book a{margin-top:auto;align-self:flex-start;text-decoration:none;color:#c5b8ff;font-size:11px;font-weight:700}
 .book a:hover{text-decoration:underline}
+.universal-section{margin-top:36px;padding-top:26px;border-top:1px solid #27334b}
+.universal-lead{margin:0 0 14px}
+.universal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;margin-top:14px}
+.universal-book{display:flex;flex-direction:column;gap:10px;min-height:140px;padding:17px;border:1px solid #36415c;border-radius:14px;background:linear-gradient(145deg,#171e31,#101827)}
+.universal-book h3{font:600 15px/1.35 Space Grotesk,sans-serif;margin:0;color:#f2f3fb}
+.universal-book p{font-size:11px;line-height:1.55;color:#91a0b8;margin:0}
+.universal-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:auto}
+.universal-link{display:inline-flex;align-items:center;justify-content:center;padding:8px 10px;border:1px solid #665c9a;border-radius:9px;color:#c5b8ff;text-decoration:none;font-size:11px;font-weight:700}
+.universal-link:hover{text-decoration:underline}
+@media(max-width:620px){.universal-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.universal-book{padding:13px;min-height:150px}}
+@media(max-width:380px){.universal-grid{grid-template-columns:1fr}}
 .empty{display:none;grid-column:1/-1;padding:22px;border:1px dashed #35425c;border-radius:12px;color:#95a3ba;text-align:center;font-size:12px}
 .note{margin-top:25px;padding:14px 16px;border-left:2px solid #8d7bea;background:#111827;color:#9eabc1;font-size:11px;line-height:1.65}
 footer{margin-top:26px;color:#71809a;font-size:10px;line-height:1.6}
@@ -69,8 +80,8 @@ footer{margin-top:26px;color:#71809a;font-size:10px;line-height:1.6}
 </header>
 <section aria-labelledby="page-title">
   <p class="eyebrow">DREAM AI · SUBSCRIBE & BOOKS</p>
-  <h1 id="page-title">Explore the books.<br><span>Buy on Amazon.</span></h1>
-  <p class="lead">Discover books by Mathias Simiyu. Choose a title to open its Amazon Books search, check the available edition and price, and complete your purchase securely on Amazon.</p>
+  <h1 id="page-title">Explore the books.<br><span>Choose your bookstore.</span></h1>
+  <p class="lead">Discover books by Mathias Simiyu. Open a Books2Read universal link to explore retailer options, or use the Amazon catalogue below. Purchases are completed on the retailer's own website.</p>
   <div class="actions">
     <a class="action" href="https://www.amazon.com/author/mathiassimiyu" target="_blank" rel="noopener noreferrer">Browse Mathias Simiyu on Amazon ↗</a>
     <a class="action secondary" href="https://www.amazon.com/s?k=Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Search all books on Amazon ↗</a>
@@ -109,8 +120,30 @@ footer{margin-top:26px;color:#71809a;font-size:10px;line-height:1.6}
     <p class="empty" id="empty-state">No titles match your search.</p>
   </div>
 </section>
-<p class="note">Every book link on this page stays on Amazon. Amazon controls the editions, availability, prices, delivery options and checkout. A title opens an Amazon Books search so readers can choose the correct available edition; the Amazon Author Page is also linked above.</p>
-<footer>This is the books section reached from DREAM AI's Subscribe link. It is not an in-app book checkout or a paid DREAM AI subscription. All book purchases are completed on Amazon; DREAM AI does not collect payment details.</footer>
+<section aria-labelledby="universal-books-title" class="universal-section">
+  <div class="catalogue-bar"><div><h2 id="universal-books-title">Books2Read universal links</h2><span class="count">Direct book destinations</span></div></div>
+  <p class="lead universal-lead">Choose a title to open its Books2Read page. Where supported, readers can choose a retailer and available format for their country.</p>
+  <div class="universal-grid"><article class="universal-book"><h3>The Architecture of Human Nature</h3><p>Explore this title through its Books2Read universal destinations.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/47D9yj" target="_blank" rel="noopener noreferrer">Open universal link 1 ↗</a><a class="universal-link" href="https://books2read.com/u/m2p11r" target="_blank" rel="noopener noreferrer">Open universal link 2 ↗</a></div></article>
+<article class="universal-book"><h3>Last Book</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/8DkMpZ" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
+<article class="universal-book"><h3>Won In Mind</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/0zYVLP" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
+<article class="universal-book"><h3>Beyond Labels</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/QZ2Ko7" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
+<article class="universal-book"><h3>Silent Master</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/ZwxjM2" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
+<article class="universal-book"><h3>Love Triangle</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/LragO0" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
+<article class="universal-book"><h3>Optional Death</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/7kMXp7" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
+<article class="universal-book"><h3>The Naked Species</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/RB9KMv" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
+<article class="universal-book"><h3>Seduction</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/WKjdqx" target="_blank" rel="noopener noreferrer">Open universal link 1 ↗</a><a class="universal-link" href="https://books2read.com/u/V7jKx5" target="_blank" rel="noopener noreferrer">Open universal link 2 ↗</a></div></article>
+<article class="universal-book"><h3>Stay Awake</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/lKZWgB" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
+<article class="universal-book"><h3>The Environment Shape You</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/vYrZwJ" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
+<article class="universal-book"><h3>Humanity Outweigh Materialism</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/zpDjGZ" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
+<article class="universal-book"><h3>Break the Chain</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/7kMXDN" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
+<article class="universal-book"><h3>New World</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/jKrWjl" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
+<article class="universal-book"><h3>Men Resist Death</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/gK9lOK" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
+<article class="universal-book"><h3>Additional book link</h3><p>This universal link was shared separately; its title is not labelled in the current catalogue.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/YRB7MW" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
+<article class="universal-book"><h3>Additional book link</h3><p>This universal link was shared separately; its title is not labelled in the current catalogue.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/aPNrMq" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
+<article class="universal-book"><h3>Featured book</h3><p>Existing featured Books2Read destination already used in Dream Education.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/3Leqq0" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article></div>
+</section>
+<p class="note">Books2Read links open the universal book page, where retailer choices and formats are shown when available. The catalogue below also offers Amazon book searches. Retailers control their own editions, prices, availability, delivery and checkout.</p>
+<footer>This is the books section reached from DREAM AI's Books button. It is not an in-app checkout or a paid DREAM AI subscription. All purchases are completed on the selected retailer's website; DREAM AI does not collect payment details.</footer>
 </main>
 <script>
 (() => {
