@@ -2,171 +2,153 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#080b14">
-<meta name="description" content="Discover books by Mathias Simiyu. Browse every title and continue to Amazon for available editions and checkout.">
-<meta name="robots" content="index,follow">
-<title>Subscribe & Books · DREAM AI</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#090d18">
+<meta name="description" content="Browse books, compare available editions and open the bookstore that suits you.">
+<title>Books & Bookstores · DREAM AI</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-:root{color-scheme:dark;font-family:"DM Sans",sans-serif;background:#080b14;color:#edf1fb}
+:root{color-scheme:dark;--bg:#090d18;--panel:#121a29;--panel2:#172235;--line:#29364b;--text:#f3f6ff;--muted:#9aa8bd;--accent:#b7a5ff;--accent2:#8ce7d3;font-family:"DM Sans",system-ui,sans-serif;background:var(--bg);color:var(--text)}
 *{box-sizing:border-box}
-body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% 0%,#1b2540 0,transparent 52%),#080b14}
+body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% -10%,#283253 0,transparent 42%),var(--bg)}
 a{color:inherit}
-main{width:min(1060px,calc(100% - 32px));margin:0 auto;padding:24px 0 56px}
-header{display:flex;justify-content:space-between;align-items:center;gap:14px;margin-bottom:48px}
-.brand{font:700 18px "Space Grotesk",sans-serif;letter-spacing:.04em;color:#f5f3ff;text-decoration:none}
-.brand span{color:#a994ff}
-.header-actions{display:flex;align-items:center;gap:15px}
-.back{color:#b8c3d8;text-decoration:none;font-size:12px}
-.eyebrow{font-size:10px;letter-spacing:.2em;color:#a994ff;font-weight:700}
-h1{font:600 clamp(34px,7vw,58px)/1.05 "Space Grotesk",sans-serif;letter-spacing:-.045em;margin:12px 0}
-h1 span{color:#b6a8ff}
-.lead{color:#aab5c9;max-width:670px;line-height:1.7;font-size:14px}
-.actions{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0 28px}
-.action{display:inline-flex;align-items:center;justify-content:center;padding:11px 16px;border-radius:10px;text-decoration:none;font-weight:700;font-size:12px;background:#a994ff;color:#111322}
-.action.secondary{background:#151d2e;border:1px solid #303c55;color:#e6eaf5}
-.catalogue-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:26px 0 12px}
-.catalogue-bar h2{margin:0;font:600 18px "Space Grotesk",sans-serif}
-.count{color:#8391a8;font-size:11px}
-.search{width:100%;max-width:330px;min-height:40px;padding:9px 12px;border:1px solid #303d57;border-radius:10px;background:#101827;color:#edf1fb;font:inherit;font-size:12px}
-.search::placeholder{color:#73819a}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;margin-top:14px}
-.book{padding:17px;border:1px solid #27334b;border-radius:14px;background:linear-gradient(145deg,#151d2e,#0e1422);display:flex;flex-direction:column;min-height:142px;transition:transform .15s ease,border-color .15s ease}
-.book:hover{transform:translateY(-2px);border-color:#766bb0}
-.book h3{font:600 16px/1.35 "Space Grotesk",sans-serif;margin:0 0 8px;color:#f2f3fb}
-.book p{font-size:11px;line-height:1.55;color:#91a0b8;margin:0 0 14px}
-.book a{margin-top:auto;align-self:flex-start;text-decoration:none;color:#c5b8ff;font-size:11px;font-weight:700}
-.book a:hover{text-decoration:underline}
-.universal-section{margin-top:36px;padding-top:26px;border-top:1px solid #27334b}
-.universal-lead{margin:0 0 14px}
-.universal-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:12px;margin-top:14px}
-.universal-book{display:flex;flex-direction:column;gap:10px;min-height:140px;padding:17px;border:1px solid #36415c;border-radius:14px;background:linear-gradient(145deg,#171e31,#101827)}
-.universal-book h3{font:600 15px/1.35 Space Grotesk,sans-serif;margin:0;color:#f2f3fb}
-.universal-book p{font-size:11px;line-height:1.55;color:#91a0b8;margin:0}
-.universal-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:auto}
-.universal-link{display:inline-flex;align-items:center;justify-content:center;padding:8px 10px;border:1px solid #665c9a;border-radius:9px;color:#c5b8ff;text-decoration:none;font-size:11px;font-weight:700}
-.universal-link:hover{text-decoration:underline}
-@media(max-width:620px){.universal-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.universal-book{padding:13px;min-height:150px}}
-@media(max-width:380px){.universal-grid{grid-template-columns:1fr}}
-.empty{display:none;grid-column:1/-1;padding:22px;border:1px dashed #35425c;border-radius:12px;color:#95a3ba;text-align:center;font-size:12px}
-.note{margin-top:25px;padding:14px 16px;border-left:2px solid #8d7bea;background:#111827;color:#9eabc1;font-size:11px;line-height:1.65}
-footer{margin-top:26px;color:#71809a;font-size:10px;line-height:1.6}
-@media(max-width:620px){
- main{padding-top:17px}
- header{margin-bottom:34px}
- .header-actions{gap:10px}
- .back{font-size:11px}
- .catalogue-bar{align-items:stretch;flex-direction:column}
- .search{max-width:none}
- .grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
- .book{padding:13px;min-height:145px}
- .book h3{font-size:14px}
-}
-@media(max-width:380px){.grid{grid-template-columns:1fr}}
-@media(prefers-reduced-motion:reduce){.book{transition:none}.book:hover{transform:none}}
+button,input,select{font:inherit}
+:where(a,button,input,select,summary):focus-visible{outline:2px solid var(--accent2);outline-offset:3px}
+main{width:min(1160px,calc(100% - 32px));margin:0 auto;padding:20px 0 60px}
+header{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:44px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font:700 17px "Space Grotesk",sans-serif;letter-spacing:.06em}
+.brand-mark{display:grid;place-items:center;width:36px;height:36px;border-radius:12px;background:linear-gradient(135deg,#c4b5fd,#73e6d0);color:#101626;font-size:20px}
+.brand span:last-child{color:var(--accent)}
+.header-actions{display:flex;align-items:center;gap:14px}
+.header-actions a{color:#c4cee0;text-decoration:none;font-size:12px}
+.header-actions a:hover{text-decoration:underline}
+.hero{padding:clamp(22px,5vw,42px);border:1px solid #45516d;border-radius:24px;background:linear-gradient(135deg,#1a2740ed,#111a2aed 60%,#19253bed);box-shadow:0 18px 55px #0004}
+.eyebrow{margin:0 0 12px;color:var(--accent);font-size:10px;font-weight:800;letter-spacing:.2em;text-transform:uppercase}
+h1{max-width:780px;margin:0;font:600 clamp(34px,7vw,58px)/1.02 "Space Grotesk",sans-serif;letter-spacing:-.05em}
+h1 span{color:#bcb0ff}
+.hero-copy{max-width:720px;margin:15px 0 0;color:#b9c5d8;font-size:14px;line-height:1.75}
+.hero-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:22px}
+.hero-button{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:10px 15px;border:1px solid #7d70bd;border-radius:11px;background:var(--accent);color:#111625;text-decoration:none;font-size:12px;font-weight:800}
+.hero-button.secondary{background:#111b2c;border-color:#394a65;color:#e8edfa}
+.toolbar{display:grid;grid-template-columns:minmax(220px,1.5fr) minmax(190px,1fr) minmax(150px,.75fr);gap:12px;margin:24px 0 10px}
+.field{display:grid;gap:7px;min-width:0}
+.field label{color:#c7d0e1;font-size:11px;font-weight:700}
+.field input,.field select{width:100%;min-height:43px;padding:10px 12px;border:1px solid #35445c;border-radius:11px;background:#101827;color:var(--text);font-size:13px}
+.field input::placeholder{color:#77869d}
+.preference-status{margin:8px 0 0;color:#8291aa;font-size:11px;line-height:1.6}
+.catalogue-heading{display:flex;align-items:end;justify-content:space-between;gap:12px;margin:30px 0 14px}
+.catalogue-heading h2{margin:0;font:600 21px "Space Grotesk",sans-serif}
+.catalogue-heading p{margin:5px 0 0;color:var(--muted);font-size:12px;line-height:1.5}
+.count{white-space:nowrap;color:#b8c5da;font-size:11px}
+.book-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.book-card{display:grid;grid-template-columns:112px minmax(0,1fr);gap:15px;min-width:0;padding:15px;border:1px solid var(--line);border-radius:17px;background:linear-gradient(145deg,#151f31,#101827);box-shadow:0 8px 28px #0002}
+.book-cover{display:flex;align-items:center;justify-content:center;min-height:164px;overflow:hidden;border-radius:10px;background:linear-gradient(145deg,#443d70,#1a2a3a 62%,#203b3b);color:#e5dcff;text-align:center}
+.book-cover.no-image{padding:12px;font:700 12px/1.35 "Space Grotesk",sans-serif;letter-spacing:.08em;text-transform:uppercase}
+.book-cover-image{width:100%;height:100%;min-height:164px;object-fit:cover}
+.book-cover.cover-failed{background:linear-gradient(145deg,#443d70,#1a2a3a 62%,#203b3b)}
+.book-main{min-width:0;display:flex;flex-direction:column;align-items:flex-start}
+.book-meta{display:flex;flex-wrap:wrap;gap:8px;color:#a99bdf;font-size:9px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.book-meta span+span{color:#7f91aa}
+.book-main h3{margin:7px 0 6px;font:600 17px/1.25 "Space Grotesk",sans-serif;overflow-wrap:anywhere}
+.book-description{margin:0;color:#9daabe;font-size:11px;line-height:1.6}
+.format-list{display:flex;flex-wrap:wrap;gap:5px;margin:10px 0}
+.format-chip{padding:4px 7px;border:1px solid #34435b;border-radius:99px;background:#111b2b;color:#c4d0e2;font-size:9px}
+.preferred-options{width:100%;margin:5px 0 3px;padding:9px;border:1px solid #47756e;border-radius:11px;background:#122a2b}
+.mini-heading{margin:0 0 7px;color:#9debd8;font-size:10px;font-weight:800}
+.store-links{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:7px;margin-top:10px}
+.store-link{position:relative;display:flex;flex-direction:column;gap:3px;min-width:0;padding:9px 26px 9px 10px;border:1px solid #3a4960;border-radius:9px;background:#111c2d;text-decoration:none}
+.store-link:hover{border-color:#8d80d3;background:#1a2840}
+.store-link.is-preferred{border-color:#55a897;background:#183532}
+.store-name{color:#edf2ff;font-size:11px;font-weight:800;overflow-wrap:anywhere}
+.store-format{color:#97a7bd;font-size:9px}
+.preferred-tag{color:#a3edda;font-size:9px;font-weight:800}
+.store-arrow{position:absolute;right:9px;top:9px;color:#bdb0ff;font-size:12px}
+.universal-links{display:flex;flex-wrap:wrap;gap:7px;margin:7px 0 2px}
+.universal-link{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:36px;padding:8px 10px;border:1px solid #766bb2;border-radius:9px;background:#282247;color:#ded6ff;text-decoration:none;font-size:10px;font-weight:800}
+.universal-link:hover{background:#352d5b}
+.preference-hint{margin:6px 0;color:#a6b3c6;font-size:10px;line-height:1.55}
+.store-details{width:100%;margin-top:9px;border-top:1px solid #2d3a50;padding-top:8px}
+.store-details summary{cursor:pointer;color:#c9c2f0;font-size:10px;font-weight:800}
+.store-details[open] summary{margin-bottom:8px}
+.retailer-note{margin:10px 0 0;padding:9px 10px;border-left:2px solid #8b7bd0;background:#191d31;color:#c5c0d9;font-size:10px;line-height:1.55}
+.empty-state,.load-error{grid-column:1/-1;padding:24px;border:1px dashed #46536b;border-radius:14px;color:#aebbd0;text-align:center;font-size:12px}
+.additional-section{margin-top:32px;padding-top:22px;border-top:1px solid var(--line)}
+.additional-section h2{margin:0;font:600 20px "Space Grotesk",sans-serif}
+.additional-section>p{color:var(--muted);font-size:12px;line-height:1.6}
+.additional-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:13px}
+.additional-card{display:flex;align-items:flex-start;gap:10px;padding:13px;border:1px solid var(--line);border-radius:13px;background:#111a29}
+.additional-icon{display:grid;place-items:center;flex:0 0 31px;height:31px;border-radius:9px;background:#2b2649;color:#d0c6ff}
+.additional-card h3{margin:0 0 4px;font:600 12px "Space Grotesk",sans-serif}
+.additional-card p{margin:0;color:#93a2b8;font-size:10px;line-height:1.5}
+.additional-card a{display:inline-flex;margin-top:8px;color:#c7baff;font-size:10px;font-weight:800;text-decoration:none}
+.additional-card a:hover{text-decoration:underline}
+.notice{margin:24px 0 0;padding:13px 15px;border:1px solid #35445c;border-radius:12px;background:#101a29;color:#aab8cd;font-size:10px;line-height:1.65}
+footer{margin-top:23px;color:#77869d;font-size:10px;line-height:1.7}
+[hidden]{display:none!important}
+@media(max-width:780px){.book-grid{grid-template-columns:1fr}.additional-grid{grid-template-columns:1fr 1fr}.toolbar{grid-template-columns:1fr 1fr}.toolbar .field:first-child{grid-column:1/-1}}
+@media(max-width:520px){main{width:min(100% - 22px,680px);padding-top:13px}header{margin-bottom:25px}.brand{font-size:15px}.header-actions{gap:9px}.header-actions a{font-size:10px}.hero{border-radius:18px;padding:21px}.hero-copy{font-size:12px}.hero-button{flex:1}.toolbar{grid-template-columns:1fr}.toolbar .field:first-child{grid-column:auto}.book-card{grid-template-columns:82px minmax(0,1fr);gap:11px;padding:11px}.book-cover,.book-cover-image{min-height:132px}.book-main h3{font-size:15px}.book-description{font-size:10px}.store-links{grid-template-columns:1fr 1fr}.additional-grid{grid-template-columns:1fr}.catalogue-heading{align-items:flex-start;flex-direction:column}}
+@media(max-width:360px){.book-card{grid-template-columns:1fr}.book-cover{min-height:160px;max-height:190px}.book-cover-image{max-height:190px}.store-links{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{scroll-behavior:auto!important;transition:none!important}}
 </style>
 </head>
 <body>
 <main>
 <header>
-  <a class="brand" href="/" aria-label="DREAM AI home">DREAM<span> AI</span></a>
+  <a class="brand" href="/" aria-label="DREAM AI home"><span class="brand-mark" aria-hidden="true">✳</span><span>BOOKS</span></a>
   <nav class="header-actions" aria-label="Page navigation">
-    <a class="back" href="https://www.amazon.com/author/mathiassimiyu" target="_blank" rel="noopener noreferrer">Amazon Author Page ↗</a>
-    <a class="back" href="/">← Back to DREAM AI</a>
+    <a href="/" id="back-to-app">← Back to app</a>
+    <a href="https://www.amazon.com/author/mathiassimiyu" target="_blank" rel="noopener noreferrer">Author page ↗</a>
   </nav>
 </header>
-<section aria-labelledby="page-title">
-  <p class="eyebrow">DREAM AI · SUBSCRIBE & BOOKS</p>
-  <h1 id="page-title">Explore the books.<br><span>Choose your bookstore.</span></h1>
-  <p class="lead">Discover books by Mathias Simiyu. Open a Books2Read universal link to explore retailer options, or use the Amazon catalogue below. Purchases are completed on the retailer's own website.</p>
-  <div class="actions">
-    <a class="action" href="#universal-books-title">Browse Books2Read links ↓</a>
-    <a class="action secondary" href="https://www.amazon.com/author/mathiassimiyu" target="_blank" rel="noopener noreferrer">Browse Mathias Simiyu on Amazon ↗</a>
-    <a class="action secondary" href="https://www.amazon.com/s?k=Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Search all books on Amazon ↗</a>
-  </div>
-</section>
-<section aria-labelledby="universal-books-title" class="universal-section">
-  <div class="catalogue-bar"><div><h2 id="universal-books-title">Books2Read universal links</h2><span class="count">Direct book destinations</span></div></div>
-  <p class="lead universal-lead">Choose a title to open its Books2Read page. Where supported, readers can choose a retailer and available format for their country.</p>
-  <div class="universal-grid"><article class="universal-book"><h3>The Architecture of Human Nature</h3><p>Explore this title through its Books2Read universal destinations.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/47D9yj" target="_blank" rel="noopener noreferrer">Open universal link 1 ↗</a><a class="universal-link" href="https://books2read.com/u/m2p11r" target="_blank" rel="noopener noreferrer">Open universal link 2 ↗</a></div></article>
-<article class="universal-book"><h3>Last Book</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/8DkMpZ" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
-<article class="universal-book"><h3>Won In Mind</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/0zYVLP" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
-<article class="universal-book"><h3>Beyond Labels</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/QZ2Ko7" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
-<article class="universal-book"><h3>Silent Master</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/ZwxjM2" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
-<article class="universal-book"><h3>Love Triangle</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/LragO0" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
-<article class="universal-book"><h3>Optional Death</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/7kMXp7" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
-<article class="universal-book"><h3>The Naked Species</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/RB9KMv" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
-<article class="universal-book"><h3>Seduction</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/WKjdqx" target="_blank" rel="noopener noreferrer">Open universal link 1 ↗</a><a class="universal-link" href="https://books2read.com/u/V7jKx5" target="_blank" rel="noopener noreferrer">Open universal link 2 ↗</a></div></article>
-<article class="universal-book"><h3>Stay Awake</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/lKZWgB" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
-<article class="universal-book"><h3>The Environment Shape You</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/vYrZwJ" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
-<article class="universal-book"><h3>Humanity Outweigh Materialism</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/zpDjGZ" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
-<article class="universal-book"><h3>Break the Chain</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/7kMXDN" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
-<article class="universal-book"><h3>New World</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/jKrWjl" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
-<article class="universal-book"><h3>Men Resist Death</h3><p>Open this Books2Read page to see available bookstore choices and formats.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/gK9lOK" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
-<article class="universal-book"><h3>Additional book link</h3><p>This universal link was shared separately; its title is not labelled in the current catalogue.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/YRB7MW" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
-<article class="universal-book"><h3>Additional book link</h3><p>This universal link was shared separately; its title is not labelled in the current catalogue.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/aPNrMq" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
-<article class="universal-book"><h3>Featured book</h3><p>Existing featured Books2Read destination already used in Dream Education.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/3Leqq0" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article></div>
-</section>
-<section aria-labelledby="catalogue-title">
-  <div class="catalogue-bar">
-    <div><h2 id="catalogue-title">The book collection</h2><span class="count" id="book-count" aria-live="polite">23 titles</span></div>
-    <label class="sr-only" for="book-search" style="position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0">Search titles</label>
-    <input class="search" id="book-search" type="search" placeholder="Search these titles…" autocomplete="off">
-  </div>
-  <div class="grid" id="book-grid">
-    <article class="book" data-title="The Architecture of Human Nature"><h3>The Architecture of Human Nature</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=The+Architecture+of+Human+Nature+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
-    <article class="book" data-title="Men Resist Death"><h3>Men Resist Death</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Men+Resist+Death+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
-    <article class="book" data-title="Beyond Dimensions"><h3>Beyond Dimensions</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Beyond+Dimensions+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
-    <article class="book" data-title="New World"><h3>New World</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=New+World+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
-    <article class="book" data-title="Break the Chain"><h3>Break the Chain</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Break+the+Chain+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
-    <article class="book" data-title="Humanity Outweigh Materialism"><h3>Humanity Outweigh Materialism</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Humanity+Outweigh+Materialism+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
-    <article class="book" data-title="Money"><h3>Money</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Money+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
-    <article class="book" data-title="Before You Call Her Wife"><h3>Before You Call Her Wife</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Before+You+Call+Her+Wife+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
-    <article class="book" data-title="The Environment Shape You"><h3>The Environment Shape You</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=The+Environment+Shape+You+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
-    <article class="book" data-title="Stay Awake"><h3>Stay Awake</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Stay+Awake+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
-    <article class="book" data-title="Fulfill Your Purpose"><h3>Fulfill Your Purpose</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Fulfill+Your+Purpose+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
-    <article class="book" data-title="Seduction"><h3>Seduction</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Seduction+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
-    <article class="book" data-title="Brain Code Patternode"><h3>Brain Code Patternode</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Brain+Code+Patternode+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
-    <article class="book" data-title="The Naked Species"><h3>The Naked Species</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=The+Naked+Species+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
-    <article class="book" data-title="Optional Death"><h3>Optional Death</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Optional+Death+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
-    <article class="book" data-title="Love Triangle"><h3>Love Triangle</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Love+Triangle+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
-    <article class="book" data-title="Silent Master"><h3>Silent Master</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Silent+Master+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
-    <article class="book" data-title="Beyond Labels"><h3>Beyond Labels</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Beyond+Labels+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
-    <article class="book" data-title="Won In Mind"><h3>Won In Mind</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Won+In+Mind+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
-    <article class="book" data-title="Last Book"><h3>Last Book</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Last+Book+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
-    <article class="book" data-title="Fast, Easy, Simple And First Million Dollars"><h3>Fast, Easy, Simple And First Million Dollars</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Fast+Easy+Simple+And+First+Million+Dollars+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
-    <article class="book" data-title="Education Is Not The Key"><h3>Education Is Not The Key</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Education+Is+Not+The+Key+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
-    <article class="book" data-title="Football"><h3>Football</h3><p>Explore this title and available editions on Amazon.</p><a href="https://www.amazon.com/s?k=Football+Mathias+Simiyu&i=stripbooks" target="_blank" rel="noopener noreferrer">Find on Amazon ↗</a></article>
-    <p class="empty" id="empty-state">No titles match your search.</p>
+
+<section class="hero" aria-labelledby="page-title">
+  <p class="eyebrow">BOOKS & READING</p>
+  <h1 id="page-title">Find your next read.<br><span>Choose where to buy.</span></h1>
+  <p class="hero-copy">Search the collection, compare available editions, and open the bookstore you prefer. Choose a favourite store once and we’ll bring its listings to the top wherever that store is recorded.</p>
+  <div class="hero-actions">
+    <a class="hero-button" href="#catalogue">Browse all books ↓</a>
+    <a class="hero-button secondary" href="#additional-section">More Books2Read links ↗</a>
   </div>
 </section>
 
-<p class="note">Books2Read links open the universal book page, where retailer choices and formats are shown when available. The catalogue below also offers Amazon book searches. Retailers control their own editions, prices, availability, delivery and checkout.</p>
-<footer>This is the books section reached from DREAM AI's Books button. It is not an in-app checkout or a paid DREAM AI subscription. All purchases are completed on the selected retailer's website; DREAM AI does not collect payment details.</footer>
+<section class="toolbar" aria-label="Book search and preferences">
+  <div class="field">
+    <label for="book-search">Search titles, topics or bookstores</label>
+    <input id="book-search" type="search" placeholder="Try a title, Kobo, paperback…" autocomplete="off">
+  </div>
+  <div class="field">
+    <label for="preferred-store">Your preferred bookstore</label>
+    <select id="preferred-store"><option value="">No preference</option></select>
+  </div>
+  <div class="field">
+    <label for="format-filter">Edition format</label>
+    <select id="format-filter"><option value="all">All formats</option></select>
+  </div>
+</section>
+<p class="preference-status" id="preference-status" role="status" aria-live="polite">Your preferred store is saved only in this browser. It highlights direct listings where available; it never hides other stores.</p>
+
+<section id="catalogue" aria-labelledby="catalogue-title">
+  <div class="catalogue-heading">
+    <div><h2 id="catalogue-title">The collection</h2><p>Open a store link to check its current price, format and availability.</p></div>
+    <span class="count" id="book-count" aria-live="polite">Loading books…</span>
+  </div>
+  <div class="book-grid" id="book-grid">
+    <p class="load-error">Loading the book collection…</p>
+  </div>
+  <p class="empty-state" id="empty-state" hidden>No books match those filters. Try a different title, store or format.</p>
+</section>
+
+<section class="additional-section" id="additional-section" aria-labelledby="additional-title" hidden>
+  <h2 id="additional-title">More Books2Read links</h2>
+  <p>These additional universal links were shared separately and have not yet been matched to a named catalogue title.</p>
+  <div class="additional-grid" id="additional-grid"></div>
+</section>
+
+<p class="notice">Retailer choices depend on the title and your country. Prices, stock, currency, shipping and checkout are controlled by each bookstore. Books2Read opens its own universal page, where you can review the stores and formats it offers. Your preferred-store setting stays on this device and does not create an account.</p>
+<footer>External store pages open separately so you can return to the catalogue. No payment details are collected here.</footer>
 </main>
-<script>
-(() => {
-  const search = document.querySelector("#book-search");
-  const cards = [...document.querySelectorAll(".book")];
-  const count = document.querySelector("#book-count");
-  const empty = document.querySelector("#empty-state");
-  if (!search || !count || !empty) return;
-  function filterBooks() {
-    const term = search.value.trim().toLocaleLowerCase();
-    let visible = 0;
-    for (const card of cards) {
-      const match = card.dataset.title.toLocaleLowerCase().includes(term);
-      card.hidden = !match;
-      if (match) visible += 1;
-    }
-    count.textContent = term ? visible + " of " + cards.length + " titles" : cards.length + " titles";
-    empty.style.display = visible ? "none" : "block";
-  }
-  search.addEventListener("input", filterBooks);
-})();
-</script>
+<script src="/books.js?v=20261127b" defer></script>
 </body>
 </html>
