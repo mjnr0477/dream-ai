@@ -110,33 +110,6 @@ footer{margin-top:26px;color:#71809a;font-size:10px;line-height:1.6}
 <article class="universal-book"><h3>Additional book link</h3><p>This universal link was shared separately; its title is not labelled in the current catalogue.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/aPNrMq" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article>
 <article class="universal-book"><h3>Featured book</h3><p>Existing featured Books2Read destination already used in Dream Education.</p><div class="universal-actions"><a class="universal-link" href="https://books2read.com/u/3Leqq0" target="_blank" rel="noopener noreferrer">Open on Books2Read ↗</a></div></article></div>
 </section>
-<p class="note">Books2Read links open the universal book page, where retailer choices and formats are shown when available. The catalogue below also offers Amazon book searches. Retailers control their own editions, prices, availability, delivery and checkout.</p>
-<footer>This is the books section reached from DREAM AI's Books button. It is not an in-app checkout or a paid DREAM AI subscription. All purchases are completed on the selected retailer's website; DREAM AI does not collect payment details.</footer>
-</main>
-<script>
-(() => {
-  const search = document.querySelector("#book-search");
-  const cards = [...document.querySelectorAll(".book")];
-  const count = document.querySelector("#book-count");
-  const empty = document.querySelector("#empty-state");
-  if (!search || !count || !empty) return;
-  function filterBooks() {
-    const term = search.value.trim().toLocaleLowerCase();
-    let visible = 0;
-    for (const card of cards) {
-      const match = card.dataset.title.toLocaleLowerCase().includes(term);
-      card.hidden = !match;
-      if (match) visible += 1;
-    }
-    count.textContent = term ? visible + " of " + cards.length + " titles" : cards.length + " titles";
-    empty.style.display = visible ? "none" : "block";
-  }
-  search.addEventListener("input", filterBooks);
-})();
-</script>
-</body>
-</html>
-
 <section aria-labelledby="catalogue-title">
   <div class="catalogue-bar">
     <div><h2 id="catalogue-title">The book collection</h2><span class="count" id="book-count" aria-live="polite">23 titles</span></div>
@@ -170,3 +143,30 @@ footer{margin-top:26px;color:#71809a;font-size:10px;line-height:1.6}
     <p class="empty" id="empty-state">No titles match your search.</p>
   </div>
 </section>
+
+<p class="note">Books2Read links open the universal book page, where retailer choices and formats are shown when available. The catalogue below also offers Amazon book searches. Retailers control their own editions, prices, availability, delivery and checkout.</p>
+<footer>This is the books section reached from DREAM AI's Books button. It is not an in-app checkout or a paid DREAM AI subscription. All purchases are completed on the selected retailer's website; DREAM AI does not collect payment details.</footer>
+</main>
+<script>
+(() => {
+  const search = document.querySelector("#book-search");
+  const cards = [...document.querySelectorAll(".book")];
+  const count = document.querySelector("#book-count");
+  const empty = document.querySelector("#empty-state");
+  if (!search || !count || !empty) return;
+  function filterBooks() {
+    const term = search.value.trim().toLocaleLowerCase();
+    let visible = 0;
+    for (const card of cards) {
+      const match = card.dataset.title.toLocaleLowerCase().includes(term);
+      card.hidden = !match;
+      if (match) visible += 1;
+    }
+    count.textContent = term ? visible + " of " + cards.length + " titles" : cards.length + " titles";
+    empty.style.display = visible ? "none" : "block";
+  }
+  search.addEventListener("input", filterBooks);
+})();
+</script>
+</body>
+</html>
