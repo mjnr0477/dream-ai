@@ -84,6 +84,8 @@ jobs:
         run: python -m unittest discover -s data -p 'test_dream_ai_autotraining.py' -v
       - name: Test SFT privacy audit release gate
         run: python -m unittest discover -s data -p 'test_dream_ai_sft_audit_gate.py' -v
+      - name: Test manual candidate reviewer conversation validation
+        run: python -m unittest discover -s data -p 'test_data_review_candidates_conversations.py' -v
       - name: Estimate DREAM model parameter and memory budget
         run: python model/estimate_model.py --out /tmp/dream-model-budget.json
       - name: Validate training notebook structure and Python cells
