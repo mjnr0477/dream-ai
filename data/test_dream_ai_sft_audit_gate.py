@@ -17,14 +17,12 @@ def manifest():
 def report(count, digest):
     return {
         "schema": "dream-corpus-audit-v1",
+        "approval_granted": False,
         "input_sha256": digest,
         "records": count,
         "error_count": 0,
         "unreviewed_records": 0,
         "possible_pii_findings": 0,
-        "unreviewed_records": 0,
-        "error_count": 0,
-        "parse_errors": 0,
         "finding_counts": {},
         "errors": [],
     }
@@ -64,6 +62,44 @@ class DreamSFTAuditGateTests(unittest.TestCase):
         train = report(8, "a" * 64)
         del train["errors"]
         with self.assertRaisesRegex(ValueError, "audit_parse_errors"):
+            verify_audit_reports(manifest(), train, report(2, "b" * 64))
+
+    def test_rejects_missing_dataset_fingerprint(self):
+        value = manifest()
+        del value["dataset_sha256"]
+        with self.assertRaisesRegex(ValueError, "invalid_dataset_sha256"):
+            verify_audit_reports(value, report(8, "a" * 64), report(2, "b" * 64))
+
+    def test_rejects_missing_split_hash_even_if_audit_hash_is_also_missing(self):
+        value = manifest()
+        del value["splits"]["train"]["sha256"]
+        train = report(8, "a" * 64)
+        del train["input_sha256"]
+        with self.assertRaisesRegex(ValueError, "invalid_train_split_sha256"):
+            verify_audit_reports(value, train, report(2, "b" * 64))
+
+    def test_rejects_malformed_hashes(self):
+        value = manifest()
+        value["splits"]["validation"]["sha256"] = "not-a-sha256"
+        with self.assertRaisesRegex(ValueError, "invalid_validation_split_sha256"):
+            verify_audit_reports(value, report(8, "a" * 64), report(2, "b" * 64))
+
+    def test_rejects_boolean_or_zero_manifest_record_counts(self):
+        value = manifest()
+        value["splits"]["train"]["records"] = True
+        with self.assertRaisesRegex(ValueError, "invalid_train_record_count"):
+            verify_audit_reports(value, report(8, "a" * 64), report(2, "b" * 64))
+
+    def test_rejects_boolean_zero_audit_counters(self):
+        train = report(8, "a" * 64)
+        train["error_count"] = False
+        with self.assertRaisesRegex(ValueError, "invalid_train_error_count"):
+            verify_audit_reports(manifest(), train, report(2, "b" * 64))
+
+    def test_audit_report_cannot_claim_to_approve_data(self):
+        train = report(8, "a" * 64)
+        train["approval_granted"] = True
+        with self.assertRaisesRegex(ValueError, "must_not_approve_data"):
             verify_audit_reports(manifest(), train, report(2, "b" * 64))
 
 
