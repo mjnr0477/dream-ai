@@ -6,6 +6,9 @@ import unittest
 from pathlib import Path
 
 SCRIPT = Path(__file__).with_name("audit_corpus.py")
+REPOSITORY_ROOT = SCRIPT.parent.parent
+sys.path.insert(0, str(REPOSITORY_ROOT / "data"))
+from verify_dream_ai_sft_audits import verify_audit_reports
 
 
 class CorpusAuditTests(unittest.TestCase):
@@ -206,6 +209,87 @@ class CorpusAuditTests(unittest.TestCase):
             self.assertEqual(result.returncode, 1)
             self.assertEqual(report["errors"][0]["code"], "record_too_large")
 
+
+
+    def test_real_audit_reports_bind_to_sft_manifest_without_granting_approval(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            train_dir = root / "train"
+            validation_dir = root / "validation"
+            train_dir.mkdir()
+            validation_dir.mkdir()
+
+            train_result, train_report = self.run_audit(train_dir, [self.record("train")])
+            validation_result, validation_report = self.run_audit(
+                validation_dir,
+                [self.record("validation", "A distinct sufficiently long validation record for the audit integration test.")],
+            )
+            self.assertEqual(train_result.returncode, 0, train_result.stderr)
+            self.assertEqual(validation_result.returncode, 0, validation_result.stderr)
+            self.assertFalse(train_report["approval_granted"])
+            self.assertFalse(validation_report["approval_granted"])
+
+            train_bytes = (train_dir / "candidate.jsonl").read_bytes()
+            validation_bytes = (validation_dir / "candidate.jsonl").read_bytes()
+            import hashlib
+
+            manifest = {
+                "schema": "dream-sft-splits-v1",
+                "dataset_sha256": hashlib.sha256(train_bytes + validation_bytes).hexdigest(),
+                "splits": {
+                    "train": {
+                        "records": 1,
+                        "sha256": hashlib.sha256(train_bytes).hexdigest(),
+                    },
+                    "validation": {
+                        "records": 1,
+                        "sha256": hashlib.sha256(validation_bytes).hexdigest(),
+                    },
+                },
+            }
+            gate = verify_audit_reports(manifest, train_report, validation_report)
+            self.assertTrue(gate["passed"])
+            self.assertFalse(gate.get("approval_granted", False))
+
+    def test_actual_audit_report_blocks_pending_record_at_sft_gate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            train_dir = root / "train"
+            validation_dir = root / "validation"
+            train_dir.mkdir()
+            validation_dir.mkdir()
+
+            pending = self.record("pending")
+            pending["approval_granted"] = False
+            train_result, train_report = self.run_audit(train_dir, [pending])
+            validation_result, validation_report = self.run_audit(
+                validation_dir,
+                [self.record("validation", "A distinct sufficiently long validation record for the audit integration test.")],
+            )
+            self.assertEqual(train_result.returncode, 0, train_result.stderr)
+            self.assertEqual(validation_result.returncode, 0, validation_result.stderr)
+            self.assertEqual(train_report["unreviewed_records"], 1)
+
+            train_bytes = (train_dir / "candidate.jsonl").read_bytes()
+            validation_bytes = (validation_dir / "candidate.jsonl").read_bytes()
+            import hashlib
+
+            manifest = {
+                "schema": "dream-sft-splits-v1",
+                "dataset_sha256": hashlib.sha256(train_bytes + validation_bytes).hexdigest(),
+                "splits": {
+                    "train": {
+                        "records": 1,
+                        "sha256": hashlib.sha256(train_bytes).hexdigest(),
+                    },
+                    "validation": {
+                        "records": 1,
+                        "sha256": hashlib.sha256(validation_bytes).hexdigest(),
+                    },
+                },
+            }
+            with self.assertRaisesRegex(ValueError, "unreviewed_records_present"):
+                verify_audit_reports(manifest, train_report, validation_report)
 
 if __name__ == "__main__":
     unittest.main()
